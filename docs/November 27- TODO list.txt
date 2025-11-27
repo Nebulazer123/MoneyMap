@@ -1,0 +1,329 @@
+I will do three things
+
+List the current problems you just described, grouped by area
+
+Merge that with the planned changes into a single ordered todo list
+
+Suggest the next two Codex tasks so we stop thrashing
+
+No code yet. Just planning.
+
+1. Current problems you just reported
+
+Home page
+
+Hero and “How this demo works” cards are still the old copy and behavior
+
+No hover or focus swap into Step style text
+
+The “Learn more” overlay with the walkthrough is not implemented
+
+Demo statement and edit behavior
+4. Only one month selector works at a time, no from month to month range
+5. There is only one Edit transactions button, not a second one under the Demo statement section
+6. Edit transactions does not tie into Show statement and Hide statement correctly
+• When you click Edit transactions, the statement does not auto expand
+• When you click Done editing, the statement does not auto collapse and Hide statement is not triggered
+7. Edit mode drops a little helper line under the month selector saying “Change categories here …” that you do not want to appear like that
+8. Add transaction works, but the edit toggle around it is not behaving as the spec describes
+
+Overview tab and pie chart
+9. Subheading still says the more corporate wording, not “Where your money went this month”
+10. “Click a category card to drill in” line is still present and should be removed
+11. Pie chart is still relatively small, with a border and default colors that are not bold enough
+12. Clicking the pie or around it shows white focus squares but no useful behavior
+13. Pie categories are not condensed into grouped buckets for the chart
+14. The Left after bills line still lives under the Overview spending card instead of only on Review
+15. Pie labels still emphasize dollar amounts rather than percentage first
+
+Recurring tab
+16. Table only shows Subscriptions category, not other recurring bills and payments
+17. Duplicate hint text and pill exist but may not match the planned wording
+
+Daily cash flow
+18. Tab and header still say Cash flow not Daily cash flow
+19. No info icon beside the header
+20. Row chevrons and per day drilldown are not implemented
+
+Review tab
+21. Internal transfers total is just a line of text, not a proper card in the snapshot layout
+22. Left after bills is not exposed as its own card in the Review snapshot area
+23. The bill check box copy is confusing and you are not sure what it means
+24. Needs versus wants bar uses labels that are not intuitive for you (Essentials, Other)
+25. Largest expense in the snapshot is not interactive yet
+
+Transfer checks section
+26. Still called Transfer checks, not Your accounts
+27. Text still talks about switches, not account types
+28. There are only Yes my account or No not mine controls, not the three state control we planned
+29. No account type badge per row and no Add account flow
+
+Data and categories
+30. Fake statement data does not yet include the broader category set you want
+31. Pie chart still has the old category layout, and you mentioned wanting an additional overall category count for the chart
+
+New feature request you added now
+32. Demo statement generation should support a month start and month end, with the generator creating transactions across that whole span
+33. After analysis, the same month from and month to controls become a view filter rather than regenerating data
+34. Regenerate statement button should be removed and Start over used as the only way to fully rerun the demo
+35. You want that multi month range to be able to cover a long window, even if it means lots of rows
+
+2. Consolidated todo list, chunked by area
+
+I am folding the planned changes file and your complaints into one ordered backlog. Think of this as the map for Codex.
+
+A. Demo statement and edit mode
+
+A1. Fix Edit transactions and Show or Hide statement behavior
+
+When statement is collapsed and you click Edit transactions, automatically show the statement and switch into edit mode
+
+When you click Done editing, automatically collapse the statement and set the mode back to view
+
+Stop dropping that small “Change categories here …” helper line, or move it into a calmer location inside the card copy if we keep it
+
+Ensure both the top right button and the second Edit transactions control (below the analytics section) are present and in sync
+
+A2. Wire AddTransactionRow correctly
+
+Show AddTransactionRow only in edit mode under the Demo statement table
+
+Inputs: date tied to selected month and year, description, category select, amount field with currency symbol outside
+
+On Add: validate quietly, create a correct Transaction, append to state, persist to localStorage
+
+Confirm all analytics recompute: Overview cards, Overview pie, Recurring, Fees, Daily cash flow, Review
+
+A3. Multi month statement generation and view filter (new, bigger feature)
+
+Replace single month selector with Month from and Month to controls that support a range
+
+Update generateSampleStatement (or a new helper) so it can produce transactions across that whole range
+
+On initial run: use Month from and Month to to build the statement, then analyze
+
+After analysis, treat Month from and Month to as a view filter over the existing data, not a new generator
+
+Remove the Regenerate statement button and rely on Start over for a full reset
+
+Persist the selected range in localStorage and make sure AddTransactionRow still respects the range
+
+This A3 block is large and should probably wait until the rest of Phase one is stable.
+
+B. Overview tab and pie chart
+
+B1. Copy and tile clean up
+
+Change subheading text to “Where your money went this month” or the exact line from the planned changes
+
+Remove the “Click a category card to drill in” helper line
+
+Keep the existing tile set: Rent, Groceries, Dining, Subscriptions, Utilities or Bills, Fees, Transport, Other
+
+B2. Pie chart design and grouping
+
+Increase the pie chart size inside its card and remove any border ring that hides narrow slices
+
+Use stronger distinct colors that still fit the dark theme
+
+Condense chart data to grouped buckets:
+• Rent plus Utilities
+• Groceries plus Dining
+• Transport
+• Subscriptions
+• Other including Fees and remaining categories
+
+Ensure the legend or labels show percentage first and amount second
+
+Move the Left after bills metric entirely out of the Overview card so it appears only on Review
+
+Add interaction so clicking a slice or legend row shows the underlying detailed categories or opens the corresponding tile section
+
+Remove the weird white square focus outlines by setting appropriate focus styles while keeping accessibility sane
+
+B3. Make sure we still show full detailed categories in the tile grid beneath the pie even though the chart uses condensed groups
+
+C. Recurring tab
+
+C1. Scope and data
+
+Include any repeating costs in the Recurring table: subscriptions, fixed bills, car or loan payments, credit card payments
+
+Rename the Utilities style grouping to something like Bills and services in this context
+
+Keep Subscriptions for more optional services
+
+C2. Duplicate detection and copy
+
+Ensure duplicate description detection is applied to all recurring rows
+
+Confirm the hint text at the top and the “possible duplicate” pill match the wording from the planned changes
+
+D. Daily cash flow tab
+
+D1. Rename and copy
+
+Change the tab label and section header from Cash flow to Daily cash flow
+
+Subtitle: “Daily inflow and outflow for this month”
+
+Add an info icon next to the header that explains in two short lines that it shows daily money in and out and ignores transfers between your own accounts
+
+D2. Per day drilldown
+
+Add a chevron on each date row
+
+Clicking or pressing Enter or Space expands a sub row listing that day’s transactions with description and amount in the existing colors
+
+Clicking again collapses it
+
+Make sure the underlying aggregation math stays exactly the same
+
+E. Review tab
+
+E1. Snapshot grid and cards
+
+Top row stays Snapshot, Subscriptions, Fees, Top spending categories
+
+Add a second row with three portrait cards:
+• Under Snapshot: “Internal transfers this month” card using the internal transfers total plus a one line description
+• Under the center area: placeholder card with simple text for a future metric
+• Under Top spending categories: “Left after bills” card using the existing essentials versus income metric
+
+Make the titles of these cards slightly more visually strong using existing styling tokens
+
+E2. Largest expense interaction
+
+Make the largest expense line in the Fees or Snapshot area interactive
+
+On click or hover, reveal a line showing the date, merchant, and amount
+
+E3. Tooltip cleanup and wording
+
+Review header tooltip should be a short explanation of what Review shows, not demo disclaimers
+
+Keep Bill check sentences and Needs versus wants bar but simplify wording if needed
+
+Possibly adjust labels Essentials and Other to something clearer while preserving the same math
+
+F. Transfer checks to Your accounts
+
+F1. Section rename and copy
+
+Change heading to “Your accounts”
+
+Replace the paragraph with one calm sentence and an info icon explaining this is where you mark which accounts are yours and how transfers are counted
+
+F2. Account row contents
+
+Add a type badge for each account row: Checking, Savings, Debit card, Credit card, Loan, Mortgage, Other
+
+Replace the two button ownership choice with a three state control:
+• Green: Spending account
+• Orange: Payment account
+• Neutral: Not mine
+
+Update transfer logic so transfers between two Spending accounts are internal, and transfers to Payment accounts count as spending in the right place
+
+F3. Add account flow
+
+Add an “Add account” button
+
+Flow: pick a representative transaction, auto match similar descriptions, show checkboxes, let user refine selection
+
+User enters account name and type
+
+Save a new account mapping and persist it
+
+Ensure transfer logic and ownership map use this new mapping and that it survives refresh
+
+This entire F block is big feature work and should follow after B through E are stable.
+
+G. Home page
+
+G1. Hero and disclosure
+
+Keep the small “Phase one demo” label
+
+Title MoneyMap
+
+Tagline focused on stress testing spending without sharing real data
+
+A single clean disclosure line saying the sample dashboard uses fake data only and never connects to real banks or stores statements
+
+G2. “How this demo works” cards
+
+Three cards with the titles you gave:
+• Have a messy statement
+• Run the clutter through MoneyMap
+• See subscriptions and fees clearly
+
+Default state shows friendly summary text
+
+On hover or focus, each card enlarges slightly and swaps its body text into a “Step N” description from the planned changes
+
+G3. Learn more overlay
+
+Learn more opens a centered overlay with
+• Headline “How this demo works”
+• Slideable Step one, Step two, Step three cards
+• A final slide “What you will see on your dashboard” with the Net, Income, Spending, Subscriptions bullets
+
+Close button and click outside to dismiss
+
+Keep the background subtle and readable
+
+H. Data and categories
+
+H1. Expand fake data coverage
+
+In the generator, add a few more realistic spending categories or descriptions while keeping category mapping consistent
+
+Make sure new data still maps into the existing Overview and Recurring categories and the condensed pie groups
+
+I. Docs and wording polish
+
+I1. Copy cleanup once features are done
+
+Pass through src app page and src app dashboard page and remove any stiff or legal sounding text
+
+Keep names like Budget guidance and Your accounts
+
+Make all tooltips three short lines maximum with plain language
+
+I2. Docs update
+
+Update overview doc for
+• Month and year controls
+• Edit mode and add transaction
+• Recurring duplicates
+• Review bill check and Needs versus wants bar
+
+Update dev notes for
+• How month and year and ranges are stored
+• How manual transactions and grouped descriptions are represented in state
+• Duplicate detection rules
+• Definitions for essentials versus other and budget targets
+• Tone guidance so future contributors do not regress into legal copy
+
+3. What to do next with Codex
+
+Hard truth: if we attack everything at once, Codex will keep half implementing things and you will keep seeing this kind of mess.
+
+Next sessions should be tiny slices.
+
+Suggested next three Codex tasks, in order
+
+Overview tab and pie chart (B1 and B2 only)
+Fix the copy, remove the extra helper line, enlarge and restyle the pie, group categories, move Left after bills out of this card, and add slice click behavior. Do not touch anything else.
+
+Demo statement edit behavior (A1 only)
+Make Edit transactions and Done editing correctly expand and collapse the statement and sync with Show statement or Hide statement, including adding the second Edit button under the analytics area.
+
+Daily cash flow rename and drilldown (D1 and D2)
+Rename the tab, add the info icon, and implement per day drilldown with chevrons.
+
+Once those three are in good shape and lint passes after each, we can tackle Review layout and Your accounts, then finally the large multi month range feature.
+
+Reality check
+The pie chart redesign plus condensed categories and click behavior is a medium chunk and easy to mess up visually, but it is contained to one card. The edit and show or hide behavior touches flow state and is easy to wire wrong if Codex touches too many flags at once. The multi month generator idea is a full feature on its own and will likely require touching fakeData helpers, state shape, localStorage keys, every analytics helper, and the UI. That one belongs after everything else is stable, or it will blow up the whole demo.

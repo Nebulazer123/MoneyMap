@@ -1,0 +1,824 @@
+/*
+ * Recovered best-guess version of the dashboard page after corruption.
+ * Notes:
+ * - Helper signatures and some styling may differ from the original; verify imports from src/lib/fakeData.ts.
+ * - Info tip copy, advanced account editing, and any fine-grained analytics may need to be re-tuned.
+ * - This file aims to capture the prior flow (intro -> statement -> results) with tabs and snapshot cards.
+ */
+
+"use client";
+
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, Cell } from "recharts";
+import {
+  generateSampleStatement,
+  getCashFlowByDate,
+  getSpendingByCategory,
+  getRecurringDuplicateIds,
+  getTotalIncome,
+  getTotalSpending,
+  getNetThisMonth,
+  getTotalSubscriptions,
+  getSubscriptionTransactions,
+  getFeeTransactions,
+  getBudgetGuidance,
+  type Transaction,
+} from "../../lib/fakeData";
+
+type FlowStep = "intro" | "statement" | "results";
+type TabKey = "overview" | "recurring" | "cashflow" | "review";
+
+const STORAGE_KEYS = {
+  statement: "moneymap_dashboard_statement",
+  flowStep: "moneymap_dashboard_flow",
+  activeTab: "moneymap_active_tab",
+  monthFrom: "moneymap_month_from",
+  yearFrom: "moneymap_year_from",
+  monthTo: "moneymap_month_to",
+  yearTo: "moneymap_year_to",
+};
+
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+const groupedCategoryColors: Record<string, string> = {
+  Groceries: "#4ade80",
+  Dining: "#fb7185",
+  Transport: "#f59e0b",
+  Subscriptions: "#818cf8",
+  Utilities: "#60a5fa",
+  "Bills and services": "#38bdf8",
+  Fees: "#f97316",
+  Other: "#cbd5e1",
+  Rent: "#22c55e",
+  Housing: "#22c55e",
+};
+
+const formatCurrency = (value: number) => currencyFormatter.format(value);
+const formatDate = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+const buildRangeKey = (monthFrom: number, yearFrom: number, monthTo: number, yearTo: number) =>
+  `${yearFrom}-${monthFrom}-${yearTo}-${monthTo}`;
+
+const endOfMonth = (year: number, month: number) => new Date(year, month, 0);
+
+const filterTransactionsByRange = (
+  transactions: Transaction[],
+  monthFrom: number,
+  yearFrom: number,
+  monthTo: number,
+  yearTo: number,
+) => {
+  const start = new Date(yearFrom, monthFrom - 1, 1);
+  const end = endOfMonth(yearTo, monthTo);
+  return transactions.filter((tx) => {
+    const dt = new Date(tx.date);
+    return dt >= start && dt <= end;
+  });
+};
+
+const countMonthsInRange = (monthFrom: number, yearFrom: number, monthTo: number, yearTo: number) => {
+  const start = yearFrom * 12 + (monthFrom - 1);
+  const end = yearTo * 12 + (monthTo - 1);
+  return end - start + 1;
+};
+
+const groupByMonth = (transactions: Transaction[]) => {
+  return transactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
+    const d = new Date(tx.date);
+    const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+    acc[key] = acc[key] || [];
+    acc[key].push(tx);
+    return acc;
+  }, {});
+};
+
+const monthOptions = Array.from({ length: 12 }).map((_, idx) => ({ value: idx + 1, label: monthNames[idx] }));
+const yearOptions = Array.from({ length: 6 }).map((_, idx) => {
+  const current = new Date().getFullYear();
+  const year = current - 2 + idx;
+  return { value: year, label: `${year}` };
+});
+
+export default function DashboardPage() {
+  const now = new Date();
+  const defaultMonth = now.getMonth() + 1;
+  const defaultYear = now.getFullYear();
+
+  const [flowStep, setFlowStep] = useState<FlowStep>("intro");
+  const [statementTransactions, setStatementTransactions] = useState<Transaction[]>([]);
+  const [fullStatementTransactions, setFullStatementTransactions] = useState<Transaction[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [monthFrom, setMonthFrom] = useState<number>(defaultMonth);
+  const [yearFrom, setYearFrom] = useState<number>(defaultYear);
+  const [monthTo, setMonthTo] = useState<number>(defaultMonth);
+  const [yearTo, setYearTo] = useState<number>(defaultYear);
+  const [showStatement, setShowStatement] = useState<boolean>(true);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+
+  const hasTouchedRangeRef = useRef(false);
+  const lastGeneratedRangeRef = useRef<string>("");
+  const hasLoadedStorageRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const storedFlow = localStorage.getItem(STORAGE_KEYS.flowStep) as FlowStep | null;
+      const storedTab = localStorage.getItem(STORAGE_KEYS.activeTab) as TabKey | null;
+      const storedStatement = localStorage.getItem(STORAGE_KEYS.statement);
+      const storedMonthFrom = localStorage.getItem(STORAGE_KEYS.monthFrom);
+      const storedYearFrom = localStorage.getItem(STORAGE_KEYS.yearFrom);
+      const storedMonthTo = localStorage.getItem(STORAGE_KEYS.monthTo);
+      const storedYearTo = localStorage.getItem(STORAGE_KEYS.yearTo);
+
+      if (storedMonthFrom) setMonthFrom(Number(storedMonthFrom));
+      if (storedYearFrom) setYearFrom(Number(storedYearFrom));
+      if (storedMonthTo) setMonthTo(Number(storedMonthTo));
+      if (storedYearTo) setYearTo(Number(storedYearTo));
+
+      if (storedFlow) {
+        setFlowStep(storedFlow);
+        if (storedFlow !== "intro") {
+          hasTouchedRangeRef.current = true;
+        }
+      }
+      if (storedTab) setActiveTab(storedTab);
+      if (storedStatement) {
+        const parsed: Transaction[] = JSON.parse(storedStatement);
+        setFullStatementTransactions(parsed);
+        setStatementTransactions(parsed);
+      }
+      hasLoadedStorageRef.current = true;
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasLoadedStorageRef.current) return;
+    localStorage.setItem(STORAGE_KEYS.monthFrom, String(monthFrom));
+    localStorage.setItem(STORAGE_KEYS.yearFrom, String(yearFrom));
+    localStorage.setItem(STORAGE_KEYS.monthTo, String(monthTo));
+    localStorage.setItem(STORAGE_KEYS.yearTo, String(yearTo));
+  }, [monthFrom, monthTo, yearFrom, yearTo]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (fullStatementTransactions.length) {
+      localStorage.setItem(STORAGE_KEYS.statement, JSON.stringify(fullStatementTransactions));
+    }
+  }, [fullStatementTransactions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasLoadedStorageRef.current) return;
+    localStorage.setItem(STORAGE_KEYS.activeTab, activeTab);
+  }, [activeTab]);
+
+  const visibleTransactions = useMemo(() => {
+    if (flowStep === "results") {
+      return filterTransactionsByRange(fullStatementTransactions, monthFrom, yearFrom, monthTo, yearTo);
+    }
+    return statementTransactions;
+  }, [flowStep, fullStatementTransactions, monthFrom, yearFrom, monthTo, yearTo, statementTransactions]);
+
+  const rangeMonthCount = useMemo(
+    () => countMonthsInRange(monthFrom, yearFrom, monthTo, yearTo),
+    [monthFrom, monthTo, yearFrom, yearTo],
+  );
+
+  const sortedVisible = useMemo(
+    () => [...visibleTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [visibleTransactions],
+  );
+
+  const groupedVisible = useMemo(() => groupByMonth(sortedVisible), [sortedVisible]);
+
+  const duplicateIdSet = useMemo(() => {
+    try {
+      const ids = getRecurringDuplicateIds(fullStatementTransactions);
+      return new Set(ids || []);
+    } catch {
+      return new Set<string>();
+    }
+  }, [fullStatementTransactions]);
+
+  const categoryBreakdown = useMemo(() => {
+    try {
+      return getSpendingByCategory(visibleTransactions);
+    } catch {
+      return {};
+    }
+  }, [visibleTransactions]);
+
+  const pieData = useMemo(
+    () =>
+      Object.entries(categoryBreakdown).map(([name, value]) => ({
+        name,
+        value: Math.abs(value as number),
+      })),
+    [categoryBreakdown],
+  );
+
+  const cashFlowRows = useMemo(() => {
+    try {
+      return getCashFlowByDate(visibleTransactions);
+    } catch {
+      return [];
+    }
+  }, [visibleTransactions]);
+
+  const recurringRows = useMemo(() => {
+    try {
+      return getSubscriptionTransactions(visibleTransactions);
+    } catch {
+      return [];
+    }
+  }, [visibleTransactions]);
+
+  const feeRows = useMemo(() => {
+    try {
+      return getFeeTransactions(visibleTransactions);
+    } catch {
+      return [];
+    }
+  }, [visibleTransactions]);
+
+  const budgetGuidance = useMemo(() => {
+    try {
+      return getBudgetGuidance(visibleTransactions);
+    } catch {
+      return [];
+    }
+  }, [visibleTransactions]);
+
+  const totalIncome = useMemo(() => {
+    try {
+      return getTotalIncome(visibleTransactions);
+    } catch {
+      return visibleTransactions.reduce((sum, tx) => (tx.amount > 0 ? sum + tx.amount : sum), 0);
+    }
+  }, [visibleTransactions]);
+
+  const totalSpending = useMemo(() => {
+    try {
+      return getTotalSpending(visibleTransactions);
+    } catch {
+      return visibleTransactions.reduce((sum, tx) => (tx.amount < 0 ? sum + tx.amount : sum), 0);
+    }
+  }, [visibleTransactions]);
+
+  const netAmount = useMemo(() => {
+    try {
+      return getNetThisMonth(visibleTransactions);
+    } catch {
+      return totalIncome + totalSpending;
+    }
+  }, [totalIncome, totalSpending, visibleTransactions]);
+
+  const totalSubscriptions = useMemo(() => {
+    try {
+      return getTotalSubscriptions(visibleTransactions);
+    } catch {
+      return recurringRows.reduce((sum, tx: Transaction) => sum + tx.amount, 0);
+    }
+  }, [recurringRows, visibleTransactions]);
+
+  const rangeKey = useMemo(
+    () => buildRangeKey(monthFrom, yearFrom, monthTo, yearTo),
+    [monthFrom, monthTo, yearFrom, yearTo],
+  );
+
+  const regenerateStatement = () => {
+    const generated = generateSampleStatement({
+      monthFrom,
+      yearFrom,
+      monthTo,
+      yearTo,
+    });
+    setFullStatementTransactions(generated);
+    setStatementTransactions(generated);
+    setFlowStep("statement");
+    setShowStatement(true);
+    hasTouchedRangeRef.current = true;
+    lastGeneratedRangeRef.current = rangeKey;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEYS.flowStep, "statement");
+    }
+  };
+
+  const handleStartDemo = () => {
+    regenerateStatement();
+  };
+
+  useEffect(() => {
+    if (flowStep === "results") return;
+    if (!hasTouchedRangeRef.current && flowStep === "intro") return;
+    if (rangeKey === lastGeneratedRangeRef.current) return;
+    regenerateStatement();
+  }, [monthFrom, monthTo, yearFrom, yearTo, flowStep, rangeKey]);
+
+  const handleAnalyze = () => {
+    setFlowStep("results");
+    setActiveTab("overview");
+    setShowStatement(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEYS.flowStep, "results");
+    }
+  };
+
+  const handleStartOver = () => {
+    setFlowStep("intro");
+    setActiveTab("overview");
+    setStatementTransactions([]);
+    setFullStatementTransactions([]);
+    setShowStatement(false);
+    setMonthFrom(defaultMonth);
+    setMonthTo(defaultMonth);
+    setYearFrom(defaultYear);
+    setYearTo(defaultYear);
+    hasTouchedRangeRef.current = false;
+    lastGeneratedRangeRef.current = "";
+    if (typeof window !== "undefined") {
+      Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+    }
+  };
+
+  const snapshotCards = [
+    { key: "net", label: "Net this range", value: formatCurrency(netAmount), tab: "review" as TabKey },
+    { key: "income", label: "Total income", value: formatCurrency(totalIncome), tab: "overview" as TabKey },
+    { key: "spending", label: "Total spending", value: formatCurrency(Math.abs(totalSpending)), tab: "overview" as TabKey },
+    {
+      key: "subscriptions",
+      label: "Total subscriptions",
+      value: formatCurrency(Math.abs(totalSubscriptions)),
+      tab: "recurring" as TabKey,
+    },
+  ];
+
+  const renderRangeControls = () => (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="flex flex-col space-y-1">
+        <label className="text-xs text-slate-300">Month from</label>
+        <select
+          className="rounded-md bg-slate-800 px-3 py-2 text-sm"
+          value={monthFrom}
+          onChange={(e) => {
+            hasTouchedRangeRef.current = true;
+            setMonthFrom(Number(e.target.value));
+          }}
+        >
+          {monthOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col space-y-1">
+        <label className="text-xs text-slate-300">Year from</label>
+        <select
+          className="rounded-md bg-slate-800 px-3 py-2 text-sm"
+          value={yearFrom}
+          onChange={(e) => {
+            hasTouchedRangeRef.current = true;
+            setYearFrom(Number(e.target.value));
+          }}
+        >
+          {yearOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col space-y-1">
+        <label className="text-xs text-slate-300">Month to</label>
+        <select
+          className="rounded-md bg-slate-800 px-3 py-2 text-sm"
+          value={monthTo}
+          onChange={(e) => {
+            hasTouchedRangeRef.current = true;
+            setMonthTo(Number(e.target.value));
+          }}
+        >
+          {monthOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col space-y-1">
+        <label className="text-xs text-slate-300">Year to</label>
+        <select
+          className="rounded-md bg-slate-800 px-3 py-2 text-sm"
+          value={yearTo}
+          onChange={(e) => {
+            hasTouchedRangeRef.current = true;
+            setYearTo(Number(e.target.value));
+          }}
+        >
+          {yearOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  const renderStatementTable = () => {
+    if (!sortedVisible.length) {
+      return <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">No transactions yet.</div>;
+    }
+
+    if (rangeMonthCount > 3) {
+      const months = Object.entries(groupedVisible);
+      return (
+        <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+          <table className="min-w-full divide-y divide-slate-700 text-sm">
+            <thead className="bg-slate-800/60">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-slate-200">Date</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-200">Description</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-200">Category</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-200">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {months.map(([monthLabel, txs]) => (
+                <Fragment key={monthLabel}>
+                  <tr className="bg-slate-800/40">
+                    <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                      {monthLabel}
+                    </td>
+                  </tr>
+                  {txs.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-slate-800/70">
+                      <td className="px-4 py-2 text-slate-200">{formatDate(tx.date)}</td>
+                      <td className="px-4 py-2 text-slate-100">{tx.description}</td>
+                      <td className="px-4 py-2 text-slate-300">{tx.category}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-100">
+                        <span className={tx.amount >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                          {formatCurrency(tx.amount)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+        <table className="min-w-full divide-y divide-slate-700 text-sm">
+          <thead className="bg-slate-800/60">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Date</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Description</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Category</th>
+              <th className="px-4 py-3 text-right font-semibold text-slate-200">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {sortedVisible.map((tx) => (
+              <tr key={tx.id} className="hover:bg-slate-800/70">
+                <td className="px-4 py-2 text-slate-200">{formatDate(tx.date)}</td>
+                <td className="px-4 py-2 text-slate-100">{tx.description}</td>
+                <td className="px-4 py-2 text-slate-300">{tx.category}</td>
+                <td className="px-4 py-2 text-right font-semibold text-slate-100">
+                  <span className={tx.amount >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                    {formatCurrency(tx.amount)}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderTabs = () => (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {[
+        { key: "overview", label: "Overview" },
+        { key: "recurring", label: "Recurring" },
+        { key: "cashflow", label: "Daily cash flow" },
+        { key: "review", label: "Review" },
+      ].map((tab) => (
+        <button
+          key={tab.key}
+          onClick={() => setActiveTab(tab.key as TabKey)}
+          className={`rounded-full px-4 py-2 text-sm font-medium ${
+            activeTab === tab.key ? "bg-slate-100 text-slate-900" : "bg-slate-800 text-slate-200"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderOverview = () => {
+    const tileEntries = Object.entries(categoryBreakdown);
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Overview</h3>
+          <p className="text-sm text-slate-300">Where your money went this range.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+          {tileEntries.map(([category, value]) => (
+            <div key={category} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+              <div className="text-sm text-slate-400">{category}</div>
+              <div className="text-lg font-semibold text-white">{formatCurrency(Math.abs(value as number))}</div>
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="h-64 rounded-lg border border-slate-700 bg-slate-900 p-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80}>
+                  {pieData.map((entry, idx) => (
+                    <Cell key={`${entry.name}-${idx}`} fill={groupedCategoryColors[entry.name] || "#818cf8"} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(v: number) => formatCurrency(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
+            <div className="text-sm font-semibold text-white">Grouped categories</div>
+            {pieData.map((entry) => (
+              <div key={entry.name} className="flex items-center justify-between text-sm text-slate-200">
+                <div className="flex items-center space-x-2">
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: groupedCategoryColors[entry.name] || "#818cf8" }}
+                  />
+                  <span>{entry.name}</span>
+                </div>
+                <span>{formatCurrency(entry.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderRecurring = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Recurring</h3>
+          <p className="text-sm text-slate-300">Subscriptions plus bills and payments.</p>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+        <table className="min-w-full divide-y divide-slate-800 text-sm">
+          <thead className="bg-slate-800/60">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Name</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Category</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Date</th>
+              <th className="px-4 py-3 text-right font-semibold text-slate-200">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {recurringRows.map((tx: Transaction) => (
+              <tr key={tx.id} className="hover:bg-slate-800/70">
+                <td className="px-4 py-2 text-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span>{tx.description}</span>
+                    {duplicateIdSet.has(tx.id) && (
+                      <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs text-amber-300">Possible duplicate</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-2 text-slate-300">{tx.category}</td>
+                <td className="px-4 py-2 text-slate-300">{formatDate(tx.date)}</td>
+                <td className="px-4 py-2 text-right font-semibold text-slate-100">
+                  <span className={tx.amount >= 0 ? "text-emerald-400" : "text-rose-400"}>{formatCurrency(tx.amount)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderCashFlow = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Daily cash flow</h3>
+          <p className="text-sm text-slate-300">Money in and out by day.</p>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+        <table className="min-w-full divide-y divide-slate-800 text-sm">
+          <thead className="bg-slate-800/60">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold text-slate-200">Date</th>
+              <th className="px-4 py-3 text-right font-semibold text-slate-200">Money in</th>
+              <th className="px-4 py-3 text-right font-semibold text-slate-200">Money out</th>
+              <th className="px-4 py-3 text-right font-semibold text-slate-200">Net</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {cashFlowRows.map((row: any) => (
+              <tr key={row.date} className="hover:bg-slate-800/70">
+                <td className="px-4 py-2 text-slate-100">{formatDate(row.date)}</td>
+                <td className="px-4 py-2 text-right text-emerald-400">{formatCurrency(row.moneyIn ?? 0)}</td>
+                <td className="px-4 py-2 text-right text-rose-400">{formatCurrency(Math.abs(row.moneyOut ?? 0))}</td>
+                <td className="px-4 py-2 text-right font-semibold text-slate-100">{formatCurrency(row.net ?? 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderReview = () => (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Review</h3>
+        <p className="text-sm text-slate-300">Snapshot for this range across your accounts.</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <div className="text-sm text-slate-400">Income</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(totalIncome)}</div>
+          <div className="text-sm text-slate-400">Spending</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(Math.abs(totalSpending))}</div>
+          <div className="text-sm text-slate-400">Net</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(netAmount)}</div>
+        </div>
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <div className="text-sm text-slate-400">Subscriptions</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(Math.abs(totalSubscriptions))}</div>
+          <div className="text-xs text-slate-400">Count: {recurringRows.length}</div>
+        </div>
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <div className="text-sm text-slate-400">Fees</div>
+          <div className="text-xl font-semibold text-white">
+            {formatCurrency(feeRows.reduce((sum: number, tx: Transaction) => sum + tx.amount, 0))}
+          </div>
+          <div className="text-xs text-slate-400">Fee items: {feeRows.length}</div>
+        </div>
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+          <div className="text-sm text-slate-400">Top categories</div>
+          <div className="space-y-1 text-sm text-slate-100">
+            {Object.entries(categoryBreakdown)
+              .sort((a, b) => Math.abs((b[1] as number)) - Math.abs((a[1] as number)))
+              .slice(0, 3)
+              .map(([cat, val]) => (
+                <div key={cat} className="flex items-center justify-between">
+                  <span>{cat}</span>
+                  <span>{formatCurrency(Math.abs(val as number))}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+      <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+        <div className="text-sm font-semibold text-white">Budget guidance</div>
+        <div className="text-sm text-slate-300">Quick view of key buckets as a percent of income.</div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {Array.isArray(budgetGuidance) && budgetGuidance.length > 0 ? (
+            budgetGuidance.map((item: any) => (
+              <div key={item.label} className="rounded-md bg-slate-800/60 p-3">
+                <div className="flex items-center justify-between text-sm text-slate-100">
+                  <span>{item.label}</span>
+                  <span>{item.percent != null ? `${Math.round(item.percent)}%` : "--"}</span>
+                </div>
+                {item.caption && <p className="mt-1 text-xs text-slate-400">{item.caption}</p>}
+              </div>
+            ))
+          ) : (
+            <div className="rounded-md bg-slate-800/60 p-3 text-sm text-slate-300">
+              TODO: wire budget guidance helper once available.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 p-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold text-white">MoneyMap demo dashboard</h1>
+        <p className="text-sm text-slate-300">Synthetic statement explorer for the phase one demo.</p>
+      </header>
+
+      {flowStep === "intro" ? (
+        <div className="rounded-lg border border-slate-700 bg-slate-900 p-6">
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold text-white">Start a demo</h2>
+            <p className="text-sm text-slate-300">
+              Generate a synthetic statement for the selected months to explore spending, subscriptions, fees, and cash flow.
+            </p>
+            {renderRangeControls()}
+            <div className="flex items-center gap-3">
+              <button
+                className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white"
+                onClick={handleStartDemo}
+              >
+                Start a demo
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-white">Demo statement</div>
+                <div className="text-xs text-slate-400">Synthetic data only for exploring the MoneyMap dashboard.</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                  onClick={() => setIsEditing((prev) => !prev)}
+                >
+                  {isEditing ? "Done editing" : "Edit transactions"}
+                </button>
+                {flowStep !== "results" && (
+                  <button
+                    className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                    onClick={regenerateStatement}
+                  >
+                    Regenerate statement
+                  </button>
+                )}
+                {flowStep !== "results" && (
+                  <button
+                    className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white"
+                    onClick={handleAnalyze}
+                  >
+                    {/* Analyze this statement -> */}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="mt-4">{renderRangeControls()}</div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-3">
+              {snapshotCards.map((card) => (
+                <button
+                  key={card.key}
+                  onClick={() => setActiveTab(card.tab)}
+                  className="flex min-w-[160px] flex-col rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-left hover:border-slate-500"
+                >
+                  <span className="text-xs uppercase tracking-wide text-slate-400">{card.label}</span>
+                  <span className="text-lg font-semibold text-white">{card.value}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                onClick={() => setShowStatement((prev) => !prev)}
+              >
+                {showStatement ? "Hide statement" : "Show statement"}
+              </button>
+              <button
+                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                onClick={handleStartOver}
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+
+          {showStatement && renderStatementTable()}
+
+          <div className="space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-4">
+            {renderTabs()}
+            <div className="pt-2">
+              {activeTab === "overview" && renderOverview()}
+              {activeTab === "recurring" && renderRecurring()}
+              {activeTab === "cashflow" && renderCashFlow()}
+              {activeTab === "review" && renderReview()}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
