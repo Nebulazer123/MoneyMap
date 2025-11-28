@@ -15,20 +15,17 @@ export default function Home() {
     {
       title: "Have a messy statement?",
       defaultCopy: "Start with a month of paychecks, bills, and everyday spending.",
-      stepLabel: "Step one",
       stepCopy: "Drop in paychecks, bills, and small purchases you want to make sense of.",
     },
     {
       title: "Run the clutter through MoneyMap",
       defaultCopy: "Tell MoneyMap which accounts are yours so transfers stop bloating spending.",
-      stepLabel: "Step two",
       stepCopy:
         "We group regular charges, match your accounts, and turn the noise into a simple ledger.",
     },
     {
       title: "See subscriptions and fees clearly",
       defaultCopy: "Call out recurring charges, streaming, and the fees that pile up.",
-      stepLabel: "Step three",
       stepCopy:
         "We surface subscriptions, bank fees, and other recurring charges so they are easy to spot.",
     },
@@ -79,7 +76,7 @@ export default function Home() {
     <main className="relative min-h-screen overflow-hidden">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[url('/home-grid-bg.png')] bg-cover bg-center"
+        className="pointer-events-none absolute inset-0 bg-[url('/home-grid-bg-2%20copy.png')] bg-cover bg-center"
       />
       <div
         aria-hidden="true"
@@ -106,7 +103,7 @@ export default function Home() {
                   href="/dashboard"
                   className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
                 >
-                  Open dashboard
+                  Get started
                 </Link>
                 <button
                   type="button"
@@ -122,7 +119,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mx-auto max-w-6xl px-0 sm:px-0">
+          <section className="mx-auto max-w-6xl px-0 sm:px-0 mt-10 sm:mt-12 lg:mt-16">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6 sm:p-8">
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-white">How this demo works</h2>
@@ -144,10 +141,7 @@ export default function Home() {
                     <p className="mt-1 text-sm text-zinc-400">{card.defaultCopy}</p>
                     <div className="pointer-events-none absolute left-0 right-0 top-full origin-top translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-3 group-hover:opacity-100 group-focus:translate-y-3 group-focus:opacity-100">
                       <div className="rounded-xl border border-zinc-700 bg-zinc-900/90 p-3 shadow-lg">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                          {card.stepLabel}
-                        </p>
-                        <p className="mt-1 text-sm text-zinc-200">{card.stepCopy}</p>
+                        <p className="text-sm text-zinc-200">{card.stepCopy}</p>
                       </div>
                     </div>
                   </div>

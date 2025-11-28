@@ -15,15 +15,16 @@ import {
   getSummaryStats,
   getBudgetGuidance,
   getTransactionsByCategory,
-  getTransferAccounts,
   transactions,
   Transaction,
   OwnershipMap,
   OwnershipMode,
   TransferAccount,
   isInternalTransfer,
-  getRecurringDuplicateIds,
+  analyzeDuplicateCharges,
+  DuplicateCluster,
   parseInstitutionAndLast4,
+  categoryEmojis as categoryEmojiMap,
 } from "../../lib/fakeData";
 type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
 const tabs: { id: TabId; label: string }[] = [
@@ -40,10 +41,13 @@ const STORAGE_MONTH_FROM_KEY = "moneymap_month_from";
 const STORAGE_YEAR_FROM_KEY = "moneymap_year_from";
 const STORAGE_MONTH_TO_KEY = "moneymap_month_to";
 const STORAGE_YEAR_TO_KEY = "moneymap_year_to";
+const STORAGE_DUPLICATE_DECISIONS_KEY = "moneymap_duplicate_decisions";
 const LEGACY_STORAGE_MONTH_KEY = "moneymap_month";
 const LEGACY_STORAGE_YEAR_KEY = "moneymap_year";
 const STORAGE_OWNERSHIP_MODES_KEY = "moneymap_ownership_modes";
 const STORAGE_CUSTOM_ACCOUNTS_KEY = "moneymap_custom_accounts";
+const STORAGE_ACCOUNT_OVERRIDES_KEY = "moneymap_account_overrides";
+const STORAGE_HIDDEN_ACCOUNTS_KEY = "moneymap_hidden_accounts";
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const categoryOptions = [
   "Income",
@@ -56,15 +60,10 @@ const categoryOptions = [
   "Fees",
   "Other",
 ];
-const categoryEmojis: Record<string, string> = {
-  Rent: "🏠",
-  Groceries: "🛒",
-  Dining: "🍽",
-  Transport: "🚌",
-  Subscriptions: "📺",
-  Utilities: "💡",
-  Fees: "💸",
-  Other: "🧾",
+const categoryEmojis = categoryEmojiMap;
+const displayCategoryLabels: Record<string, string> = {
+  Transport: "Auto",
+  "Bills & services": "Bills & services",
 };
 const accountTypeLabels: Record<string, string> = {
   navy_checking: "Checking",
@@ -232,6 +231,12 @@ type OverviewGroupKey =
   | "transport"
   | "subscriptions"
   | "otherFees";
+type DuplicateClusterView = DuplicateCluster & {
+  suspiciousTransactions: Transaction[];
+  suspiciousTotal: number;
+  allTransactions: Transaction[];
+  flaggedIds: Set<string>;
+};
 const overviewGroupMeta: Record<
   OverviewGroupKey,
   { label: string; categories: string[]; color: string; emoji: string }
@@ -263,7 +268,7 @@ const overviewGroupMeta: Record<
   otherFees: {
     label: "Other including fees",
     categories: ["Fees", "Other"],
-    color: "#f43f5e",
+    color: "#fbbf24",
     emoji: categoryEmojis.Other,
   },
 };
@@ -297,22 +302,140 @@ export default function DemoPage() {
     {},
   );
   const [showLargestExpenseDetail, setShowLargestExpenseDetail] = useState(false);
+  const inferAccountTypeFromLabel = (label: string) => {
+    const lower = label.toLowerCase();
+    if (/(checking)/.test(lower)) return "Checking";
+    if (/(savings)/.test(lower)) return "Savings";
+    if (/(cash app|wallet|venmo|paypal)/.test(lower)) return "Wallet";
+    if (/(visa|card|debit)/.test(lower)) return "Debit card";
+    if (/(loan|mortgage|finance|auto)/.test(lower)) return "Loan";
+    return "Other";
+  };
+  const deriveAccountsFromTransactions = useCallback((list: Transaction[]): TransferAccount[] => {
+    const counts = new Map<string, { label: string; ending?: string; accountType?: string; count: number }>();
+    list
+      .filter((t) => t.kind.startsWith("transfer"))
+      .forEach((t) => {
+        const candidates = [t.source, t.target].filter(Boolean) as string[];
+        const parsed = parseInstitutionAndLast4(t.description);
+        if (parsed.institution) {
+          candidates.push(parsed.institution);
+        }
+        candidates.forEach((raw) => {
+          const label = titleCase(raw);
+          const ending = parsed.last4 ?? undefined;
+          const key = `${label.toLowerCase()}::${ending ?? ""}`;
+          const existing = counts.get(key) ?? {
+            label,
+            ending,
+            accountType: inferAccountTypeFromLabel(label),
+            count: 0,
+          };
+          existing.count += 1;
+          counts.set(key, existing);
+        });
+      });
+    return Array.from(counts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map((item, idx) => ({
+        id: `auto_account_${idx}_${item.label.replace(/\s+/g, "_").toLowerCase()}`,
+        label: item.label,
+        ownedByDefault: true,
+        ending: item.ending,
+        accountType: item.accountType,
+      }));
+  }, []);
+  const getDefaultThreeMonthRange = useCallback(() => {
+    const now = new Date();
+    const currentMonth = now.getUTCMonth();
+    const currentYear = now.getUTCFullYear();
+    const endDate = new Date(Date.UTC(currentYear, currentMonth, 1));
+    endDate.setUTCMonth(endDate.getUTCMonth() - 1);
+    const toMonth = endDate.getUTCMonth();
+    const toYear = endDate.getUTCFullYear();
+    const startDate = new Date(Date.UTC(toYear, toMonth, 1));
+    startDate.setUTCMonth(startDate.getUTCMonth() - 2);
+    return {
+      fromMonth: startDate.getUTCMonth(),
+      fromYear: startDate.getUTCFullYear(),
+      toMonth,
+      toYear,
+    };
+  }, []);
+  const defaultRange = useMemo(() => getDefaultThreeMonthRange(), [getDefaultThreeMonthRange]);
   const baseSampleDate = useMemo(
     () => new Date(transactions[0]?.date ?? new Date()),
     [],
   );
   const lastGeneratedRangeRef = useRef<string | null>(null);
-   const hasTouchedRangeRef = useRef(false);
-  const [selectedMonthFrom, setSelectedMonthFrom] = useState<number>(baseSampleDate.getUTCMonth());
-  const [selectedYearFrom, setSelectedYearFrom] = useState<number>(baseSampleDate.getUTCFullYear());
-  const [selectedMonthTo, setSelectedMonthTo] = useState<number>(baseSampleDate.getUTCMonth());
-  const [selectedYearTo, setSelectedYearTo] = useState<number>(baseSampleDate.getUTCFullYear());
-  const baseTransferAccounts = useMemo(() => getTransferAccounts(), []);
-  const [customAccounts, setCustomAccounts] = useState<TransferAccount[]>(() => loadCustomAccounts());
-  const transferAccounts = useMemo(
-    () => [...baseTransferAccounts, ...customAccounts],
-    [baseTransferAccounts, customAccounts],
+  const hasTouchedRangeRef = useRef(false);
+  const hydratedFromStorageRef = useRef(false);
+  const [selectedMonthFrom, setSelectedMonthFrom] = useState<number>(defaultRange.fromMonth);
+  const [selectedYearFrom, setSelectedYearFrom] = useState<number>(defaultRange.fromYear);
+  const [selectedMonthTo, setSelectedMonthTo] = useState<number>(defaultRange.toMonth);
+  const [selectedYearTo, setSelectedYearTo] = useState<number>(defaultRange.toYear);
+  const inferredAccounts = useMemo(
+    () => deriveAccountsFromTransactions(fullStatementTransactions),
+    [fullStatementTransactions, deriveAccountsFromTransactions],
   );
+  const [customAccounts, setCustomAccounts] = useState<TransferAccount[]>(() => loadCustomAccounts());
+  const [accountOverrides, setAccountOverrides] = useState<
+    Record<string, { label: string; accountType?: string; ending?: string }>
+  >(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = window.localStorage.getItem(STORAGE_ACCOUNT_OVERRIDES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, { label: string; accountType?: string; ending?: string }>;
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return {};
+  });
+  const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = window.localStorage.getItem(STORAGE_HIDDEN_ACCOUNTS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch {
+      // ignore
+    }
+    return new Set();
+  });
+  const activeCustomAccounts = useMemo(
+    () =>
+      customAccounts.filter((acc) =>
+        fullStatementTransactions.some(
+          (tx) =>
+            tx.source?.toLowerCase().includes(acc.label.toLowerCase()) ||
+            tx.target?.toLowerCase().includes(acc.label.toLowerCase()) ||
+            tx.description.toLowerCase().includes(acc.label.toLowerCase()),
+        ),
+      ),
+    [customAccounts, fullStatementTransactions],
+  );
+  const transferAccounts = useMemo(() => {
+    const overrides = accountOverrides;
+    const combined = [...inferredAccounts, ...activeCustomAccounts];
+    return combined
+      .filter((acc) => !hiddenAccountIds.has(acc.id))
+      .map((acc) => {
+        const override = overrides[acc.id];
+        if (!override) return acc;
+        return {
+          ...acc,
+          label: override.label,
+          accountType: override.accountType ?? acc.accountType,
+          ending: override.ending ?? acc.ending,
+        };
+      });
+  }, [accountOverrides, activeCustomAccounts, hiddenAccountIds, inferredAccounts]);
   const initialOwnershipModes = useMemo(
     () => createDefaultOwnershipModes(transferAccounts),
     [transferAccounts],
@@ -328,6 +451,32 @@ export default function DemoPage() {
   const [addAccountType, setAddAccountType] = useState("Checking");
   const [addBaseTransactionId, setAddBaseTransactionId] = useState("");
   const [selectedAccountTxIds, setSelectedAccountTxIds] = useState<Set<string>>(new Set());
+  const [duplicateDecisions, setDuplicateDecisions] = useState<Record<string, "confirmed" | "dismissed">>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = window.localStorage.getItem(STORAGE_DUPLICATE_DECISIONS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, "confirmed" | "dismissed">;
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+    } catch {
+      // ignore bad data
+    }
+    return {};
+  });
+  const [showDuplicateOverlay, setShowDuplicateOverlay] = useState(false);
+  const duplicateOverlayTriggerRef = useRef<HTMLElement | null>(null);
+  const duplicateOverlayRef = useRef<HTMLDivElement | null>(null);
+  const [expandedDuplicateClusters, setExpandedDuplicateClusters] = useState<Set<string>>(new Set());
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingAccountName, setEditingAccountName] = useState("");
+  const [editingAccountType, setEditingAccountType] = useState(accountTypeOptions[0]);
+  const swipeStateRef = useRef<{ startX: number; startY: number; triggered: boolean }>({
+    startX: 0,
+    startY: 0,
+    triggered: false,
+  });
+  const [expandedCashflowMonths, setExpandedCashflowMonths] = useState<Set<number>>(new Set());
   useEffect(() => {
     setOwnership(deriveOwnershipFromModes(ownershipModes));
   }, [ownershipModes]);
@@ -337,6 +486,36 @@ export default function DemoPage() {
       window.localStorage.setItem(STORAGE_CUSTOM_ACCOUNTS_KEY, JSON.stringify(customAccounts));
     }
   }, [customAccounts]);
+  useEffect(() => {
+    const activeIds = new Set(transferAccounts.map((acc) => acc.id));
+    setOwnershipModes((prev) => {
+      const next: Record<string, OwnershipMode> = {};
+      Object.entries(prev).forEach(([id, mode]) => {
+        if (activeIds.has(id)) {
+          next[id] = mode;
+        }
+      });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_OWNERSHIP_MODES_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, [transferAccounts]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_ACCOUNT_OVERRIDES_KEY, JSON.stringify(accountOverrides));
+  }, [accountOverrides]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      STORAGE_HIDDEN_ACCOUNTS_KEY,
+      JSON.stringify(Array.from(hiddenAccountIds)),
+    );
+  }, [hiddenAccountIds]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_DUPLICATE_DECISIONS_KEY, JSON.stringify(duplicateDecisions));
+  }, [duplicateDecisions]);
   const normalizedRange = useMemo(() => {
     const startValue = selectedYearFrom * 12 + selectedMonthFrom;
     const endValue = selectedYearTo * 12 + selectedMonthTo;
@@ -385,6 +564,99 @@ export default function DemoPage() {
       return ts >= startTimestamp && ts <= endTimestamp;
     });
   }, [flowStep, fullStatementTransactions, rangeEndDateString, rangeStartDateString]);
+  const statementTransactionsSorted = useMemo(
+    () =>
+      [...statementTransactions].sort((a, b) => {
+        const aTs = Date.parse(`${a.date}T00:00:00Z`);
+        const bTs = Date.parse(`${b.date}T00:00:00Z`);
+        return aTs - bTs;
+      }),
+    [statementTransactions],
+  );
+  const statementMonths = useMemo(() => {
+    const monthMap = new Map<
+      number,
+      { key: number; label: string; transactions: Transaction[] }
+    >();
+    statementTransactionsSorted.forEach((tx) => {
+      const date = new Date(`${tx.date}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return;
+      const month = date.getUTCMonth();
+      const year = date.getUTCFullYear();
+      const key = year * 12 + month;
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          key,
+          label: `${months[month]} ${year}`,
+          transactions: [],
+        });
+      }
+      const bucket = monthMap.get(key);
+      if (bucket) {
+        bucket.transactions.push(tx);
+      }
+    });
+    const monthsArray = Array.from(monthMap.values());
+    monthsArray.forEach((bucket) => {
+      bucket.transactions.sort((a, b) => {
+        const aTs = Date.parse(`${a.date}T00:00:00Z`);
+        const bTs = Date.parse(`${b.date}T00:00:00Z`);
+        return aTs - bTs;
+      });
+    });
+    return monthsArray;
+  }, [statementTransactionsSorted]);
+  const showGroupedTable = statementMonths.length > 3;
+  const monthsSignature = useMemo(
+    () => statementMonths.map((m) => m.key).join("|"),
+    [statementMonths],
+  );
+  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!showGroupedTable) return;
+    setExpandedMonths(new Set());
+  }, [monthsSignature, showGroupedTable]);
+  const cashflowMonths = useMemo(() => {
+    const monthMap = new Map<
+      number,
+      {
+        key: number;
+        label: string;
+        rows: (typeof cashFlowRows)[number][];
+        totalIn: number;
+        totalOut: number;
+        totalNet: number;
+      }
+    >();
+    cashFlowRows.forEach((row) => {
+      const date = new Date(`${row.date}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return;
+      const month = date.getUTCMonth();
+      const year = date.getUTCFullYear();
+      const key = year * 12 + month;
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          key,
+          label: `${months[month]} ${year}`,
+          rows: [],
+          totalIn: 0,
+          totalOut: 0,
+          totalNet: 0,
+        });
+      }
+      const bucket = monthMap.get(key);
+      if (!bucket) return;
+      bucket.rows.push(row);
+      bucket.totalIn += row.totalInflowForThatDate;
+      bucket.totalOut += row.totalOutflowForThatDate;
+      bucket.totalNet += row.netForThatDate;
+    });
+    const sortedMonths = Array.from(monthMap.values()).sort((a, b) => a.key - b.key);
+    sortedMonths.forEach((bucket) => {
+      bucket.rows.sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
+    });
+    return sortedMonths;
+  }, [cashFlowRows]);
   const totalIncome = getTotalIncome(statementTransactions, ownership, ownershipModes);
   const totalSpending = getTotalSpending(statementTransactions, ownership, ownershipModes);
   const netThisMonth = getNetThisMonth(statementTransactions, ownership, ownershipModes);
@@ -408,10 +680,61 @@ export default function DemoPage() {
     );
     return isSubscription || isBillCategory || isPaymentDescription;
   });
-  const recurringDuplicateIds = useMemo(
-    () => getRecurringDuplicateIds(fullStatementTransactions, recurringRows),
-    [fullStatementTransactions, recurringRows],
+  const duplicateAnalysis = useMemo(
+    () => analyzeDuplicateCharges(fullStatementTransactions),
+    [fullStatementTransactions],
   );
+  const duplicateClusters: DuplicateClusterView[] = useMemo(() => {
+    return duplicateAnalysis.clusters
+      .map((cluster) => {
+        const flaggedIds = new Set(cluster.suspiciousTransactionIds);
+        const allTransactions = cluster.transactions
+          .map((tx) => fullStatementTransactions.find((fullTx) => fullTx.id === tx.id) ?? tx)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const suspiciousTransactions = allTransactions
+          .filter((tx) => flaggedIds.has(tx.id))
+          .filter((tx) => duplicateDecisions[tx.id] !== "dismissed");
+        if (suspiciousTransactions.length === 0) return null;
+        const suspiciousTotal = suspiciousTransactions.reduce(
+          (sum, tx) => sum + Math.abs(tx.amount),
+          0,
+        );
+        return {
+          ...cluster,
+          suspiciousTransactions,
+          suspiciousTotal,
+          allTransactions,
+          flaggedIds,
+        };
+      })
+      .filter((cluster): cluster is DuplicateClusterView => Boolean(cluster));
+  }, [duplicateAnalysis, duplicateDecisions, fullStatementTransactions]);
+  const activeDuplicateIds = useMemo(
+    () =>
+      new Set(
+        duplicateClusters.flatMap((cluster) =>
+          cluster.suspiciousTransactions.map((tx) => tx.id),
+        ),
+      ),
+    [duplicateClusters],
+  );
+  const duplicateMetaById = useMemo(() => {
+    const map = new Map<
+      string,
+      { clusterKey: string; label: string; category: string; lastNormalDate: string | null }
+    >();
+    duplicateClusters.forEach((cluster) => {
+      cluster.suspiciousTransactions.forEach((tx) => {
+        map.set(tx.id, {
+          clusterKey: cluster.key,
+          label: cluster.label,
+          category: cluster.category,
+          lastNormalDate: cluster.lastNormalDate,
+        });
+      });
+    });
+    return map;
+  }, [duplicateClusters]);
   const transferTransactions = statementTransactions.filter((t) => t.kind.startsWith("transfer"));
   useEffect(() => {
     if (isAddingAccount && !addBaseTransactionId && transferTransactions.length > 0) {
@@ -619,8 +942,11 @@ export default function DemoPage() {
       const parsed = Number(value);
       return Number.isNaN(parsed) ? null : parsed;
     };
-    const fallbackMonth = baseSampleDate.getUTCMonth();
-    const fallbackYear = baseSampleDate.getUTCFullYear();
+    const defaultRange = getDefaultThreeMonthRange();
+    const fallbackMonth = defaultRange.fromMonth;
+    const fallbackYear = defaultRange.fromYear;
+    const fallbackToMonth = defaultRange.toMonth;
+    const fallbackToYear = defaultRange.toYear;
     const parsedFromMonth = parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
     const parsedFromYear = parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
     const parsedToMonth =
@@ -630,10 +956,10 @@ export default function DemoPage() {
     startTransition(() => {
       setSelectedMonthFrom(parsedFromMonth ?? fallbackMonth);
       setSelectedYearFrom(parsedFromYear ?? fallbackYear);
-      setSelectedMonthTo(parsedToMonth ?? parsedFromMonth ?? fallbackMonth);
-      setSelectedYearTo(parsedToYear ?? parsedFromYear ?? fallbackYear);
+      setSelectedMonthTo(parsedToMonth ?? parsedFromMonth ?? fallbackToMonth);
+      setSelectedYearTo(parsedToYear ?? parsedFromYear ?? fallbackToYear);
     });
-  }, [baseSampleDate]);
+  }, [getDefaultThreeMonthRange]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_MONTH_FROM_KEY, String(selectedMonthFrom));
@@ -648,6 +974,72 @@ export default function DemoPage() {
       }
     };
   }, []);
+  useEffect(() => {
+    if (!showDuplicateOverlay) return;
+    const previousOverflow =
+      typeof document !== "undefined" ? (document.body.style.overflow as string | undefined) : undefined;
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = "hidden";
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setShowDuplicateOverlay(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const container = duplicateOverlayRef.current;
+      if (!container) return;
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'a, button, textarea, input, select, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === first || active === container) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    const focusTarget =
+      duplicateOverlayRef.current?.querySelector<HTMLElement>("[data-autofocus]") ??
+      duplicateOverlayRef.current;
+    focusTarget?.focus();
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (typeof document !== "undefined" && typeof previousOverflow === "string") {
+        document.body.style.overflow = previousOverflow;
+      }
+    };
+  }, [showDuplicateOverlay]);
+  useEffect(() => {
+    if (showDuplicateOverlay) return;
+    const trigger = duplicateOverlayTriggerRef.current;
+    if (trigger) {
+      trigger.focus();
+      duplicateOverlayTriggerRef.current = null;
+    }
+  }, [showDuplicateOverlay]);
+  useEffect(() => {
+    if (!showDuplicateOverlay) return;
+    setExpandedDuplicateClusters(new Set());
+  }, [showDuplicateOverlay, duplicateClusters]);
+  useEffect(() => {
+    if (cashflowMonths.length === 1) {
+      setExpandedCashflowMonths(new Set([cashflowMonths[0].key]));
+      return;
+    }
+    if (cashflowMonths.length > 1 && expandedCashflowMonths.size === 0) {
+      setExpandedCashflowMonths(new Set([cashflowMonths[0].key]));
+    }
+  }, [cashflowMonths, expandedCashflowMonths.size]);
   const resetTab = useCallback(() => {
     setActiveTab("overview");
     if (typeof window !== "undefined") {
@@ -667,6 +1059,33 @@ export default function DemoPage() {
       try {
         const parsed: Transaction[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const storedMonthFrom = window.localStorage.getItem(STORAGE_MONTH_FROM_KEY);
+          const storedYearFrom = window.localStorage.getItem(STORAGE_YEAR_FROM_KEY);
+          const storedMonthTo = window.localStorage.getItem(STORAGE_MONTH_TO_KEY);
+          const storedYearTo = window.localStorage.getItem(STORAGE_YEAR_TO_KEY);
+          const legacyMonth = window.localStorage.getItem(LEGACY_STORAGE_MONTH_KEY);
+          const legacyYear = window.localStorage.getItem(LEGACY_STORAGE_YEAR_KEY);
+          const parseNumber = (value: string | null) => {
+            if (value === null) return null;
+            const next = Number(value);
+            return Number.isNaN(next) ? null : next;
+          };
+          const fallbackRange = defaultRange;
+          const fallbackMonth = fallbackRange.fromMonth;
+          const fallbackYear = fallbackRange.fromYear;
+          const fallbackToMonth = fallbackRange.toMonth;
+          const fallbackToYear = fallbackRange.toYear;
+          const parsedFromMonth = parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
+          const parsedFromYear = parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
+          const parsedToMonth =
+            parseNumber(storedMonthTo) ?? parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
+          const parsedToYear =
+            parseNumber(storedYearTo) ?? parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
+          const resolvedFromMonth = parsedFromMonth ?? fallbackMonth;
+          const resolvedFromYear = parsedFromYear ?? fallbackYear;
+          const resolvedToMonth = parsedToMonth ?? parsedFromMonth ?? fallbackToMonth;
+          const resolvedToYear = parsedToYear ?? parsedFromYear ?? fallbackToYear;
+          lastGeneratedRangeRef.current = `${resolvedFromYear}-${resolvedFromMonth}:${resolvedToYear}-${resolvedToMonth}`;
           startTransition(() => {
             setFullStatementTransactions(parsed);
             if (flow === "statement" || flow === "results") {
@@ -674,12 +1093,25 @@ export default function DemoPage() {
               setShowStatement(flow === "results" ? false : true);
             }
           });
+          hydratedFromStorageRef.current = true;
+          hasTouchedRangeRef.current = flow === "results" || flow === "statement" || flow === "analyzing";
         }
       } catch {
         // ignore bad data
       }
     }
-  }, []);
+  }, [defaultRange]);
+  useEffect(() => {
+    if (lastGeneratedRangeRef.current !== null) return;
+    if (fullStatementTransactions.length === 0) return;
+    lastGeneratedRangeRef.current = `${selectedYearFrom}-${selectedMonthFrom}:${selectedYearTo}-${selectedMonthTo}`;
+  }, [
+    fullStatementTransactions.length,
+    selectedMonthFrom,
+    selectedMonthTo,
+    selectedYearFrom,
+    selectedYearTo,
+  ]);
   const startStatement = useCallback(() => {
     const generated = generateSampleStatement(
       selectedMonthFrom,
@@ -688,6 +1120,7 @@ export default function DemoPage() {
       selectedYearTo,
     );
     lastGeneratedRangeRef.current = `${selectedYearFrom}-${selectedMonthFrom}:${selectedYearTo}-${selectedMonthTo}`;
+    hasTouchedRangeRef.current = true;
     setFullStatementTransactions(generated);
     setFlowStep("statement");
     setShowStatement(true);
@@ -731,11 +1164,21 @@ export default function DemoPage() {
     setFullStatementTransactions([]);
     setShowStatement(true);
     setIsEditing(false);
-    setSelectedMonthFrom(baseSampleDate.getUTCMonth());
-    setSelectedYearFrom(baseSampleDate.getUTCFullYear());
-    setSelectedMonthTo(baseSampleDate.getUTCMonth());
-    setSelectedYearTo(baseSampleDate.getUTCFullYear());
+    setSelectedMonthFrom(defaultRange.fromMonth);
+    setSelectedYearFrom(defaultRange.fromYear);
+    setSelectedMonthTo(defaultRange.toMonth);
+    setSelectedYearTo(defaultRange.toYear);
     lastGeneratedRangeRef.current = null;
+    hasTouchedRangeRef.current = false;
+    setShowDuplicateOverlay(false);
+    setExpandedDuplicateClusters(new Set());
+    setDuplicateDecisions({});
+    hydratedFromStorageRef.current = false;
+    setCustomAccounts([]);
+    setAccountOverrides({});
+    setHiddenAccountIds(new Set());
+    setOwnershipModes({});
+    setOwnership({});
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_FLOW_KEY);
       window.localStorage.removeItem(STORAGE_STATEMENT_KEY);
@@ -745,6 +1188,11 @@ export default function DemoPage() {
       window.localStorage.removeItem(STORAGE_YEAR_TO_KEY);
       window.localStorage.removeItem(LEGACY_STORAGE_MONTH_KEY);
       window.localStorage.removeItem(LEGACY_STORAGE_YEAR_KEY);
+      window.localStorage.removeItem(STORAGE_DUPLICATE_DECISIONS_KEY);
+      window.localStorage.removeItem(STORAGE_CUSTOM_ACCOUNTS_KEY);
+      window.localStorage.removeItem(STORAGE_ACCOUNT_OVERRIDES_KEY);
+      window.localStorage.removeItem(STORAGE_HIDDEN_ACCOUNTS_KEY);
+      window.localStorage.removeItem(STORAGE_OWNERSHIP_MODES_KEY);
     }
     resetTab();
   };
@@ -798,6 +1246,8 @@ export default function DemoPage() {
     }
     if (!isRangeValid) return;
     const hasStatement = fullStatementTransactions.length > 0;
+    const hasTouchedRange = hasTouchedRangeRef.current;
+    if (!hasTouchedRange && flowStep === "idle" && !hasStatement) return;
     if (currentRangeKey === lastGeneratedRangeRef.current && hasStatement) return;
     startStatement();
   }, [
@@ -831,8 +1281,113 @@ export default function DemoPage() {
       return next;
     });
   };
+  const handleDuplicateDecision = (txId: string, decision: "confirmed" | "dismissed") => {
+    setDuplicateDecisions((prev) => ({ ...prev, [txId]: decision }));
+  };
+  const handleDismissDuplicate = (txId: string) => handleDuplicateDecision(txId, "dismissed");
+  const handleConfirmDuplicate = (txId: string) => handleDuplicateDecision(txId, "confirmed");
+  const handleOpenDuplicateOverlay = (trigger?: HTMLElement | null) => {
+    if (typeof document !== "undefined") {
+      duplicateOverlayTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null);
+    }
+    setShowDuplicateOverlay(true);
+  };
+  const handleCloseDuplicateOverlay = () => {
+    setShowDuplicateOverlay(false);
+  };
+  const toggleDuplicateCluster = (key: string) => {
+    setExpandedDuplicateClusters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
   const defaultModeForAccountType = (type: string): OwnershipMode =>
     /credit|loan|mortgage/i.test(type) ? "payment" : "spending";
+  const startEditingAccount = (acc: TransferAccount) => {
+    setEditingAccountId(acc.id);
+    setEditingAccountName(acc.label);
+    setEditingAccountType(acc.accountType ?? getAccountTypeLabel(acc));
+  };
+  const resetEditingAccount = () => {
+    setEditingAccountId(null);
+    setEditingAccountName("");
+    setEditingAccountType(accountTypeOptions[0]);
+  };
+  const handleSaveEditedAccount = (acc: TransferAccount) => {
+    if (!editingAccountId) return;
+    if (!editingAccountName.trim()) return;
+    if (customAccounts.some((c) => c.id === acc.id)) {
+      setCustomAccounts((prev) =>
+        prev.map((c) =>
+          c.id === acc.id ? { ...c, label: editingAccountName.trim(), accountType: editingAccountType } : c,
+        ),
+      );
+    } else {
+      setAccountOverrides((prev) => ({
+        ...prev,
+        [acc.id]: {
+          label: editingAccountName.trim(),
+          accountType: editingAccountType,
+          ending: acc.ending,
+        },
+      }));
+    }
+    resetEditingAccount();
+  };
+  const handleDeleteAccount = (acc: TransferAccount) => {
+    if (customAccounts.some((c) => c.id === acc.id)) {
+      setCustomAccounts((prev) => prev.filter((c) => c.id !== acc.id));
+    } else {
+      setHiddenAccountIds((prev) => {
+        const next = new Set(prev);
+        next.add(acc.id);
+        return next;
+      });
+      setAccountOverrides((prev) => {
+        const next = { ...prev };
+        delete next[acc.id];
+        return next;
+      });
+    }
+    setOwnershipModes((prev) => {
+      const next = { ...prev };
+      delete next[acc.id];
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_OWNERSHIP_MODES_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+    resetEditingAccount();
+  };
+  const getDisplayCategory = (category: string) =>
+    displayCategoryLabels[category] ?? category;
+  const handleSwipeStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    swipeStateRef.current = { startX: touch.clientX, startY: touch.clientY, triggered: false };
+  };
+  const handleSwipeMove = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    const dx = touch.clientX - swipeStateRef.current.startX;
+    const dy = touch.clientY - swipeStateRef.current.startY;
+    if (swipeStateRef.current.triggered) return;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    const currentIndex = tabs.findIndex((t) => t.id === activeTab);
+    if (dx < 0 && currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1].id);
+      swipeStateRef.current.triggered = true;
+    } else if (dx > 0 && currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1].id);
+      swipeStateRef.current.triggered = true;
+    }
+  };
+  const handleSwipeEnd = () => {
+    swipeStateRef.current = { startX: 0, startY: 0, triggered: false };
+  };
   const handleSaveNewAccount = () => {
     if (!addAccountName.trim() || selectedAccountTxIds.size === 0) return;
     const newId = `account_${Date.now()}`;
@@ -900,7 +1455,7 @@ export default function DemoPage() {
   };
   const hasResults = flowStep === "results" && fullStatementTransactions.length > 0;
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-16 pt-10 sm:space-y-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-16">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
@@ -935,70 +1490,83 @@ export default function DemoPage() {
                   Editing only affects this demo and saves locally on this device.
                 </p>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                <label className="text-zinc-400" htmlFor="month-from-select">
-                  Month from
-                </label>
-                <select
-                  id="month-from-select"
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                  value={selectedMonthFrom}
-                  onChange={(e) => setSelectedMonthFrom(Number(e.target.value))}
-                >
-                  {months.map((m, idx) => (
-                    <option key={m} value={idx}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <label className="text-zinc-400" htmlFor="year-from-select">
-                  Year from
-                </label>
-                <select
-                  id="year-from-select"
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                  value={selectedYearFrom}
-                  onChange={(e) => setSelectedYearFrom(Number(e.target.value))}
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-                <label className="text-zinc-400" htmlFor="month-to-select">
-                  Month to
-                </label>
-                <select
-                  id="month-to-select"
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                  value={selectedMonthTo}
-                   onChange={(e) => {
-                    hasTouchedRangeRef.current = true;
-                    setSelectedMonthTo(Number(e.target.value));
-                  }}
-                >
-                  {months.map((m, idx) => (
-                    <option key={m} value={idx}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <label className="text-zinc-400" htmlFor="year-to-select">
-                  Year to
-                </label>
-                <select
-                  id="year-to-select"
-                  className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                  value={selectedYearTo}
-                  onChange={(e) => setSelectedYearTo(Number(e.target.value))}
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-300 sm:gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-zinc-400" htmlFor="month-from-select">
+                    Month from
+                  </label>
+                  <select
+                    id="month-from-select"
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                    value={selectedMonthFrom}
+                    onChange={(e) => {
+                      hasTouchedRangeRef.current = true;
+                      setSelectedMonthFrom(Number(e.target.value));
+                    }}
+                  >
+                    {months.map((m, idx) => (
+                      <option key={m} value={idx}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="text-zinc-400" htmlFor="year-from-select">
+                    Year from
+                  </label>
+                  <select
+                    id="year-from-select"
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                    value={selectedYearFrom}
+                    onChange={(e) => {
+                      hasTouchedRangeRef.current = true;
+                      setSelectedYearFrom(Number(e.target.value));
+                    }}
+                  >
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:ml-4">
+                  <label className="text-zinc-400" htmlFor="month-to-select">
+                    Month to
+                  </label>
+                  <select
+                    id="month-to-select"
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                    value={selectedMonthTo}
+                    onChange={(e) => {
+                      hasTouchedRangeRef.current = true;
+                      setSelectedMonthTo(Number(e.target.value));
+                    }}
+                  >
+                    {months.map((m, idx) => (
+                      <option key={m} value={idx}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="text-zinc-400" htmlFor="year-to-select">
+                    Year to
+                  </label>
+                  <select
+                    id="year-to-select"
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                    value={selectedYearTo}
+                    onChange={(e) => {
+                      hasTouchedRangeRef.current = true;
+                      setSelectedYearTo(Number(e.target.value));
+                    }}
+                  >
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1027,9 +1595,24 @@ export default function DemoPage() {
                     type="button"
                     onClick={handleAnalyze}
                     disabled={flowStep === "analyzing" || statementTransactions.length === 0}
-                    className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black shadow-sm transition hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/80 focus-visible:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Analyze this statement
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3.75 8h8.5m0 0L9.5 4.75M12.25 8 9.5 11.25"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
                 </>
               )}
@@ -1057,87 +1640,226 @@ export default function DemoPage() {
             </div>
           )}
           {showStatement && (
-            <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
-              <div className="min-w-[520px]">
-                <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                  <span>Date</span>
-                  <span>Description</span>
-                  <span>Category</span>
-                  <span className="text-right">Amount</span>
-                </div>
-                {statementTransactions.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">
-                    No transactions in this view.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-zinc-800">
-                    {statementTransactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
-                      >
-                        <span className="text-zinc-300">
-                          {dateFormatter.format(new Date(tx.date))}
-                        </span>
-                        <span className="truncate" title={tx.description}>
-                          {tx.description}
-                        </span>
-                        <span className="text-zinc-400">
-                          {isEditing ? (
-                            <select
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
-                              value={tx.category}
-                              onChange={(e) => {
-                                const newCategory = e.target.value;
-                                setFullStatementTransactions((prev) => {
-                                  const updated = prev.map((row) =>
-                                    row.id === tx.id ? { ...row, category: newCategory } : row,
-                                  );
-                                  if (typeof window !== "undefined") {
-                                    window.localStorage.setItem(
-                                      STORAGE_STATEMENT_KEY,
-                                      JSON.stringify(updated),
-                                    );
-                                    window.localStorage.setItem(
-                                      STORAGE_FLOW_KEY,
-                                      flowStep === "results" ? "results" : "statement",
-                                    );
-                                  }
-                                  return updated;
-                                });
-                                if (flowStep === "results") {
-                                  setFlowStep("results");
-                                }
-                              }}
-                            >
-                              {categoryOptions.map((cat) => (
-                                <option key={cat} value={cat}>
-                                  {cat}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            tx.category
-                          )}
-                        </span>
-                        <span
-                          className={`text-right font-medium ${
-                            tx.amount > 0
-                              ? "text-emerald-400"
-                              : tx.amount < 0
-                                ? "text-red-300"
-                                : "text-zinc-200"
-                          }`}
+            <div className="mt-4">
+              {showGroupedTable ? (
+                <div className="space-y-3">
+                  {statementMonths.map((month) => {
+                    const isOpen = expandedMonths.has(month.key);
+                    const monthTotal = month.transactions.reduce((sum, tx) => sum + tx.amount, 0);
+                    return (
+                      <div key={month.key} className="rounded-xl border border-zinc-800 bg-zinc-900/70">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedMonths((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(month.key)) {
+                                next.delete(month.key);
+                              } else {
+                                next.add(month.key);
+                              }
+                              return next;
+                            })
+                          }
+                          className="flex w-full items-center justify-between rounded-t-xl px-4 py-3 text-left transition hover:bg-zinc-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                         >
-                          {currency.format(tx.amount)}
-                        </span>
+                          <div>
+                            <p className="text-sm font-semibold text-white">{month.label}</p>
+                            <p className="text-xs text-zinc-400">
+                              {month.transactions.length} transactions · {currency.format(monthTotal)}
+                            </p>
+                          </div>
+                          <svg
+                            className={`h-4 w-4 text-zinc-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M6 3.75 11 8l-5 4.25"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <div className="overflow-x-auto border-t border-zinc-800">
+                            <div className="min-w-[520px]">
+                              <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                                <span>Date</span>
+                                <span>Description</span>
+                                <span>Category</span>
+                                <span className="text-right">Amount</span>
+                              </div>
+                              <div className="divide-y divide-zinc-800">
+                                {month.transactions.map((tx) => (
+                                  <div
+                                    key={tx.id}
+                                    className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
+                                  >
+                                    <span className="text-zinc-300">
+                                      {dateFormatter.format(new Date(tx.date))}
+                                    </span>
+                                    <span className="truncate" title={tx.description}>
+                                      {tx.description}
+                                    </span>
+                                    <span className="text-zinc-400">
+                                      {isEditing ? (
+                                        <select
+                                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                                          value={tx.category}
+                                          onChange={(e) => {
+                                            const newCategory = e.target.value;
+                                            setFullStatementTransactions((prev) => {
+                                              const updated = prev.map((row) =>
+                                                row.id === tx.id ? { ...row, category: newCategory } : row,
+                                              );
+                                              if (typeof window !== "undefined") {
+                                                window.localStorage.setItem(
+                                                  STORAGE_STATEMENT_KEY,
+                                                  JSON.stringify(updated),
+                                                );
+                                                window.localStorage.setItem(
+                                                  STORAGE_FLOW_KEY,
+                                                  flowStep === "results" ? "results" : "statement",
+                                                );
+                                              }
+                                              return updated;
+                                            });
+                                            if (flowStep === "results") {
+                                              setFlowStep("results");
+                                            }
+                                          }}
+                                        >
+                                          {categoryOptions.map((cat) => (
+                                            <option key={cat} value={cat}>
+                                              {cat}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        tx.category
+                                      )}
+                                    </span>
+                                    <span
+                                      className={`text-right font-medium ${
+                                        tx.amount > 0
+                                          ? "text-emerald-400"
+                                          : tx.amount < 0
+                                            ? "text-red-300"
+                                            : "text-zinc-200"
+                                      }`}
+                                    >
+                                      {currency.format(tx.amount)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-zinc-800">
+                  <div className="min-w-[520px]">
+                    <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                      <span>Date</span>
+                      <span>Description</span>
+                      <span>Category</span>
+                      <span className="text-right">Amount</span>
+                    </div>
+                    {statementTransactionsSorted.length === 0 ? (
+                      <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">
+                        No transactions in this view.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-zinc-800">
+                        {statementTransactionsSorted.map((tx) => (
+                          <div
+                            key={tx.id}
+                            className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
+                          >
+                            <span className="text-zinc-300">
+                              {dateFormatter.format(new Date(tx.date))}
+                            </span>
+                            <span className="truncate" title={tx.description}>
+                              {tx.description}
+                            </span>
+                            <span className="text-zinc-400">
+                              {isEditing ? (
+                                <select
+                                  className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                                  value={tx.category}
+                                  onChange={(e) => {
+                                    const newCategory = e.target.value;
+                                    setFullStatementTransactions((prev) => {
+                                      const updated = prev.map((row) =>
+                                        row.id === tx.id ? { ...row, category: newCategory } : row,
+                                      );
+                                      if (typeof window !== "undefined") {
+                                        window.localStorage.setItem(
+                                          STORAGE_STATEMENT_KEY,
+                                          JSON.stringify(updated),
+                                        );
+                                        window.localStorage.setItem(
+                                          STORAGE_FLOW_KEY,
+                                          flowStep === "results" ? "results" : "statement",
+                                        );
+                                      }
+                                      return updated;
+                                    });
+                                    if (flowStep === "results") {
+                                      setFlowStep("results");
+                                    }
+                                  }}
+                                >
+                                  {categoryOptions.map((cat) => (
+                                    <option key={cat} value={cat}>
+                                      {cat}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                tx.category
+                              )}
+                            </span>
+                            <span
+                              className={`text-right font-medium ${
+                                tx.amount > 0
+                                  ? "text-emerald-400"
+                                  : tx.amount < 0
+                                    ? "text-red-300"
+                                    : "text-zinc-200"
+                              }`}
+                            >
+                              {currency.format(tx.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              {isEditing && (
-                <div className="border-t border-zinc-800 bg-zinc-900/70 px-3 py-3 sm:px-4">
+                  {isEditing && (
+                    <div className="border-t border-zinc-800 bg-zinc-900/70 px-3 py-3 sm:px-4">
+                      <AddTransactionRow
+                        rangeStartMonth={normalizedRange.start.month}
+                        rangeStartYear={normalizedRange.start.year}
+                        rangeEndMonth={normalizedRange.end.month}
+                        rangeEndYear={normalizedRange.end.year}
+                        onAdd={handleAddTransaction}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              {isEditing && showGroupedTable && (
+                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-3 sm:px-4">
                   <AddTransactionRow
                     rangeStartMonth={normalizedRange.start.month}
                     rangeStartYear={normalizedRange.start.year}
@@ -1152,7 +1874,12 @@ export default function DemoPage() {
         </div>
       )}
       {flowStep === "results" && hasResults && (
-        <div className="space-y-4">
+        <div
+          className="space-y-4"
+          onTouchStart={handleSwipeStart}
+          onTouchMove={handleSwipeMove}
+          onTouchEnd={handleSwipeEnd}
+        >
           <div className="flex justify-end">
             <button
               type="button"
@@ -1179,26 +1906,39 @@ export default function DemoPage() {
             ))}
           </div>
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {tabs.map((tab) => (
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zinc-900 to-transparent sm:hidden" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zinc-900 to-transparent sm:hidden" />
+              <div className="flex items-center gap-2">
+                <div className="flex w-full snap-x snap-mandatory items-center gap-2 overflow-x-auto px-1 pb-1 sm:justify-center">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                      }}
+                      className={`snap-start rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                        activeTab === tab.id
+                          ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
+                          : "border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={tab.id}
                   type="button"
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                  }}
-                  className={`rounded-full border px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
-                    activeTab === tab.id
-                      ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
-                      : "border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800"
-                  }`}
+                  className="hidden sm:inline-flex items-center justify-center rounded-full border border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800"
+                  onClick={() => handleToggleEditing()}
                 >
-                  {tab.label}
+                  {isEditing ? "Done editing" : "Edit transactions"}
                 </button>
-              ))}
+              </div>
               <button
                 type="button"
-                className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800"
+                className="mt-2 inline-flex items-center justify-center rounded-full border border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 sm:hidden"
                 onClick={() => handleToggleEditing()}
               >
                 {isEditing ? "Done editing" : "Edit transactions"}
@@ -1210,28 +1950,6 @@ export default function DemoPage() {
                 <p className="mt-2 text-center text-sm text-zinc-400">
                   Where your money went this month.
                 </p>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {categoryBreakdown.map((item) => (
-                    <button
-                      key={item.category}
-                      type="button"
-                      onClick={() => setActiveOverviewCategory(item.category)}
-                      className={`w-full rounded-lg border px-4 py-3 text-left transition ${
-                        activeOverviewCategory === item.category
-                          ? "border-zinc-600 bg-zinc-800"
-                          : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
-                      }`}
-                    >
-                      <p className="flex items-center gap-2 text-sm text-zinc-400">
-                        <span aria-hidden="true">{categoryEmojis[item.category] ?? ""}</span>
-                        <span>{item.category}</span>
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-white">
-                        {currency.format(item.amount)}
-                      </p>
-                    </button>
-                  ))}
-                </div>
                 {flowStep === "results" && groupedSpendingData.length > 0 && (
                   <div
                     className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6"
@@ -1292,13 +2010,20 @@ export default function DemoPage() {
                                 : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
                             }`}
                           >
-                            <div className="flex items-center gap-2 text-zinc-200">
-                              <span aria-hidden="true">{item.emoji}</span>
-                              <span>{item.label}</span>
+                            <div className="flex items-center gap-3 text-zinc-200">
+                              <span
+                                aria-hidden="true"
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: item.color }}
+                              />
+                              <span className="flex items-center gap-1">
+                                <span aria-hidden="true">{item.emoji}</span>
+                                <span>{item.label === "Transport" ? "Auto" : item.label}</span>
+                              </span>
                             </div>
                             <div className="text-right text-xs text-zinc-400">
-                              <div className="text-sm font-semibold text-white">{`${item.percent}%`}</div>
-                              <div>{currency.format(item.value)}</div>
+                              <div className="text-base font-semibold text-white">{`${item.percent}%`}</div>
+                              <div className="text-[11px] text-zinc-500">{currency.format(item.value)}</div>
                             </div>
                           </button>
                         );
@@ -1308,7 +2033,10 @@ export default function DemoPage() {
                       <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm text-zinc-200">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-white">
-                            {activeSpendingGroupDetails.emoji} {activeSpendingGroupDetails.label}
+                            {activeSpendingGroupDetails.emoji}{" "}
+                            {activeSpendingGroupDetails.label === "Transport"
+                              ? "Auto"
+                              : activeSpendingGroupDetails.label}
                           </span>
                           <span className="text-xs text-zinc-400">
                             {currency.format(activeSpendingGroupDetails.value)}
@@ -1337,10 +2065,32 @@ export default function DemoPage() {
                     )}
                   </div>
                 )}
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {categoryBreakdown.map((item) => (
+                    <button
+                      key={item.category}
+                      type="button"
+                      onClick={() => setActiveOverviewCategory(item.category)}
+                      className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+                        activeOverviewCategory === item.category
+                          ? "border-zinc-600 bg-zinc-800"
+                          : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
+                      }`}
+                    >
+                      <p className="flex items-center gap-2 text-sm text-zinc-400">
+                        <span aria-hidden="true">{categoryEmojis[item.category] ?? ""}</span>
+                        <span>{getDisplayCategory(item.category)}</span>
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-white">
+                        {currency.format(item.amount)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
                 <div className="mt-6 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-white">
-                      Transactions for {activeOverviewCategory}
+                      Transactions for {getDisplayCategory(activeOverviewCategory)}
                     </h3>
                   </div>
                   <div className="overflow-x-auto rounded-lg border border-zinc-800">
@@ -1385,11 +2135,22 @@ export default function DemoPage() {
                 <p className="mt-1 text-sm text-zinc-400">
                   Subscriptions, bills, and payments for this month.
                 </p>
-                {recurringDuplicateIds.size > 0 && (
-                  <p className="mt-2 text-xs text-amber-200">
-                    Some subscriptions show up more than once this month. You may want to check for double charges.
-                  </p>
-                )}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {activeDuplicateIds.size > 0 ? (
+                    <p className="text-xs text-amber-200">
+                      We spotted charges that look off-pattern. Review them to confirm or dismiss.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-500">No suspected duplicates right now.</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
+                    className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                  >
+                    Show possible duplicates
+                  </button>
+                </div>
                 <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
                   <div className="min-w-[520px]">
                     <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
@@ -1406,19 +2167,48 @@ export default function DemoPage() {
                           row.category === "Bills"
                             ? "Bills and services"
                             : row.category;
+                        const duplicateDecision = duplicateDecisions[row.id];
+                        const isDuplicate = activeDuplicateIds.has(row.id);
+                        const meta = duplicateMetaById.get(row.id);
+                        const tooltipText = meta
+                          ? `${meta.lastNormalDate ? `Last normal charge: ${dateFormatter.format(new Date(meta.lastNormalDate))}. ` : ""}This charge is off pattern for timing or amount.`
+                          : "This charge is off pattern for timing or amount.";
                         return (
                         <div
                           key={row.id}
                           className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
                         >
-                          <span className="flex items-center gap-2 truncate" title={row.description}>
-                            <span className="truncate">{row.description}</span>
-                            {recurringDuplicateIds.has(row.id) && (
-                              <span className="rounded-full border border-amber-300/50 bg-amber-900/30 px-2 py-[2px] text-[10px] font-medium text-amber-100">
-                                possible duplicate
-                              </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-2 truncate" title={row.description}>
+                              <span className="truncate">{row.description}</span>
+                              {isDuplicate && duplicateDecision !== "dismissed" && (
+                                <span
+                                  className="rounded-full border border-amber-300/50 bg-amber-900/30 px-2 py-[2px] text-[10px] font-medium text-amber-100"
+                                  title={tooltipText}
+                                >
+                                  possible duplicate
+                                </span>
+                              )}
+                            </span>
+                            {isDuplicate && duplicateDecision !== "dismissed" && (
+                              <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-amber-300/50 px-2 py-[3px] font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-900/50"
+                                  onClick={() => handleConfirmDuplicate(row.id)}
+                                >
+                                  Confirm problem
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-zinc-700 px-2 py-[3px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+                                  onClick={() => handleDismissDuplicate(row.id)}
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
                             )}
-                          </span>
+                          </div>
                           <span className="text-zinc-400">{displayCategory}</span>
                           <span className="text-right font-medium">
                             {currency.format(row.amount)}
@@ -1486,102 +2276,155 @@ export default function DemoPage() {
                 <p className="mt-1 text-sm text-zinc-400">
                   Daily inflow and outflow for this month.
                 </p>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
-                  <div className="min-w-[520px]">
-                    <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                      <span>Date</span>
-                      <span className="text-right">Inflow</span>
-                      <span className="text-right">Outflow</span>
-                      <span className="text-right">Net</span>
-                    </div>
-                    <div className="divide-y divide-zinc-800">
-                      {cashFlowRows.map((row) => {
-                        const isExpanded = expandedCashflowDates[row.date];
-                        const dayTransactions = statementTransactions.filter(
-                          (tx) => tx.date === row.date,
-                        );
-                        return (
-                          <div key={row.date} className="text-xs sm:text-sm">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedCashflowDates((prev) => ({
-                                  ...prev,
-                                  [row.date]: !prev[row.date],
-                                }))
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  setExpandedCashflowDates((prev) => ({
-                                    ...prev,
-                                    [row.date]: !prev[row.date],
-                                  }));
-                                }
-                              }}
-                              className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
-                            >
-                              <span className="text-zinc-300">
-                                {dateFormatter.format(new Date(row.date))}
-                              </span>
-                              <span className="text-right font-medium">
-                                {currency.format(row.totalInflowForThatDate)}
-                              </span>
-                              <span className="text-right font-medium text-zinc-300">
-                                {currency.format(row.totalOutflowForThatDate)}
-                              </span>
+                <div className="mt-4 space-y-3">
+                  {cashflowMonths.map((month) => {
+                    const isExpanded = expandedCashflowMonths.has(month.key);
+                    const toggle = () =>
+                      setExpandedCashflowMonths((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(month.key)) {
+                          next.delete(month.key);
+                        } else {
+                          next.add(month.key);
+                        }
+                        return next;
+                      });
+                    return (
+                      <div key={month.key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
+                        <button
+                          type="button"
+                          onClick={toggle}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggle();
+                            }
+                          }}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-800/60"
+                        >
+                          <div className="space-y-1 text-sm">
+                            <p className="font-semibold text-white">{month.label}</p>
+                            <div className="flex flex-wrap gap-4 text-[11px] text-zinc-400">
+                              <span>In: {currency.format(month.totalIn)}</span>
+                              <span>Out: {currency.format(month.totalOut)}</span>
                               <span
-                                className={`flex items-center justify-end gap-2 text-right font-semibold ${
-                                  row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"
+                                className={`font-semibold ${
+                                  month.totalNet >= 0 ? "text-emerald-300" : "text-rose-300"
                                 }`}
                               >
-                                <span
-                                  aria-hidden="true"
-                                  className={`text-zinc-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                                >
-                                  ▸
-                                </span>
-                                {currency.format(row.netForThatDate)}
+                                Net: {currency.format(month.totalNet)}
                               </span>
-                            </button>
-                            {isExpanded && (
-                              <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
-                                {dayTransactions.length === 0 ? (
-                                  <p className="text-[11px] text-zinc-400">
-                                    No transactions for this day.
-                                  </p>
-                                ) : (
-                                  <div className="space-y-2 text-[11px] sm:text-xs">
-                                    {dayTransactions.map((tx) => (
-                                      <div
-                                        key={tx.id}
-                                        className="flex items-center justify-between"
+                            </div>
+                          </div>
+                          <span
+                            aria-hidden="true"
+                            className={`text-zinc-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                          >
+                            ▸
+                          </span>
+                        </button>
+                        {isExpanded && (
+                          <div className="overflow-x-auto border-t border-zinc-800">
+                            <div className="min-w-[520px]">
+                              <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                                <span>Date</span>
+                                <span className="text-right">Inflow</span>
+                                <span className="text-right">Outflow</span>
+                                <span className="text-right">Net</span>
+                              </div>
+                              <div className="divide-y divide-zinc-800">
+                                {month.rows.map((row) => {
+                                  const isDayExpanded = expandedCashflowDates[row.date];
+                                  const dayTransactions = statementTransactions.filter(
+                                    (tx) => tx.date === row.date,
+                                  );
+                                  return (
+                                    <div key={row.date} className="text-xs sm:text-sm">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setExpandedCashflowDates((prev) => ({
+                                            ...prev,
+                                            [row.date]: !prev[row.date],
+                                          }))
+                                        }
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            setExpandedCashflowDates((prev) => ({
+                                              ...prev,
+                                              [row.date]: !prev[row.date],
+                                            }));
+                                          }
+                                        }}
+                                        className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
                                       >
-                                        <span className="truncate pr-2" title={tx.description}>
-                                          {tx.description}
+                                        <span className="text-zinc-300">
+                                          {dateFormatter.format(new Date(row.date))}
+                                        </span>
+                                        <span className="text-right font-medium">
+                                          {currency.format(row.totalInflowForThatDate)}
+                                        </span>
+                                        <span className="text-right font-medium text-zinc-300">
+                                          {currency.format(row.totalOutflowForThatDate)}
                                         </span>
                                         <span
-                                          className={`font-semibold ${
-                                            tx.amount > 0
-                                              ? "text-emerald-400"
-                                              : tx.amount < 0
-                                                ? "text-red-300"
-                                                : "text-zinc-200"
+                                          className={`flex items-center justify-end gap-2 text-right font-semibold ${
+                                            row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"
                                           }`}
                                         >
-                                          {currency.format(tx.amount)}
+                                          <span
+                                            aria-hidden="true"
+                                            className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}
+                                          >
+                                            ▸
+                                          </span>
+                                          {currency.format(row.netForThatDate)}
                                         </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      </button>
+                                      {isDayExpanded && (
+                                        <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
+                                          {dayTransactions.length === 0 ? (
+                                            <p className="text-[11px] text-zinc-400">
+                                              No transactions for this day.
+                                            </p>
+                                          ) : (
+                                            <div className="space-y-2 text-[11px] sm:text-xs">
+                                              {dayTransactions.map((tx) => (
+                                                <div
+                                                  key={tx.id}
+                                                  className="flex items-center justify-between"
+                                                >
+                                                  <span className="truncate pr-2" title={tx.description}>
+                                                    {tx.description}
+                                                  </span>
+                                                  <span
+                                                    className={`font-semibold ${
+                                                      tx.amount > 0
+                                                        ? "text-emerald-400"
+                                                        : tx.amount < 0
+                                                          ? "text-red-300"
+                                                          : "text-zinc-200"
+                                                    }`}
+                                                  >
+                                                    {currency.format(tx.amount)}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            )}
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1691,7 +2534,7 @@ export default function DemoPage() {
                     <div className="mt-3 space-y-2 text-sm">
                       {summaryStats.topSpendingCategories.map((item) => (
                         <div key={item.category} className="flex justify-between">
-                          <span className="text-zinc-400">{item.category}</span>
+                          <span className="text-zinc-400">{getDisplayCategory(item.category)}</span>
                           <span className="font-semibold text-white">
                             {currency.format(item.amount)}
                           </span>
@@ -1710,14 +2553,26 @@ export default function DemoPage() {
                       Money moved between your own accounts. Ignored for income and spending.
                     </p>
                   </div>
-                  <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900 px-4 py-5 text-center shadow-sm">
-                    <p className="text-sm font-semibold text-white">Coming soon</p>
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Another snapshot will live here in a later version.
+                  <button
+                    type="button"
+                    onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+                  >
+                    <div className="flex items-center gap-2">
+                      {duplicateClusters.length > 0 && <span aria-hidden="true">⚠️</span>}
+                      <p className="text-sm font-semibold text-white">Duplicate charges</p>
+                    </div>
+                    <p className="mt-2 text-xl font-semibold text-white">
+                      {duplicateClusters.length === 0
+                        ? "No suspected duplicate charges"
+                        : `${duplicateClusters.length} merchant${duplicateClusters.length === 1 ? "" : "s"} with possible duplicates`}
                     </p>
-                  </div>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Review potential duplicate charges and confirm or dismiss them.
+                    </p>
+                  </button>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
-                    <p className="text-sm font-semibold text-white">Left after bills</p>
+                    <p className="text-sm font-semibold text-white">Money left after bills</p>
                     <p className="mt-2 text-xl font-semibold text-white">
                       {currency.format(leftAfterBills)}
                     </p>
@@ -1761,14 +2616,14 @@ export default function DemoPage() {
                         >
                           <div className="flex justify-between">
                             <span className="font-medium text-white">
-                              {item.category}
+                              {getDisplayCategory(item.category)}
                             </span>
                             <span className="text-zinc-400">
                               {currency.format(item.actualAmount)}
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-zinc-400">
-                            {item.category} is about {actualPercent.toFixed(1)}% of this
+                            {getDisplayCategory(item.category)} is about {actualPercent.toFixed(1)}% of this
                             month&apos;s income. A common target is about{" "}
                             {targetPercent.toFixed(1)}% (about{" "}
                             {currency.format(item.recommendedAmount)} for your income).
@@ -1792,7 +2647,7 @@ export default function DemoPage() {
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-4 text-xs text-zinc-300">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-white">Needs vs wants</p>
-                      <InfoTip label={"Needs: rent, utilities, groceries, basic fees.\nWants: dining out, shopping, extras.\nSimple visual split only."} />
+                      <InfoTip label={"Needs: rent, utilities, groceries, basic fees.\nWants: dining out, shopping, extras."} />
                     </div>
                     <div className="mt-2 h-3 w-full overflow-hidden rounded-full border border-zinc-800 bg-zinc-900">
                       <div className="flex h-full w-full">
@@ -1806,9 +2661,27 @@ export default function DemoPage() {
                         />
                       </div>
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
                       <span>Essentials (needs) {essentialsPercent}%</span>
                       <span>Everything else (wants) {otherPercent}%</span>
+                    </div>
+                    <div className="mt-3 text-xs text-zinc-300">
+                      {netThisMonth > 0 ? (
+                        <>
+                          <p className="font-semibold text-white">
+                            Saved this month: {currency.format(netThisMonth)}
+                          </p>
+                          <p className="text-[11px] text-zinc-400">
+                            {Math.round((netThisMonth / Math.max(totalIncome, 1)) * 100)} percent of income
+                          </p>
+                        </>
+                      ) : netThisMonth === 0 ? (
+                        <p className="font-semibold text-white">No net savings this month</p>
+                      ) : (
+                        <p className="font-semibold text-white">
+                          Overspent by {currency.format(Math.abs(netThisMonth))} this month
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1838,18 +2711,92 @@ export default function DemoPage() {
                           ownershipModes[acc.id] ??
                           (ownership[acc.id] ? ("spending" as OwnershipMode) : "notMine");
                         const typeLabel = getAccountTypeLabel(acc);
+                        const isEditingAccount = editingAccountId === acc.id;
                         return (
                           <div
                             key={acc.id}
-                            className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 sm:flex-row sm:items-center sm:justify-between"
+                            className="group flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200"
                           >
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-[2px] text-[11px] font-semibold uppercase tracking-wide text-zinc-200">
-                                {typeLabel}
-                              </span>
-                              <span className="font-medium text-white">{displayLabel}</span>
+                            <div className="grid gap-2 sm:grid-cols-[120px,1fr] sm:items-center">
+                              <div className="flex items-center">
+                                {isEditingAccount ? (
+                                  <select
+                                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                                    value={editingAccountType}
+                                    onChange={(e) => setEditingAccountType(e.target.value)}
+                                  >
+                                    {accountTypeOptions.map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="w-[110px] rounded-full border border-zinc-700 bg-zinc-800 px-2 py-[2px] text-[11px] font-semibold uppercase tracking-wide text-zinc-200">
+                                    {typeLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {isEditingAccount ? (
+                                  <>
+                                    <input
+                                      type="text"
+                                      value={editingAccountName}
+                                      onChange={(e) => setEditingAccountName(e.target.value)}
+                                      className="min-w-[200px] flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEditedAccount(acc)}
+                                      className="rounded-full border border-emerald-400 bg-emerald-900/40 px-3 py-1 text-[11px] font-semibold text-emerald-100 transition hover:border-emerald-300 hover:bg-emerald-900"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAccount(acc)}
+                                      className="rounded-full border border-rose-400 bg-rose-900/30 px-3 py-1 text-[11px] font-semibold text-rose-100 transition hover:border-rose-300 hover:bg-rose-900/50"
+                                    >
+                                      Delete
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={resetEditingAccount}
+                                      className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-white">{displayLabel}</span>
+                                    <button
+                                      type="button"
+                                      aria-label={`Edit ${displayLabel}`}
+                                      onClick={() => startEditingAccount(acc)}
+                                      className="opacity-0 transition focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 group-hover:opacity-100"
+                                    >
+                                      <svg
+                                        className="h-4 w-4 text-zinc-400"
+                                        viewBox="0 0 16 16"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          d="M3.5 10.5 10 4l2 2-6.5 6.5H3.5v-2z"
+                                          stroke="currentColor"
+                                          strokeWidth="1.4"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 sm:pl-[120px]">
                               <button
                                 type="button"
                                 aria-pressed={mode === "spending"}
@@ -1860,7 +2807,7 @@ export default function DemoPage() {
                                     : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"
                                 }`}
                               >
-                                Spending account
+                                Personal money
                               </button>
                               <button
                                 type="button"
@@ -1872,7 +2819,7 @@ export default function DemoPage() {
                                     : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"
                                 }`}
                               >
-                                Payment account
+                                Bills and debt
                               </button>
                               <button
                                 type="button"
@@ -1902,6 +2849,28 @@ export default function DemoPage() {
                     </div>
                     {isAddingAccount && (
                       <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-4 text-left text-sm text-zinc-200">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingAccount(false);
+                              setAddAccountName("");
+                              setAddBaseTransactionId("");
+                              setSelectedAccountTxIds(new Set());
+                            }}
+                            className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
+                          >
+                            Cancel add account
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveNewAccount}
+                            className="rounded-full border border-emerald-400 bg-emerald-900/50 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:border-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={!addAccountName.trim() || selectedAccountTxIds.size === 0}
+                          >
+                            Save account
+                          </button>
+                        </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <label className="text-xs text-zinc-400">
                             Representative transaction
@@ -2008,6 +2977,166 @@ export default function DemoPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {showDuplicateOverlay && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-3 py-6">
+          <div
+            ref={duplicateOverlayRef}
+            tabIndex={-1}
+            className="relative w-full max-w-5xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl focus:outline-none"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-4 sm:px-5">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Possible duplicate charges</h3>
+                <p className="text-sm text-zinc-400">
+                  {duplicateClusters.length === 0
+                    ? "No suspected duplicates in this range."
+                    : `${activeDuplicateIds.size} suspicious charge${activeDuplicateIds.size === 1 ? "" : "s"} across ${duplicateClusters.length} merchant${duplicateClusters.length === 1 ? "" : "s"}.`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                  onClick={handleCloseDuplicateOverlay}
+                  data-autofocus
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-5">
+              {duplicateClusters.length === 0 ? (
+                <p className="text-sm text-zinc-400">
+                  We did not find any suspected duplicates for this statement.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {duplicateClusters.map((cluster) => {
+                    const isExpanded = expandedDuplicateClusters.has(cluster.key);
+                    const flaggedSet = cluster.flaggedIds;
+                    return (
+                      <div
+                        key={cluster.key}
+                        className="rounded-xl border border-zinc-800 bg-zinc-900/70"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleDuplicateCluster(cluster.key)}
+                          className="flex w-full items-center justify-between rounded-t-xl px-4 py-3 text-left transition hover:bg-zinc-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-white">
+                              {cluster.label}
+                              {cluster.category ? (
+                                <span className="text-zinc-400">{` · ${cluster.category}`}</span>
+                              ) : null}
+                            </p>
+                            <p className="text-[11px] text-zinc-400">
+                              {cluster.suspiciousTransactions.length} suspicious charge
+                              {cluster.suspiciousTransactions.length === 1 ? "" : "s"} ·{" "}
+                              {currency.format(cluster.suspiciousTotal)}
+                            </p>
+                          </div>
+                          <svg
+                            className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M6 3.75 11 8l-5 4.25"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        {isExpanded && (
+                          <div className="overflow-x-auto border-t border-zinc-800">
+                            <div className="min-w-[560px] divide-y divide-zinc-800">
+                              <div className="grid grid-cols-5 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                                <span>Date</span>
+                                <span>Description</span>
+                                <span className="text-right">Amount</span>
+                                <span className="text-right">Category</span>
+                                <span className="text-right">Actions</span>
+                              </div>
+                              {cluster.allTransactions.map((tx) => {
+                                const decision = duplicateDecisions[tx.id];
+                                const isFlagged = flaggedSet.has(tx.id);
+                                const showActions = isFlagged && decision !== "dismissed";
+                                return (
+                                  <div
+                                    key={tx.id}
+                                    className="grid grid-cols-5 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
+                                  >
+                                    <span className="text-zinc-300">
+                                      {dateFormatter.format(new Date(tx.date))}
+                                    </span>
+                                    <span className="truncate pr-2" title={tx.description}>
+                                      {tx.description}
+                                    </span>
+                                    <span
+                                      className={`text-right font-semibold ${
+                                        tx.amount > 0
+                                          ? "text-emerald-400"
+                                          : tx.amount < 0
+                                            ? "text-red-300"
+                                            : "text-zinc-200"
+                                      }`}
+                                    >
+                                      {currency.format(tx.amount)}
+                                    </span>
+                                    <span className="text-right text-zinc-400">
+                                      {tx.category}
+                                    </span>
+                                    <div className="flex justify-end gap-2 text-[11px] text-zinc-400">
+                                      {showActions ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="rounded-full border border-amber-300/50 px-2 py-[3px] font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-900/50"
+                                            onClick={() => handleConfirmDuplicate(tx.id)}
+                                          >
+                                            Confirm problem
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="rounded-full border border-zinc-700 px-2 py-[3px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+                                            onClick={() => handleDismissDuplicate(tx.id)}
+                                          >
+                                            Dismiss
+                                          </button>
+                                        </>
+                                      ) : isFlagged && decision === "dismissed" ? (
+                                        <span className="rounded-full border border-zinc-700 px-2 py-[3px] text-[10px] font-semibold text-zinc-300">
+                                          Dismissed
+                                        </span>
+                                      ) : isFlagged && decision === "confirmed" ? (
+                                        <span className="rounded-full border border-amber-400/50 bg-amber-900/40 px-2 py-[2px] text-[10px] font-semibold text-amber-100">
+                                          Marked as problem
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-zinc-500">Normal</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

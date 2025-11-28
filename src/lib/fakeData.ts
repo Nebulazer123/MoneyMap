@@ -210,6 +210,17 @@ const PHARMACY_MERCHANTS = ["CVS Pharmacy", "Walgreens", "Walmart Pharmacy", "Co
 const UTILITY_PROVIDERS = ["City Utilities", "Metro Energy", "Water & Power Co.", "Regional Electric", "Green Energy Services"];
 
 const CAR_LENDERS = ["Ally Auto", "Capital One Auto", "Honda Finance", "Chase Auto", "Toyota Financial"];
+export const categoryEmojis: Record<string, string> = {
+  Rent: "🏠",
+  Groceries: "🛒",
+  Dining: "🍽",
+  Transport: "🚌",
+  Subscriptions: "📺",
+  Utilities: "💡",
+  "Bills & services": "🧾",
+  Fees: "💸",
+  Other: "🧾",
+};
 
 export const transactions: Transaction[] = [
   {
@@ -1010,29 +1021,50 @@ const median = (values: number[]): number => {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 };
 
-export function getRecurringDuplicateIds(
-  fullList: Transaction[],
-  viewList: Transaction[],
-): Set<string> {
+export const DUPLICATE_MIN_OCCURRENCES = 3;
+export const DUPLICATE_INTERVAL_FACTOR = 0.6;
+export const DUPLICATE_FAST_INTERVAL_FACTOR = 0.35;
+export const DUPLICATE_AMOUNT_FACTOR = 0.3;
+
+export type DuplicateCluster = {
+  key: string;
+  label: string;
+  category: string;
+  transactionIds: string[];
+  suspiciousTransactionIds: string[];
+  transactions: Transaction[];
+  medianIntervalDays: number;
+  medianAmount: number;
+  lastNormalDate: string | null;
+  lastNormalChargeDate: string | null;
+};
+
+export function analyzeDuplicateCharges(transactions: Transaction[]): {
+  flaggedTransactionIds: Set<string>;
+  clusters: DuplicateCluster[];
+} {
   const grouped = new Map<string, Transaction[]>();
 
-  fullList.forEach((t) => {
+  transactions.forEach((t) => {
     if (!isRecurringCandidate(t)) return;
-    const key = normalizeRecurringLabel(t.description);
-    if (!key) return;
+    const normalized = normalizeRecurringLabel(t.description);
+    if (!normalized) return;
+    const key = `${normalized}::${t.category.toLowerCase()}`;
     const list = grouped.get(key) ?? [];
     list.push(t);
     grouped.set(key, list);
   });
 
-  const flagged = new Set<string>();
+  const flaggedIds = new Set<string>();
+  const clusters: DuplicateCluster[] = [];
 
-  grouped.forEach((txs) => {
-    if (txs.length < 3) return;
+  grouped.forEach((txs, key) => {
+    if (txs.length < DUPLICATE_MIN_OCCURRENCES) return;
     const sorted = [...txs].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
     const intervals: number[] = [];
+    const absAmounts = sorted.map((t) => Math.abs(t.amount));
     for (let i = 1; i < sorted.length; i += 1) {
       const prev = new Date(sorted[i - 1].date).getTime();
       const curr = new Date(sorted[i].date).getTime();
@@ -1041,22 +1073,64 @@ export function getRecurringDuplicateIds(
     }
     if (intervals.length === 0) return;
     const medianInterval = median(intervals);
+    const medianAmount = median(absAmounts);
     if (medianInterval === 0) return;
-    const threshold = medianInterval * 0.6;
+
+    const fastThreshold = medianInterval * DUPLICATE_INTERVAL_FACTOR;
+    const veryFastThreshold = medianInterval * DUPLICATE_FAST_INTERVAL_FACTOR;
+    const amountThreshold = medianAmount * DUPLICATE_AMOUNT_FACTOR;
+    const clusterFlagged = new Set<string>();
 
     for (let i = 1; i < sorted.length; i += 1) {
-      const prev = new Date(sorted[i - 1].date).getTime();
-      const curr = new Date(sorted[i].date).getTime();
-      const diffDays = Math.abs(curr - prev) / (1000 * 60 * 60 * 24);
-      if (diffDays < threshold) {
-        flagged.add(sorted[i].id);
-        flagged.add(sorted[i - 1].id);
+      const prev = sorted[i - 1];
+      const curr = sorted[i];
+      const prevTs = new Date(prev.date).getTime();
+      const currTs = new Date(curr.date).getTime();
+      const diffDays = Math.abs(currTs - prevTs) / (1000 * 60 * 60 * 24);
+      const currAbs = Math.abs(curr.amount);
+      const prevAbs = Math.abs(prev.amount);
+      const isFast = diffDays < fastThreshold;
+      const isVeryFast = diffDays < veryFastThreshold;
+      const isAmountOutlier = Math.abs(currAbs - medianAmount) > amountThreshold;
+      const isSameAmount = Math.abs(currAbs - prevAbs) < 0.01;
+      const isFlagged = isFast || isAmountOutlier || (isSameAmount && isVeryFast);
+      if (isFlagged) {
+        clusterFlagged.add(curr.id);
+        clusterFlagged.add(prev.id);
       }
     }
+
+    if (clusterFlagged.size === 0) return;
+    clusterFlagged.forEach((id) => flaggedIds.add(id));
+
+    const normalTransactions = sorted.filter((t) => !clusterFlagged.has(t.id));
+    const lastNormalDate =
+      normalTransactions.length > 0 ? normalTransactions[normalTransactions.length - 1].date : null;
+    const representative = sorted[0];
+    clusters.push({
+      key,
+      label: representative ? representative.description : key.split("::")[0],
+      category: representative?.category ?? "",
+      transactionIds: sorted.map((t) => t.id),
+      suspiciousTransactionIds: sorted.filter((t) => clusterFlagged.has(t.id)).map((t) => t.id),
+      transactions: sorted,
+      medianIntervalDays: medianInterval,
+      medianAmount,
+      lastNormalDate,
+      lastNormalChargeDate: lastNormalDate,
+    });
   });
 
+  return { flaggedTransactionIds: flaggedIds, clusters };
+}
+
+export function getRecurringDuplicateIds(
+  fullList: Transaction[],
+  viewList: Transaction[],
+): Set<string> {
+  const analysis = analyzeDuplicateCharges(fullList);
   const viewIds = new Set(viewList.map((t) => t.id));
-  return new Set([...flagged].filter((id) => viewIds.has(id)));
+  return new Set([...analysis.flaggedTransactionIds].filter((id) => viewIds.has(id)));
 }
 
 export function getCashFlowByDate(
