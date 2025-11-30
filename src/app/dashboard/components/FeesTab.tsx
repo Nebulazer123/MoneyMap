@@ -18,7 +18,7 @@ export function FeesTab({ currency, dateFormatter, feeRows, totalFees }: Props) 
 
       <GlassPanel
         variant="card"
-        className="mt-4 px-4 py-3 text-sm text-zinc-300 transition transform hover:-translate-y-0.5 hover:ring-emerald-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
+        className="mt-4 px-4 py-3 text-sm text-zinc-300 transition transform hover:-translate-y-0.5 hover:ring-purple-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
         tabIndex={0}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">

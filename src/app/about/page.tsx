@@ -33,7 +33,7 @@ export default function AboutPage() {
     <main className="text-white">
       <div className="mx-auto max-w-6xl space-y-8 px-4 pb-16 pt-10 sm:space-y-10 sm:px-6 lg:px-8 lg:pt-14">
         <GlassPanel variant="hero">
-          <div className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+          <div className="inline-flex items-center rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-200">
             Phase one demo
           </div>
           <div className="mt-4 space-y-3">
@@ -49,34 +49,34 @@ export default function AboutPage() {
           <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Who this is for</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>People who stare at their bank app and feel slightly lost.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Students learning how cash flow really behaves.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Early stage founders or hiring managers testing a finance UX concept.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>People who stare at their bank app and feel slightly lost.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Students learning how cash flow really behaves.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Early stage founders or hiring managers testing a finance UX concept.</span></li>
             </ul>
           </GlassPanel>
           <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">What MoneyMap does in phase one</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Generates messy synthetic statements.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Labels income, spending, subscriptions, fees, and transfers.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Turns the mess into simple summaries and charts.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Generates messy synthetic statements.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Labels income, spending, subscriptions, fees, and transfers.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Turns the mess into simple summaries and charts.</span></li>
             </ul>
           </GlassPanel>
           <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">What it does not do yet</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Does not connect to banks or credit cards.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Does not store uploads or account credentials.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Is not accounting software and does not pretend to be.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Does not connect to banks or credit cards.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Does not store uploads or account credentials.</span></li>
+              <li className="flex gap-2"><span className="text-purple-300">•</span><span>Is not accounting software and does not pretend to be.</span></li>
             </ul>
           </GlassPanel>
         </section>
@@ -84,7 +84,7 @@ export default function AboutPage() {
         <GlassPanel className="space-y-4 p-6">
           <div className="group inline-flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
             <span>How MoneyMap reads a month.</span>
-            <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+            <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <GlassPanel variant="card" className="p-4 backdrop-blur-xl">
@@ -106,7 +106,7 @@ export default function AboutPage() {
           <GlassPanel variant="card" className="p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Vision</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <p className="mt-3 text-sm text-zinc-300">
               Long term, MoneyMap should accept real statements locally in the browser, label them clearly, and give calm suggestions instead of panic. The tool should feel like a coach that explains your month, not a bank that sells you products.
@@ -115,7 +115,7 @@ export default function AboutPage() {
           <GlassPanel variant="card" className="p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Privacy and data</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <p className="mt-3 text-sm text-zinc-300">
               This demo only uses fake data and never uploads anything. Future phases should still keep analysis local when possible and always ask for explicit consent before storing or sharing anything.
@@ -124,7 +124,7 @@ export default function AboutPage() {
           <GlassPanel variant="card" className="p-5 lg:col-span-3">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">For employers and reviewers</h3>
-              <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+              <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
             </div>
             <p className="mt-3 text-sm text-zinc-300">
               This is a personal side project to practice interface design, data modeling, and clear language around money. You can treat this repo and demo as a portfolio sample rather than a finished product.
@@ -135,7 +135,7 @@ export default function AboutPage() {
         <GlassPanel className="p-5">
           <div className="group inline-flex flex-col gap-2">
             <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-500">Contact</h3>
-            <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+            <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
           </div>
           <p className="mt-2 text-sm text-zinc-300">
             For now, imagine a contact email such as support@moneymapdemo.com. In reality, the best way to reach me is through the details in the project readme.
@@ -145,7 +145,7 @@ export default function AboutPage() {
         <GlassPanel className="space-y-4 p-6">
           <div className="group inline-flex flex-col gap-2">
             <h2 className="text-2xl font-semibold text-white">Roadmap</h2>
-            <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+            <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
           </div>
           <div className="space-y-3">
             {[
@@ -169,10 +169,10 @@ export default function AboutPage() {
                 key={item.label}
                 variant="card"
                 className={`relative p-4 pl-5 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 ${
-                  item.variant === "primary" ? "ring-emerald-300/30" : ""
+                  item.variant === "primary" ? "ring-purple-300/30" : ""
                 }`}
               >
-                <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500/70" aria-hidden="true" />
+                <span className="absolute left-0 top-0 h-full w-1 bg-purple-500/70" aria-hidden="true" />
                 <p className="text-sm font-semibold text-white">{item.label}</p>
                 <p className="mt-2 text-sm text-zinc-300">{item.body}</p>
               </GlassPanel>
@@ -183,7 +183,7 @@ export default function AboutPage() {
         <GlassPanel className="space-y-4 p-6">
           <div className="group inline-flex flex-col gap-2">
             <h2 className="text-2xl font-semibold text-white">FAQ</h2>
-            <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
+            <div className="h-px w-10 bg-purple-500/60 transition-all group-hover:w-16" />
           </div>
           <div className="space-y-3">
             {faqItems.map((item, index) => {
@@ -198,7 +198,7 @@ export default function AboutPage() {
                     type="button"
                     onClick={() => toggleItem(index)}
                     aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-white transition duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:px-6"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-white transition duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:px-6"
                   >
                     <span>{item.question}</span>
                     <span

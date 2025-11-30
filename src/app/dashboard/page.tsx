@@ -234,26 +234,61 @@ export default function DemoPage() {
           label: "Income this period",
           value: formatValue(totalIncome),
           subtext: formatSubtext("Money in after taxes"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          ),
+          color: "text-emerald-400",
+          borderColor: "border-l-emerald-500/40",
         },
         {
           label: "Spending this period",
           value: formatValue(totalSpending),
           subtext: formatSubtext("Out the door on everything"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          ),
+          color: "text-rose-400",
+          borderColor: "border-l-rose-500/40",
         },
         {
           label: "Net cash flow",
           value: formatValue(netThisMonth),
           subtext: formatSubtext("What is left after the dust settles"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+          ),
+          color: netThisMonth >= 0 ? "text-emerald-400" : "text-rose-400",
+          borderColor: netThisMonth >= 0 ? "border-l-emerald-500/40" : "border-l-rose-500/40",
         },
         {
           label: "Subscriptions and bills",
           value: formatValue(totalSubscriptions),
           subtext: formatSubtext("Auto charges that hit every month"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ),
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
         },
         {
           label: "Fees and charges",
           value: formatValue(totalFees),
           subtext: formatSubtext("Bank and card fees for this range"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ),
+          color: "text-amber-400",
+          borderColor: "border-l-amber-500/40",
         },
       ];
     },
@@ -368,12 +403,19 @@ export default function DemoPage() {
               key={tile.label}
               variant="card"
               tabIndex={0}
-              className="h-full transform transition hover:-translate-y-0.5 hover:border-white/30 focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+              className={`h-full transform transition border-l-4 ${tile.borderColor} hover:-translate-y-0.5 hover:border-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900`}
             >
-              <div className="flex h-full flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-100/70">{tile.label}</p>
-                <p className="text-xl font-semibold text-white sm:text-2xl">{tile.value}</p>
-                <p className="text-[11px] text-zinc-300/80">{tile.subtext}</p>
+              <div className="flex h-full flex-col gap-3">
+                <div className="flex items-start justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-purple-100/70">{tile.label}</p>
+                  <div className={`flex-shrink-0 transition-transform duration-300 ${tile.color}`}>
+                    {tile.icon}
+                  </div>
+                </div>
+                <div>
+                  <p className={`text-xl font-semibold sm:text-2xl ${tile.color}`}>{tile.value}</p>
+                  <p className="text-[11px] text-zinc-400 mt-1">{tile.subtext}</p>
+                </div>
               </div>
             </GlassPanel>
           ))}

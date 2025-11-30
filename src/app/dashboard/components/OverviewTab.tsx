@@ -152,7 +152,7 @@ export function OverviewTab({
                       onSelectGroup(item.id);
                     }
                   }}
-                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
                     isActive
                       ? "border-zinc-500 bg-zinc-800"
                       : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
@@ -211,8 +211,8 @@ export function OverviewTab({
                 onSelectGroup(card.groupId);
               }
             }}
-            className={`w-full px-4 py-3 text-left transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
-              activeGroupId === card.groupId ? "ring-emerald-300/30" : "hover:ring-white/14"
+            className={`w-full px-4 py-3 text-left transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+              activeGroupId === card.groupId ? "ring-purple-300/30" : "hover:ring-white/14"
             }`}
           >
             <p className="flex items-center gap-2 text-sm text-zinc-400">

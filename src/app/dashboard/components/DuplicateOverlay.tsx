@@ -40,7 +40,7 @@ export function DuplicateOverlay({
           <h3 className="text-lg font-semibold text-white">Possible duplicate charges</h3>
           <button
             type="button"
-            className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             onClick={handleCloseDuplicateOverlay}
           >
             Close
@@ -58,7 +58,7 @@ export function DuplicateOverlay({
                   <button
                     type="button"
                     onClick={() => toggleDuplicateCluster(cluster.key)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   >
                     <span>{cluster.label}</span>
                     <span className="text-xs text-zinc-400">

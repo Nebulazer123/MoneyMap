@@ -47,7 +47,7 @@ export function RecurringTab({
         <button
           type="button"
           onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
-          className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] font-semibold text-white transition transform hover:-translate-y-0.5 hover:border-emerald-400/70 hover:bg-zinc-800 hover:shadow-lg hover:shadow-emerald-500/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] font-semibold text-white transition transform hover:-translate-y-0.5 hover:border-purple-400/70 hover:bg-zinc-800 hover:shadow-lg hover:shadow-purple-500/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           Show possible duplicates
         </button>

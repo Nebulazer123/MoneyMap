@@ -73,7 +73,7 @@ export function CashflowTab({
               <GlassPanel
                 key={month.key}
                 variant="card"
-                className="overflow-hidden p-0 transition transform hover:-translate-y-0.5 hover:ring-white/14 focus-within:ring-2 focus-within:ring-emerald-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
+                className="overflow-hidden p-0 transition transform hover:-translate-y-0.5 hover:ring-white/14 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-within:ring-2 focus-within:ring-purple-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
               >
                 <div
                   role="button"
@@ -115,7 +115,7 @@ export function CashflowTab({
                 {isExpanded && (
                   <div className="overflow-x-auto border-t border-zinc-800">
                     <div className="min-w-[520px]">
-                      <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                      <div className="grid grid-cols-4 bg-gradient-to-r from-purple-500/10 to-transparent px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.1em] text-purple-200 sm:px-4 sm:text-sm border-b border-purple-500/20">
                         <span>Date</span>
                         <span className="text-right">Inflow</span>
                         <span className="text-right">Outflow</span>
@@ -145,12 +145,12 @@ export function CashflowTab({
                                     }));
                                   }
                                 }}
-                                className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
+                                className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition duration-200 hover:bg-zinc-800/60 sm:px-4"
                               >
                                 <span className="text-zinc-300">{dateFormatter.format(new Date(row.date))}</span>
-                                <span className="text-right font-medium">{currency.format(row.totalInflowForThatDate)}</span>
-                                <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
-                                <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
+                                <span className="text-right font-medium text-emerald-400">{currency.format(row.totalInflowForThatDate)}</span>
+                                <span className="text-right font-medium text-rose-400">{currency.format(row.totalOutflowForThatDate)}</span>
+                                <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                   <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
                                     {isDayExpanded ? "v" : ">"}
                                   </span>
@@ -191,7 +191,7 @@ export function CashflowTab({
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
           <div className="min-w-[520px]">
-            <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+            <div className="grid grid-cols-4 bg-gradient-to-r from-purple-500/10 to-transparent px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.1em] text-purple-200 sm:px-4 sm:text-sm border-b border-purple-500/20">
               <span>Date</span>
               <span className="text-right">Inflow</span>
               <span className="text-right">Outflow</span>
@@ -221,12 +221,12 @@ export function CashflowTab({
                           }));
                         }
                       }}
-                      className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
+                      className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition duration-200 hover:bg-zinc-800/60 sm:px-4"
                     >
                       <span className="text-zinc-300">{dateFormatter.format(new Date(row.date))}</span>
-                      <span className="text-right font-medium">{currency.format(row.totalInflowForThatDate)}</span>
-                      <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
-                      <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
+                      <span className="text-right font-medium text-emerald-400">{currency.format(row.totalInflowForThatDate)}</span>
+                      <span className="text-right font-medium text-rose-400">{currency.format(row.totalOutflowForThatDate)}</span>
+                      <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
                           {isDayExpanded ? "v" : ">"}
                         </span>
