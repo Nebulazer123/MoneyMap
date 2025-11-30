@@ -1032,7 +1032,7 @@ const median = (values: number[]): number => {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 };
 
-export const DUPLICATE_MIN_OCCURRENCES = 3;
+export const DUPLICATE_MIN_OCCURRENCES = 2;
 export const DUPLICATE_INTERVAL_FACTOR = 0.6;
 export const DUPLICATE_FAST_INTERVAL_FACTOR = 0.35;
 export const DUPLICATE_AMOUNT_FACTOR = 0.3;
@@ -1055,10 +1055,13 @@ export function analyzeDuplicateCharges(transactions: Transaction[]): {
   clusters: DuplicateCluster[];
 } {
   const grouped = new Map<string, Transaction[]>();
+  const normalizeLabel = (value: string) => normalizeRecurringLabel(value) ?? value.toLowerCase().replace(/\s+/g, " ").trim();
+  const DAY_MS = 1000 * 60 * 60 * 24;
+  const THIRTY_DAYS = 32 * DAY_MS;
 
   transactions.forEach((t) => {
     if (!isRecurringCandidate(t)) return;
-    const normalized = normalizeRecurringLabel(t.description);
+    const normalized = normalizeLabel(t.description);
     if (!normalized) return;
     const key = `${normalized}::${t.category.toLowerCase()}`;
     const list = grouped.get(key) ?? [];
@@ -1074,42 +1077,49 @@ export function analyzeDuplicateCharges(transactions: Transaction[]): {
     const sorted = [...txs].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
+
     const intervals: number[] = [];
-    const absAmounts = sorted.map((t) => Math.abs(t.amount));
     for (let i = 1; i < sorted.length; i += 1) {
       const prev = new Date(sorted[i - 1].date).getTime();
       const curr = new Date(sorted[i].date).getTime();
-      const diffDays = Math.abs(curr - prev) / (1000 * 60 * 60 * 24);
-      intervals.push(diffDays);
+      intervals.push(Math.abs(curr - prev) / DAY_MS);
     }
-    if (intervals.length === 0) return;
-    const medianInterval = median(intervals);
-    const medianAmount = median(absAmounts);
-    if (medianInterval === 0) return;
+    const medianInterval = intervals.length > 0 ? median(intervals) : 0;
+    const medianAmount = median(sorted.map((t) => Math.abs(t.amount)));
 
-    const fastThreshold = medianInterval * DUPLICATE_INTERVAL_FACTOR;
-    const veryFastThreshold = medianInterval * DUPLICATE_FAST_INTERVAL_FACTOR;
-    const amountThreshold = medianAmount * DUPLICATE_AMOUNT_FACTOR;
     const clusterFlagged = new Set<string>();
+    const lastByAmount = new Map<string, Transaction>();
+    const monthAmountBuckets = new Map<string, Transaction[]>();
 
-    for (let i = 1; i < sorted.length; i += 1) {
-      const prev = sorted[i - 1];
-      const curr = sorted[i];
-      const prevTs = new Date(prev.date).getTime();
-      const currTs = new Date(curr.date).getTime();
-      const diffDays = Math.abs(currTs - prevTs) / (1000 * 60 * 60 * 24);
-      const currAbs = Math.abs(curr.amount);
-      const prevAbs = Math.abs(prev.amount);
-      const isFast = diffDays < fastThreshold;
-      const isVeryFast = diffDays < veryFastThreshold;
-      const isAmountOutlier = Math.abs(currAbs - medianAmount) > amountThreshold;
-      const isSameAmount = Math.abs(currAbs - prevAbs) < 0.01;
-      const isFlagged = isFast || isAmountOutlier || (isSameAmount && isVeryFast);
-      if (isFlagged) {
-        clusterFlagged.add(curr.id);
-        clusterFlagged.add(prev.id);
+    sorted.forEach((tx) => {
+      const absAmount = Math.abs(tx.amount);
+      const amountKey = absAmount.toFixed(2);
+      const date = new Date(tx.date);
+      const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+      const monthAmountKey = `${monthKey}-${amountKey}`;
+
+      const list = monthAmountBuckets.get(monthAmountKey) ?? [];
+      list.push(tx);
+      monthAmountBuckets.set(monthAmountKey, list);
+
+      const prev = lastByAmount.get(amountKey);
+      if (prev) {
+        const prevTs = new Date(prev.date).getTime();
+        const currTs = new Date(tx.date).getTime();
+        const diff = Math.abs(currTs - prevTs);
+        if (diff <= THIRTY_DAYS) {
+          clusterFlagged.add(tx.id);
+          clusterFlagged.add(prev.id);
+        }
       }
-    }
+      lastByAmount.set(amountKey, tx);
+    });
+
+    monthAmountBuckets.forEach((list) => {
+      if (list.length > 1) {
+        list.forEach((tx) => clusterFlagged.add(tx.id));
+      }
+    });
 
     if (clusterFlagged.size === 0) return;
     clusterFlagged.forEach((id) => flaggedIds.add(id));

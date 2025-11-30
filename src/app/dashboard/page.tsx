@@ -29,6 +29,7 @@ import { FeesTab } from "./components/FeesTab";
 import { CashflowTab } from "./components/CashflowTab";
 import { StatementPanel } from "./components/StatementPanel";
 import { ReviewTab } from "./components/ReviewTab";
+import { DuplicateOverlay } from "./components/DuplicateOverlay";
 
 export default function DemoPage() {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
@@ -129,30 +130,6 @@ export default function DemoPage() {
   });
 
   const {
-    duplicateClusters,
-    activeDuplicateIds,
-    duplicateMetaById,
-    duplicateDecisions,
-    resetDuplicates,
-    showDuplicateOverlay,
-    handleOpenDuplicateOverlay,
-    handleCloseDuplicateOverlay,
-    expandedDuplicateClusters,
-    toggleDuplicateCluster,
-    handleDismissDuplicate,
-    handleConfirmDuplicate,
-    duplicateOverlayRef,
-  } = useDuplicates(fullStatementTransactions);
-
-  const handleRestartAll = useCallback(() => {
-    handleRestart();
-    resetDuplicates();
-    resetAccounts();
-  }, [handleRestart, resetAccounts, resetDuplicates]);
-
-  const { handleSwipeStart, handleSwipeMove, handleSwipeEnd } = useGestureTabs(activeTab, setActiveTab);
-
-  const {
     statementTransactionsSorted,
     statementMonths,
     showGroupedTable,
@@ -185,6 +162,31 @@ export default function DemoPage() {
     ownership,
     ownershipModes,
   });
+
+  const {
+    duplicateClusters,
+    activeDuplicateIds,
+    duplicateMetaById,
+    duplicateDecisions,
+    resetDuplicates,
+    showDuplicateOverlay,
+    handleOpenDuplicateOverlay,
+    handleCloseDuplicateOverlay,
+    expandedDuplicateClusters,
+    toggleDuplicateCluster,
+    handleDismissDuplicate,
+    handleConfirmDuplicate,
+    duplicateOverlayRef,
+  } = useDuplicates(recurringRows);
+
+  const handleRestartAll = useCallback(() => {
+    handleRestart();
+    resetDuplicates();
+    resetAccounts();
+  }, [handleRestart, resetAccounts, resetDuplicates]);
+
+  const { handleSwipeStart, handleSwipeMove, handleSwipeEnd } = useGestureTabs(activeTab, setActiveTab);
+
   const summaryStatsForReview = useMemo(
     () => ({
       totalIncome,
@@ -246,7 +248,8 @@ export default function DemoPage() {
   const overviewTransactions = activeSpendingGroupId
     ? groupedTransactionsByGroup.get(activeSpendingGroupId) ?? []
     : [];
-  const hasResults = flowStep === "results" && statementTransactions.length > 0;
+  const showResults = flowStep === "results";
+  const hasResults = showResults && statementTransactions.length > 0;
 
   const { totalInflowStatement, totalOutflowStatement, netStatement } = useMemo(() => {
     const totals = statementTransactions.reduce(
@@ -340,11 +343,11 @@ export default function DemoPage() {
         />
       )}
 
-      {flowStep === "results" && (
+      {showResults && (
         <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
       )}
 
-      {flowStep === "results" && activeTab === "overview" && (
+      {showResults && activeTab === "overview" && (
         <OverviewTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -357,7 +360,7 @@ export default function DemoPage() {
         />
       )}
 
-      {flowStep === "results" && activeTab === "recurring" && (
+      {showResults && activeTab === "recurring" && (
         <RecurringTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -372,11 +375,11 @@ export default function DemoPage() {
         />
       )}
 
-      {flowStep === "results" && activeTab === "fees" && (
+      {showResults && activeTab === "fees" && (
         <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
       )}
 
-      {flowStep === "results" && activeTab === "cashflow" && (
+      {showResults && activeTab === "cashflow" && (
         <CashflowTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -393,7 +396,7 @@ export default function DemoPage() {
         />
       )}
 
-      {flowStep === "results" && activeTab === "review" && (
+      {showResults && activeTab === "review" && (
         <ReviewTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -449,97 +452,18 @@ export default function DemoPage() {
       )}
 
       {showDuplicateOverlay && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-3 py-6">
-          <div
-            ref={duplicateOverlayRef}
-            tabIndex={-1}
-            className="w-full max-w-5xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
-          >
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-4 sm:px-5">
-              <h3 className="text-lg font-semibold text-white">Possible duplicate charges</h3>
-              <button
-                type="button"
-                className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-                onClick={handleCloseDuplicateOverlay}
-              >
-                Close
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-5 space-y-3 text-sm text-zinc-200">
-              {duplicateClusters.length === 0 ? (
-                <p className="text-zinc-400">No suspected duplicates for this statement.</p>
-              ) : (
-                duplicateClusters.map((cluster) => {
-                  const isExpanded = expandedDuplicateClusters.has(cluster.key);
-                  return (
-                    <div key={cluster.key} className="rounded-xl border border-zinc-800 bg-zinc-900/70">
-                      <button
-                        type="button"
-                        onClick={() => toggleDuplicateCluster(cluster.key)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition hover:bg-zinc-800/60"
-                      >
-                        <span>{cluster.label}</span>
-                        <span className="text-xs text-zinc-400">
-                          {cluster.suspiciousTransactions.length} suspicious · {currency.format(cluster.suspiciousTotal)}
-                        </span>
-                      </button>
-                      {isExpanded && (
-                        <div className="divide-y divide-zinc-800 text-xs text-zinc-200">
-                          {cluster.allTransactions.map((tx) => {
-                            const decision = duplicateDecisions[tx.id];
-                            const isFlagged = cluster.flaggedIds.has(tx.id);
-                            return (
-                              <div key={tx.id} className="grid grid-cols-5 items-center px-4 py-2">
-                                <span className="text-zinc-400">{dateFormatter.format(new Date(tx.date))}</span>
-                                <span className="truncate pr-2" title={tx.description}>
-                                  {tx.description}
-                                </span>
-                                <span
-                                  className={`text-right font-semibold ${
-                                    tx.amount > 0 ? "text-emerald-400" : tx.amount < 0 ? "text-red-300" : "text-zinc-200"
-                                  }`}
-                                >
-                                  {currency.format(tx.amount)}
-                                </span>
-                                <span className="text-right text-zinc-400">{tx.category}</span>
-                                <div className="flex justify-end gap-2">
-                                  {isFlagged && decision !== "dismissed" ? (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="rounded-full border border-amber-300/60 px-2 py-[3px] text-[10px] font-semibold text-amber-100"
-                                        onClick={() => handleConfirmDuplicate(tx.id)}
-                                      >
-                                        Confirm
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="rounded-full border border-zinc-700 px-2 py-[3px] text-[10px] font-semibold text-zinc-200"
-                                        onClick={() => handleDismissDuplicate(tx.id)}
-                                      >
-                                        Dismiss
-                                      </button>
-                                    </>
-                                  ) : decision === "dismissed" ? (
-                                    <span className="text-[10px] text-zinc-500">Dismissed</span>
-                                  ) : decision === "confirmed" ? (
-                                    <span className="text-[10px] text-amber-200">Marked</span>
-                                  ) : (
-                                    <span className="text-[10px] text-zinc-500">Normal</span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+        <DuplicateOverlay
+          duplicateClusters={duplicateClusters}
+          duplicateDecisions={duplicateDecisions}
+          expandedDuplicateClusters={expandedDuplicateClusters}
+          toggleDuplicateCluster={toggleDuplicateCluster}
+          handleCloseDuplicateOverlay={handleCloseDuplicateOverlay}
+          handleConfirmDuplicate={handleConfirmDuplicate}
+          handleDismissDuplicate={handleDismissDuplicate}
+          duplicateOverlayRef={duplicateOverlayRef}
+          currency={currency}
+          dateFormatter={dateFormatter}
+        />
       )}
 
       <div className="flex flex-wrap gap-2 text-xs text-zinc-400">

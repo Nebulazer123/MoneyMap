@@ -39,24 +39,7 @@ export const buildDuplicateClusters = (
     const allTransactions = cluster.transactions
       .map((tx) => transactions.find((fullTx) => fullTx.id === tx.id) ?? tx)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const baseline = modeAmount(allTransactions.map((tx) => Math.abs(tx.amount)));
-    const medianInterval = medianIntervalDays(allTransactions);
-    const flaggedIds = new Set<string>();
-    const amountTolerance = baseline > 0 ? baseline * 0.2 : 0;
-    allTransactions.forEach((tx, idx) => {
-      const amountDiff = Math.abs(Math.abs(tx.amount) - baseline);
-      const isAmountOutlier = baseline > 0 && amountDiff > amountTolerance;
-      const prev = allTransactions[idx - 1];
-      const isFast =
-        !!prev &&
-        medianInterval > 0 &&
-        Math.abs(new Date(tx.date).getTime() - new Date(prev.date).getTime()) /
-          (1000 * 60 * 60 * 24) <
-          medianInterval * 0.6;
-      if (isAmountOutlier || isFast) {
-        flaggedIds.add(tx.id);
-      }
-    });
+    const flaggedIds = new Set(cluster.suspiciousTransactionIds);
     const suspiciousTransactions = allTransactions
       .filter((tx) => flaggedIds.has(tx.id))
       .filter((tx) => duplicateDecisions[tx.id] !== "dismissed");
@@ -64,8 +47,13 @@ export const buildDuplicateClusters = (
       (sum, tx) => sum + Math.abs(tx.amount),
       0,
     );
+    const lastNormalCandidates = allTransactions.filter((tx) => !flaggedIds.has(tx.id));
     const lastNormalChargeDate =
-      allTransactions.length > 0 ? allTransactions[allTransactions.length - 1].date : null;
+      lastNormalCandidates.length > 0
+        ? lastNormalCandidates[lastNormalCandidates.length - 1].date
+        : allTransactions.length > 0
+          ? allTransactions[allTransactions.length - 1].date
+          : null;
     return {
       ...cluster,
       suspiciousTransactions,

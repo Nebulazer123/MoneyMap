@@ -61,6 +61,7 @@ export function RecurringTab({
                   : row.category;
               const duplicateDecision = duplicateDecisions[row.id];
               const isDuplicate = activeDuplicateIds.has(row.id);
+              const isSuspicious = isDuplicate && duplicateDecision !== "dismissed";
               const meta = duplicateMetaById.get(row.id);
               const lastCharged = meta?.lastNormalDate ?? row.date;
               return (
@@ -68,7 +69,7 @@ export function RecurringTab({
                   <div className="flex flex-col gap-1">
                     <span className="flex items-center gap-2 truncate" title={row.description}>
                       <span className="truncate">{row.description}</span>
-                      {isDuplicate && duplicateDecision !== "dismissed" && (
+                      {isSuspicious && (
                         <div className="group relative inline-flex items-center">
                           <span className="rounded-full border border-amber-300/50 bg-amber-900/30 px-2 py-[2px] text-[10px] font-medium text-amber-100">possible duplicate</span>
                           <div className="pointer-events-none absolute left-0 top-full z-10 mt-2 hidden w-max flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-[11px] text-zinc-200 shadow-lg group-hover:flex group-focus-within:flex">
@@ -92,7 +93,9 @@ export function RecurringTab({
                         </div>
                       )}
                     </span>
-                    <p className="text-[11px] text-zinc-500">Last charged on {dateFormatter.format(new Date(lastCharged))}</p>
+                    {isSuspicious && (
+                      <p className="text-[11px] text-zinc-500">Last charged on {dateFormatter.format(new Date(lastCharged))}</p>
+                    )}
                   </div>
                   <span className="text-zinc-400">{displayCategory}</span>
                   <span className="text-right font-medium">{currency.format(row.amount)}</span>

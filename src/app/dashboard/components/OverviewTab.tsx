@@ -27,13 +27,14 @@ const detailCardsConfig: DetailCardConfig[] = [
   { label: "Utilities", categories: ["Utilities"], groupId: "rent_utils", emoji: categoryEmojis.Utilities },
   { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
   { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
+  { label: "Bills and services", categories: ["Bills & services", "Bills"], groupId: "bills_services", emoji: categoryEmojis["Bills & services"] },
   { label: "Groceries", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
   { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
   { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
   { label: "Insurance", categories: ["Insurance"], groupId: "insurance", emoji: categoryEmojis.Insurance },
   { label: "Transfers", categories: ["Transfer"], groupId: "transfers", emoji: categoryEmojis.Transfer },
   { label: "Education", categories: ["Education"], groupId: "education", emoji: categoryEmojis.Education },
-  { label: "Other", categories: ["Other", "Loans", "Bills & services", "Bills"], groupId: "other_fees", emoji: categoryEmojis.Other },
+  { label: "Other", categories: ["Other", "Loans"], groupId: "other_fees", emoji: categoryEmojis.Other },
 ];
 
 export type OverviewTabProps = {
@@ -85,8 +86,13 @@ export function OverviewTab({
     const categories = new Set(getCategoriesForGroup(activeGroupId));
     if (categories.size === 0) return [];
     return overviewTransactions
-      .filter((tx) => categories.has(getTransactionDisplayCategory(tx)))
-      .sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
+      .map((tx) => ({ tx, displayCategory: getTransactionDisplayCategory(tx) }))
+      .filter(({ displayCategory }) => categories.has(displayCategory))
+      .sort(
+        (a, b) =>
+          Date.parse(`${a.tx.date}T00:00:00Z`) -
+          Date.parse(`${b.tx.date}T00:00:00Z`),
+      );
   }, [activeGroupId, overviewTransactions]);
 
   const transactionsEmptyState =
@@ -213,21 +219,28 @@ export function OverviewTab({
           </h3>
         </div>
         <div className="overflow-x-auto rounded-lg border border-zinc-800">
-          <div className="min-w-[520px]">
-            <div className="grid grid-cols-3 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+          <div className="min-w-[640px]">
+            <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
               <span>Date</span>
               <span>Description</span>
+              <span>Category</span>
               <span className="text-right">Amount</span>
             </div>
             {transactionsEmptyState ? (
               <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">{transactionsEmptyState}</div>
             ) : (
               <div className="divide-y divide-zinc-800">
-                {filteredTransactions.map((tx) => (
-                  <div key={tx.id} className="grid grid-cols-3 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm">
+                {filteredTransactions.map(({ tx, displayCategory }) => (
+                  <div
+                    key={tx.id}
+                    className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
+                  >
                     <span className="text-zinc-300">{dateFormatter.format(new Date(tx.date))}</span>
                     <span className="truncate" title={tx.description}>
                       {tx.description}
+                    </span>
+                    <span className="truncate text-zinc-400" title={displayCategory}>
+                      {displayCategory}
                     </span>
                     <span className="text-right font-medium">{currency.format(tx.amount)}</span>
                   </div>

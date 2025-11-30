@@ -102,6 +102,7 @@ export type OverviewGroupKey =
   | "auto"
   | "subscriptions"
   | "insurance"
+  | "bills_services"
   | "education"
   | "transfers"
   | "other_fees";
@@ -112,6 +113,7 @@ export const overviewGroupOrder: OverviewGroupKey[] = [
   "auto",
   "subscriptions",
   "insurance",
+  "bills_services",
   "education",
   "transfers",
   "other_fees",
@@ -151,6 +153,12 @@ export const overviewGroupMeta: Record<
     color: "#22c55e",
     emoji: categoryEmojis.Insurance,
   },
+  bills_services: {
+    label: "Bills and services",
+    categories: ["Bills & services", "Bills"],
+    color: "#38bdf8",
+    emoji: categoryEmojis["Bills & services"],
+  },
   education: {
     label: "Education",
     categories: ["Education"],
@@ -165,7 +173,7 @@ export const overviewGroupMeta: Record<
   },
   other_fees: {
     label: "Other including fees",
-    categories: ["Fees", "Other", "Loans", "Bills & services", "Bills"],
+    categories: ["Fees", "Other", "Loans"],
     color: "#a855f7",
     emoji: categoryEmojis.Other,
   },
