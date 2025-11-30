@@ -4,6 +4,7 @@ import type { Transaction } from "../../../lib/fakeData";
 import type { TabId } from "../../../lib/dashboard/config";
 import InfoTip from "./InfoTip";
 import { SectionHeader } from "./SectionHeader";
+import { GlassPanel } from "./GlassPanel";
 
 type CashflowRow = {
   date: string;
@@ -48,7 +49,7 @@ export function CashflowTab({
   setExpandedCashflowDates,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise">
+    <GlassPanel variant="card" className="px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise backdrop-blur-xl sm:backdrop-blur-2xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeader title="Cashflow" caption="Income and spending over the month." />
         <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
@@ -68,9 +69,10 @@ export function CashflowTab({
                 return next;
               });
             return (
-              <div
+              <GlassPanel
                 key={month.key}
-                className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus-within:ring-2 focus-within:ring-emerald-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900"
+                variant="card"
+                className="overflow-hidden p-0 transition transform hover:-translate-y-0.5 hover:ring-white/14 focus-within:ring-2 focus-within:ring-emerald-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
               >
                 <div
                   role="button"
@@ -149,17 +151,17 @@ export function CashflowTab({
                                 <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
                                   <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
                                     {isDayExpanded ? "▾" : "▸"}
-                                  </span>
-                                  {currency.format(row.netForThatDate)}
-                                </span>
-                              </button>
-                              {isDayExpanded && (
-                                <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
-                                  {dayTransactions.length === 0 ? (
-                                    <p className="text-[11px] text-zinc-400">No transactions for this day.</p>
-                                  ) : (
-                                    <div className="space-y-2 text-[11px] sm:text-xs">
-                                      {dayTransactions.map((tx) => (
+                              </span>
+                              {currency.format(row.netForThatDate)}
+                            </span>
+                          </button>
+                          {isDayExpanded && (
+                            <div className="border-t border-white/10 bg-zinc-950/70 px-4 py-3 text-zinc-200">
+                              {dayTransactions.length === 0 ? (
+                                <p className="text-[11px] text-zinc-400">No transactions for this day.</p>
+                              ) : (
+                                <div className="space-y-2 text-[11px] sm:text-xs">
+                                  {dayTransactions.map((tx) => (
                                         <div key={tx.id} className="flex items-center justify-between">
                                           <span className="truncate pr-2" title={tx.description}>
                                             {tx.description}
@@ -255,6 +257,6 @@ export function CashflowTab({
           </div>
         </div>
       )}
-    </div>
+    </GlassPanel>
   );
 }
