@@ -210,6 +210,18 @@ export default function DemoPage() {
     [totalIncome, totalSpending, netThisMonth, subscriptionRows.length, totalSubscriptions, totalFees],
   );
 
+  const summaryStatsForReview = useMemo(
+    () => ({
+      totalIncome,
+      totalSpending,
+      net: netThisMonth,
+      subscriptionCount: subscriptionRows.length,
+      totalSubscriptions,
+      totalFees,
+    }),
+    [totalIncome, totalSpending, netThisMonth, subscriptionRows.length, totalSubscriptions, totalFees],
+  );
+
   const {
     expandedMonths,
     setExpandedMonths,

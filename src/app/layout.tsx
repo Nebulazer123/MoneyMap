@@ -21,6 +21,8 @@ export default function RootLayout({
         >
           <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.035),transparent_55%)]" />
+          <div className="absolute left-1/5 top-[-10%] h-96 w-96 rounded-full bg-emerald-500/16 blur-[140px]" />
+          <div className="absolute bottom-[-15%] right-0 h-[28rem] w-[28rem] rounded-full bg-cyan-500/14 blur-[170px]" />
         </div>
         <div className="relative z-10 flex min-h-screen flex-col">
           <NavBar />
