@@ -1,8 +1,7 @@
 "use client"
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
-  generateSampleStatement,
   getNetThisMonth,
   getTotalFees,
   getTotalIncome,
@@ -13,7 +12,6 @@ import {
   getCashFlowByDate,
   getSummaryStats,
   getBudgetGuidance,
-  transactions,
   Transaction,
   BudgetGuidanceItem,
   OwnershipMap,
@@ -29,8 +27,6 @@ import {
   categoryEmojis,
   categoryOptions,
   internetGuideline,
-  LEGACY_STORAGE_MONTH_KEY,
-  LEGACY_STORAGE_YEAR_KEY,
   months,
   overviewGroupMeta,
   STORAGE_ACCOUNT_OVERRIDES_KEY,
@@ -38,13 +34,9 @@ import {
   STORAGE_DUPLICATE_DECISIONS_KEY,
   STORAGE_FLOW_KEY,
   STORAGE_HIDDEN_ACCOUNTS_KEY,
-  STORAGE_MONTH_FROM_KEY,
-  STORAGE_MONTH_TO_KEY,
   STORAGE_OWNERSHIP_MODES_KEY,
   STORAGE_STATEMENT_KEY,
   STORAGE_TAB_KEY,
-  STORAGE_YEAR_FROM_KEY,
-  STORAGE_YEAR_TO_KEY,
   tabs,
   transportGuideline,
 } from "../../lib/dashboard/config";
@@ -54,6 +46,8 @@ import AddTransactionRow from "./components/AddTransactionRow";
 import InfoTip from "./components/InfoTip";
 import { useDuplicates } from "./hooks/useDuplicates";
 import { useExpansionState } from "./hooks/useExpansionState";
+import { useDateRange } from "./hooks/useDateRange";
+import { useStatementFlow } from "./hooks/useStatementFlow";
 import { useGestureTabs } from "./hooks/useGestureTabs";
 import { currency, dateFormatter } from "./utils/format";
 const createDefaultOwnershipModes = (accounts: TransferAccount[]) => {
@@ -99,16 +93,11 @@ const loadCustomAccounts = (): TransferAccount[] => {
   return [];
 };
 export default function DemoPage() {
-  const [flowStep, setFlowStep] = useState<"idle" | "statement" | "analyzing" | "results">("idle");
-  const [fullStatementTransactions, setFullStatementTransactions] = useState<Transaction[]>([]);
-  const [showStatement, setShowStatement] = useState(true);
-  const analyzeTimeoutRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [activeOverviewCategory, setActiveOverviewCategory] =
     useState<string>("Rent");
   const [activeSpendingGroup, setActiveSpendingGroup] =
     useState<OverviewGroupKey | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const inferAccountTypeFromLabel = (label: string) => {
     const lower = label.toLowerCase();
     if (/(checking)/.test(lower)) return "Checking";
@@ -153,35 +142,59 @@ export default function DemoPage() {
         accountType: item.accountType,
       }));
   }, []);
-  const getDefaultThreeMonthRange = useCallback(() => {
-    const now = new Date();
-    const currentMonth = now.getUTCMonth();
-    const currentYear = now.getUTCFullYear();
-    const endDate = new Date(Date.UTC(currentYear, currentMonth, 1));
-    endDate.setUTCMonth(endDate.getUTCMonth() - 1);
-    const toMonth = endDate.getUTCMonth();
-    const toYear = endDate.getUTCFullYear();
-    const startDate = new Date(Date.UTC(toYear, toMonth, 1));
-    startDate.setUTCMonth(startDate.getUTCMonth() - 2);
-    return {
-      fromMonth: startDate.getUTCMonth(),
-      fromYear: startDate.getUTCFullYear(),
-      toMonth,
-      toYear,
-    };
+  const {
+    selectedMonthFrom,
+    setSelectedMonthFrom,
+    selectedYearFrom,
+    setSelectedYearFrom,
+    selectedMonthTo,
+    setSelectedMonthTo,
+    selectedYearTo,
+    setSelectedYearTo,
+    normalizedRange,
+    rangeStartDateString,
+    rangeEndDateString,
+    yearOptions,
+    defaultRange,
+    hasTouchedRangeRef,
+  } = useDateRange();
+  const resetTab = useCallback(() => {
+    setActiveTab("overview");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_TAB_KEY, "overview");
+    }
   }, []);
-  const defaultRange = useMemo(() => getDefaultThreeMonthRange(), [getDefaultThreeMonthRange]);
-  const baseSampleDate = useMemo(
-    () => new Date(transactions[0]?.date ?? new Date()),
-    [],
-  );
-  const lastGeneratedRangeRef = useRef<string | null>(null);
-  const hasTouchedRangeRef = useRef(false);
-  const hydratedFromStorageRef = useRef(false);
-  const [selectedMonthFrom, setSelectedMonthFrom] = useState<number>(defaultRange.fromMonth);
-  const [selectedYearFrom, setSelectedYearFrom] = useState<number>(defaultRange.fromYear);
-  const [selectedMonthTo, setSelectedMonthTo] = useState<number>(defaultRange.toMonth);
-  const [selectedYearTo, setSelectedYearTo] = useState<number>(defaultRange.toYear);
+  const {
+    flowStep,
+    setFlowStep,
+    fullStatementTransactions,
+    setFullStatementTransactions,
+    showStatement,
+    setShowStatement,
+    isEditing,
+    statementTransactions,
+    lastGeneratedRangeRef,
+    handleStart,
+    handleRegenerate,
+    handleAnalyze,
+    handleRestart,
+    handleToggleEditing,
+    handleAddTransaction,
+  } = useStatementFlow({
+    selectedMonthFrom,
+    selectedYearFrom,
+    selectedMonthTo,
+    selectedYearTo,
+    defaultRange,
+    setSelectedMonthFrom,
+    setSelectedYearFrom,
+    setSelectedMonthTo,
+    setSelectedYearTo,
+    rangeStartDateString,
+    rangeEndDateString,
+    hasTouchedRangeRef,
+    resetTab,
+  });
   const inferredAccounts = useMemo(
     () => deriveAccountsFromTransactions(fullStatementTransactions),
     [fullStatementTransactions, deriveAccountsFromTransactions],
@@ -276,6 +289,22 @@ export default function DemoPage() {
     handleConfirmDuplicate,
     duplicateOverlayRef,
   } = useDuplicates(fullStatementTransactions);
+  const handleRestartAll = () => {
+    handleRestart();
+    resetDuplicates();
+    setCustomAccounts([]);
+    setAccountOverrides({});
+    setHiddenAccountIds(new Set());
+    setOwnershipModes({});
+    setOwnership({});
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_DUPLICATE_DECISIONS_KEY);
+      window.localStorage.removeItem(STORAGE_CUSTOM_ACCOUNTS_KEY);
+      window.localStorage.removeItem(STORAGE_ACCOUNT_OVERRIDES_KEY);
+      window.localStorage.removeItem(STORAGE_HIDDEN_ACCOUNTS_KEY);
+      window.localStorage.removeItem(STORAGE_OWNERSHIP_MODES_KEY);
+    }
+  };
   const { handleSwipeStart, handleSwipeMove, handleSwipeEnd } = useGestureTabs(activeTab, setActiveTab);
   useEffect(() => {
     setOwnership(deriveOwnershipFromModes(ownershipModes));
@@ -285,7 +314,7 @@ export default function DemoPage() {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_CUSTOM_ACCOUNTS_KEY, JSON.stringify(customAccounts));
     }
-  }, [customAccounts]);
+  }, [customAccounts, lastGeneratedRangeRef]);
   useEffect(() => {
     const activeIds = new Set(transferAccounts.map((acc) => acc.id));
     setOwnershipModes((prev) => {
@@ -312,54 +341,6 @@ export default function DemoPage() {
       JSON.stringify(Array.from(hiddenAccountIds)),
     );
   }, [hiddenAccountIds]);
-  const normalizedRange = useMemo(() => {
-    const startValue = selectedYearFrom * 12 + selectedMonthFrom;
-    const endValue = selectedYearTo * 12 + selectedMonthTo;
-    if (startValue <= endValue) {
-      return {
-        start: { month: selectedMonthFrom, year: selectedYearFrom },
-        end: { month: selectedMonthTo, year: selectedYearTo },
-      };
-    }
-    return {
-      start: { month: selectedMonthTo, year: selectedYearTo },
-      end: { month: selectedMonthFrom, year: selectedYearFrom },
-    };
-  }, [selectedMonthFrom, selectedYearFrom, selectedMonthTo, selectedYearTo]);
-  const rangeStartDateString = `${normalizedRange.start.year}-${String(normalizedRange.start.month + 1).padStart(2, "0")}-01`;
-  const rangeEndDay = new Date(
-    Date.UTC(normalizedRange.end.year, normalizedRange.end.month + 1, 0),
-  ).getUTCDate();
-  const rangeEndDateString = `${normalizedRange.end.year}-${String(normalizedRange.end.month + 1).padStart(2, "0")}-${String(rangeEndDay).padStart(2, "0")}`;
-  const yearOptions = useMemo(() => {
-    const baseYear = baseSampleDate.getUTCFullYear();
-    const candidates = [
-      baseYear,
-      selectedYearFrom,
-      selectedYearTo,
-      selectedYearFrom - 1,
-      selectedYearFrom + 1,
-      selectedYearTo - 1,
-      selectedYearTo + 1,
-    ];
-    return Array.from(new Set(candidates)).sort((a, b) => a - b);
-  }, [baseSampleDate, selectedYearFrom, selectedYearTo]);
-  // The full list stays in state/localStorage; filter only the view when in results.
-  const statementTransactions = useMemo(() => {
-    if (flowStep !== "results") {
-      return fullStatementTransactions;
-    }
-    const startTimestamp = Date.parse(`${rangeStartDateString}T00:00:00Z`);
-    const endTimestamp = Date.parse(`${rangeEndDateString}T23:59:59Z`);
-    if (Number.isNaN(startTimestamp) || Number.isNaN(endTimestamp)) {
-      return fullStatementTransactions;
-    }
-    return fullStatementTransactions.filter((tx) => {
-      const ts = Date.parse(`${tx.date}T00:00:00Z`);
-      if (Number.isNaN(ts)) return false;
-      return ts >= startTimestamp && ts <= endTimestamp;
-    });
-  }, [flowStep, fullStatementTransactions, rangeEndDateString, rangeStartDateString]);
   const statementTransactionsSorted = useMemo(
     () =>
       [...statementTransactions].sort((a, b) => {
@@ -734,275 +715,6 @@ export default function DemoPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_TAB_KEY, activeTab);
   }, [activeTab]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedMonthFrom = window.localStorage.getItem(STORAGE_MONTH_FROM_KEY);
-    const storedYearFrom = window.localStorage.getItem(STORAGE_YEAR_FROM_KEY);
-    const storedMonthTo = window.localStorage.getItem(STORAGE_MONTH_TO_KEY);
-    const storedYearTo = window.localStorage.getItem(STORAGE_YEAR_TO_KEY);
-    const legacyMonth = window.localStorage.getItem(LEGACY_STORAGE_MONTH_KEY);
-    const legacyYear = window.localStorage.getItem(LEGACY_STORAGE_YEAR_KEY);
-    const parseNumber = (value: string | null) => {
-      if (value === null) return null;
-      const parsed = Number(value);
-      return Number.isNaN(parsed) ? null : parsed;
-    };
-    const defaultRange = getDefaultThreeMonthRange();
-    const fallbackMonth = defaultRange.fromMonth;
-    const fallbackYear = defaultRange.fromYear;
-    const fallbackToMonth = defaultRange.toMonth;
-    const fallbackToYear = defaultRange.toYear;
-    const parsedFromMonth = parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
-    const parsedFromYear = parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
-    const parsedToMonth =
-      parseNumber(storedMonthTo) ?? parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
-    const parsedToYear =
-      parseNumber(storedYearTo) ?? parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
-    startTransition(() => {
-      setSelectedMonthFrom(parsedFromMonth ?? fallbackMonth);
-      setSelectedYearFrom(parsedFromYear ?? fallbackYear);
-      setSelectedMonthTo(parsedToMonth ?? parsedFromMonth ?? fallbackToMonth);
-      setSelectedYearTo(parsedToYear ?? parsedFromYear ?? fallbackToYear);
-    });
-  }, [getDefaultThreeMonthRange]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_MONTH_FROM_KEY, String(selectedMonthFrom));
-    window.localStorage.setItem(STORAGE_YEAR_FROM_KEY, String(selectedYearFrom));
-    window.localStorage.setItem(STORAGE_MONTH_TO_KEY, String(selectedMonthTo));
-    window.localStorage.setItem(STORAGE_YEAR_TO_KEY, String(selectedYearTo));
-  }, [selectedMonthFrom, selectedYearFrom, selectedMonthTo, selectedYearTo]);
-  useEffect(() => {
-    return () => {
-      if (analyzeTimeoutRef.current !== null) {
-        window.clearTimeout(analyzeTimeoutRef.current);
-      }
-    };
-  }, []);
-  const resetTab = useCallback(() => {
-    setActiveTab("overview");
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_TAB_KEY, "overview");
-    }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const flow = window.localStorage.getItem(STORAGE_FLOW_KEY) as
-      | "idle"
-      | "statement"
-      | "analyzing"
-      | "results"
-      | null;
-    const saved = window.localStorage.getItem(STORAGE_STATEMENT_KEY);
-    if (flow && saved) {
-      try {
-        const parsed: Transaction[] = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedMonthFrom = window.localStorage.getItem(STORAGE_MONTH_FROM_KEY);
-          const storedYearFrom = window.localStorage.getItem(STORAGE_YEAR_FROM_KEY);
-          const storedMonthTo = window.localStorage.getItem(STORAGE_MONTH_TO_KEY);
-          const storedYearTo = window.localStorage.getItem(STORAGE_YEAR_TO_KEY);
-          const legacyMonth = window.localStorage.getItem(LEGACY_STORAGE_MONTH_KEY);
-          const legacyYear = window.localStorage.getItem(LEGACY_STORAGE_YEAR_KEY);
-          const parseNumber = (value: string | null) => {
-            if (value === null) return null;
-            const next = Number(value);
-            return Number.isNaN(next) ? null : next;
-          };
-          const fallbackRange = defaultRange;
-          const fallbackMonth = fallbackRange.fromMonth;
-          const fallbackYear = fallbackRange.fromYear;
-          const fallbackToMonth = fallbackRange.toMonth;
-          const fallbackToYear = fallbackRange.toYear;
-          const parsedFromMonth = parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
-          const parsedFromYear = parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
-          const parsedToMonth =
-            parseNumber(storedMonthTo) ?? parseNumber(storedMonthFrom) ?? parseNumber(legacyMonth);
-          const parsedToYear =
-            parseNumber(storedYearTo) ?? parseNumber(storedYearFrom) ?? parseNumber(legacyYear);
-          const resolvedFromMonth = parsedFromMonth ?? fallbackMonth;
-          const resolvedFromYear = parsedFromYear ?? fallbackYear;
-          const resolvedToMonth = parsedToMonth ?? parsedFromMonth ?? fallbackToMonth;
-          const resolvedToYear = parsedToYear ?? parsedFromYear ?? fallbackToYear;
-          lastGeneratedRangeRef.current = `${resolvedFromYear}-${resolvedFromMonth}:${resolvedToYear}-${resolvedToMonth}`;
-          startTransition(() => {
-            setFullStatementTransactions(parsed);
-            if (flow === "statement" || flow === "results") {
-              setFlowStep(flow);
-              setShowStatement(flow === "results" ? false : true);
-            }
-          });
-          hydratedFromStorageRef.current = true;
-          hasTouchedRangeRef.current = flow === "results" || flow === "statement" || flow === "analyzing";
-        }
-      } catch {
-        // ignore bad data
-      }
-    }
-  }, [defaultRange]);
-  useEffect(() => {
-    if (lastGeneratedRangeRef.current !== null) return;
-    if (fullStatementTransactions.length === 0) return;
-    lastGeneratedRangeRef.current = `${selectedYearFrom}-${selectedMonthFrom}:${selectedYearTo}-${selectedMonthTo}`;
-  }, [
-    fullStatementTransactions.length,
-    selectedMonthFrom,
-    selectedMonthTo,
-    selectedYearFrom,
-    selectedYearTo,
-  ]);
-  const startStatement = useCallback(() => {
-    const generated = generateSampleStatement(
-      selectedMonthFrom,
-      selectedYearFrom,
-      selectedMonthTo,
-      selectedYearTo,
-    );
-    lastGeneratedRangeRef.current = `${selectedYearFrom}-${selectedMonthFrom}:${selectedYearTo}-${selectedMonthTo}`;
-    hasTouchedRangeRef.current = true;
-    setFullStatementTransactions(generated);
-    setFlowStep("statement");
-    setShowStatement(true);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_FLOW_KEY, "statement");
-      window.localStorage.setItem(
-        STORAGE_STATEMENT_KEY,
-        JSON.stringify(generated),
-      );
-    }
-    resetTab();
-  }, [resetTab, selectedMonthFrom, selectedMonthTo, selectedYearFrom, selectedYearTo]);
-  const handleStart = () => {
-    startStatement();
-  };
-  const handleRegenerate = () => {
-    startStatement();
-  };
-  const handleAnalyze = () => {
-    if (statementTransactions.length === 0) return;
-    setFlowStep("analyzing");
-    analyzeTimeoutRef.current = window.setTimeout(() => {
-      setFlowStep("results");
-      setShowStatement(false);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_FLOW_KEY, "results");
-        window.localStorage.setItem(
-          STORAGE_STATEMENT_KEY,
-          JSON.stringify(fullStatementTransactions),
-        );
-      }
-      analyzeTimeoutRef.current = null;
-    }, 700);
-  };
-  const handleRestart = () => {
-    if (analyzeTimeoutRef.current !== null) {
-      window.clearTimeout(analyzeTimeoutRef.current);
-      analyzeTimeoutRef.current = null;
-    }
-    setFlowStep("idle");
-    setFullStatementTransactions([]);
-    setShowStatement(true);
-    setIsEditing(false);
-    setSelectedMonthFrom(defaultRange.fromMonth);
-    setSelectedYearFrom(defaultRange.fromYear);
-    setSelectedMonthTo(defaultRange.toMonth);
-    setSelectedYearTo(defaultRange.toYear);
-    lastGeneratedRangeRef.current = null;
-    hasTouchedRangeRef.current = false;
-    resetDuplicates();
-    hydratedFromStorageRef.current = false;
-    setCustomAccounts([]);
-    setAccountOverrides({});
-    setHiddenAccountIds(new Set());
-    setOwnershipModes({});
-    setOwnership({});
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(STORAGE_FLOW_KEY);
-      window.localStorage.removeItem(STORAGE_STATEMENT_KEY);
-      window.localStorage.removeItem(STORAGE_MONTH_FROM_KEY);
-      window.localStorage.removeItem(STORAGE_YEAR_FROM_KEY);
-      window.localStorage.removeItem(STORAGE_MONTH_TO_KEY);
-      window.localStorage.removeItem(STORAGE_YEAR_TO_KEY);
-      window.localStorage.removeItem(LEGACY_STORAGE_MONTH_KEY);
-      window.localStorage.removeItem(LEGACY_STORAGE_YEAR_KEY);
-      window.localStorage.removeItem(STORAGE_DUPLICATE_DECISIONS_KEY);
-      window.localStorage.removeItem(STORAGE_CUSTOM_ACCOUNTS_KEY);
-      window.localStorage.removeItem(STORAGE_ACCOUNT_OVERRIDES_KEY);
-      window.localStorage.removeItem(STORAGE_HIDDEN_ACCOUNTS_KEY);
-      window.localStorage.removeItem(STORAGE_OWNERSHIP_MODES_KEY);
-    }
-    resetTab();
-  };
-  const handleAddTransaction = (details: {
-    date: string;
-    description: string;
-    category: string;
-    amount: string;
-  }): boolean => {
-    const trimmedDescription = details.description.trim();
-    const parsedAmount = Number(details.amount);
-    if (!trimmedDescription || Number.isNaN(parsedAmount)) return false;
-    const kind: Transaction["kind"] =
-      details.category === "Income"
-        ? "income"
-        : details.category === "Subscriptions"
-          ? "subscription"
-          : details.category === "Fees"
-            ? "fee"
-            : "expense";
-    const newTx: Transaction = {
-      id: `manual_${Date.now()}`,
-      date: details.date,
-      description: trimmedDescription,
-      amount: parsedAmount,
-      category: details.category,
-      kind,
-      source: "Manual entry",
-    };
-    setFullStatementTransactions((prev) => {
-      const updated = [...prev, newTx];
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_STATEMENT_KEY, JSON.stringify(updated));
-        window.localStorage.setItem(
-          STORAGE_FLOW_KEY,
-          flowStep === "results" ? "results" : "statement",
-        );
-      }
-      return updated;
-    });
-    return true;
-  };
-  useEffect(() => {
-    const currentRangeKey = `${selectedYearFrom}-${selectedMonthFrom}:${selectedYearTo}-${selectedMonthTo}`;
-    const startValue = selectedYearFrom * 12 + selectedMonthFrom;
-    const endValue = selectedYearTo * 12 + selectedMonthTo;
-    const isRangeValid = startValue <= endValue;
-    if (flowStep === "results") {
-      lastGeneratedRangeRef.current = currentRangeKey;
-      return;
-    }
-    if (!isRangeValid) return;
-    const hasStatement = fullStatementTransactions.length > 0;
-    const hasTouchedRange = hasTouchedRangeRef.current;
-    if (!hasTouchedRange && flowStep === "idle" && !hasStatement) return;
-    if (currentRangeKey === lastGeneratedRangeRef.current && hasStatement) return;
-    startStatement();
-  }, [
-    selectedMonthFrom,
-    selectedYearFrom,
-    selectedMonthTo,
-    selectedYearTo,
-    flowStep,
-    startStatement,
-    fullStatementTransactions.length,
-  ]);
-  const handleToggleEditing = (force?: boolean) => {
-    setIsEditing((prev) => {
-      const next = typeof force === "boolean" ? force : !prev;
-      setShowStatement(next ? true : false);
-      return next;
-    });
-  };
   const handleSelectBaseTransaction = (txId: string) => {
     setAddBaseTransactionId(txId);
     setSelectedAccountTxIds(new Set());
@@ -1581,7 +1293,7 @@ export default function DemoPage() {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={handleRestart}
+              onClick={handleRestartAll}
               className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
             >
               Start over
