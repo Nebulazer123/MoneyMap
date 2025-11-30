@@ -49,10 +49,13 @@ import {
   transportGuideline,
 } from "../../lib/dashboard/config";
 import { descriptionKey, getDisplayCategory, getTransactionDisplayCategory, titleCase } from "../../lib/dashboard/categories";
-import { buildDuplicateClusters, type DuplicateClusterView } from "../../lib/dashboard/duplicates";
 import type { OverviewGroupKey, TabId } from "../../lib/dashboard/config";
 import AddTransactionRow from "./components/AddTransactionRow";
 import InfoTip from "./components/InfoTip";
+import { useDuplicates } from "./hooks/useDuplicates";
+import { useExpansionState } from "./hooks/useExpansionState";
+import { useGestureTabs } from "./hooks/useGestureTabs";
+import { currency, dateFormatter } from "./utils/format";
 const createDefaultOwnershipModes = (accounts: TransferAccount[]) => {
   try {
     if (typeof window !== "undefined") {
@@ -106,10 +109,6 @@ export default function DemoPage() {
   const [activeSpendingGroup, setActiveSpendingGroup] =
     useState<OverviewGroupKey | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [expandedCashflowDates, setExpandedCashflowDates] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [showLargestExpenseDetail, setShowLargestExpenseDetail] = useState(false);
   const inferAccountTypeFromLabel = (label: string) => {
     const lower = label.toLowerCase();
     if (/(checking)/.test(lower)) return "Checking";
@@ -259,32 +258,25 @@ export default function DemoPage() {
   const [addAccountType, setAddAccountType] = useState("Checking");
   const [addBaseTransactionId, setAddBaseTransactionId] = useState("");
   const [selectedAccountTxIds, setSelectedAccountTxIds] = useState<Set<string>>(new Set());
-  const [duplicateDecisions, setDuplicateDecisions] = useState<Record<string, "confirmed" | "dismissed">>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const stored = window.localStorage.getItem(STORAGE_DUPLICATE_DECISIONS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Record<string, "confirmed" | "dismissed">;
-        if (parsed && typeof parsed === "object") return parsed;
-      }
-    } catch {
-      // ignore bad data
-    }
-    return {};
-  });
-  const [showDuplicateOverlay, setShowDuplicateOverlay] = useState(false);
-  const duplicateOverlayTriggerRef = useRef<HTMLElement | null>(null);
-  const duplicateOverlayRef = useRef<HTMLDivElement | null>(null);
-  const [expandedDuplicateClusters, setExpandedDuplicateClusters] = useState<Set<string>>(new Set());
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountName, setEditingAccountName] = useState("");
   const [editingAccountType, setEditingAccountType] = useState(accountTypeOptions[0]);
-  const swipeStateRef = useRef<{ startX: number; startY: number; triggered: boolean }>({
-    startX: 0,
-    startY: 0,
-    triggered: false,
-  });
-  const [expandedCashflowMonths, setExpandedCashflowMonths] = useState<Set<number>>(new Set());
+  const {
+    duplicateClusters,
+    activeDuplicateIds,
+    duplicateMetaById,
+    duplicateDecisions,
+    resetDuplicates,
+    showDuplicateOverlay,
+    handleOpenDuplicateOverlay,
+    handleCloseDuplicateOverlay,
+    expandedDuplicateClusters,
+    toggleDuplicateCluster,
+    handleDismissDuplicate,
+    handleConfirmDuplicate,
+    duplicateOverlayRef,
+  } = useDuplicates(fullStatementTransactions);
+  const { handleSwipeStart, handleSwipeMove, handleSwipeEnd } = useGestureTabs(activeTab, setActiveTab);
   useEffect(() => {
     setOwnership(deriveOwnershipFromModes(ownershipModes));
   }, [ownershipModes]);
@@ -320,10 +312,6 @@ export default function DemoPage() {
       JSON.stringify(Array.from(hiddenAccountIds)),
     );
   }, [hiddenAccountIds]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_DUPLICATE_DECISIONS_KEY, JSON.stringify(duplicateDecisions));
-  }, [duplicateDecisions]);
   const normalizedRange = useMemo(() => {
     const startValue = selectedYearFrom * 12 + selectedMonthFrom;
     const endValue = selectedYearTo * 12 + selectedMonthTo;
@@ -419,11 +407,6 @@ export default function DemoPage() {
     () => statementMonths.map((m) => m.key).join("|"),
     [statementMonths],
   );
-  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    if (!showGroupedTable) return;
-    setExpandedMonths(new Set());
-  }, [monthsSignature, showGroupedTable]);
   const cashFlowRows = getCashFlowByDate(statementTransactions, ownership, ownershipModes);
   const cashflowMonths = useMemo(() => {
     const monthMap = new Map<
@@ -467,6 +450,14 @@ export default function DemoPage() {
     return sortedMonths;
   }, [cashFlowRows]);
   const showGroupedCashflow = cashflowMonths.length > 1;
+  const {
+    expandedMonths,
+    setExpandedMonths,
+    expandedCashflowMonths,
+    setExpandedCashflowMonths,
+    expandedCashflowDates,
+    setExpandedCashflowDates,
+  } = useExpansionState({ showGroupedTable, monthsSignature, cashflowMonths });
   const totalIncome = getTotalIncome(statementTransactions, ownership, ownershipModes);
   const totalSpending = getTotalSpending(statementTransactions, ownership, ownershipModes);
   const netThisMonth = getNetThisMonth(statementTransactions, ownership, ownershipModes);
@@ -497,33 +488,6 @@ export default function DemoPage() {
     );
     return isSubscription || isBillCategory || isPaymentDescription;
   });
-  const duplicateClusters: DuplicateClusterView[] = useMemo(
-    () => buildDuplicateClusters(fullStatementTransactions, duplicateDecisions),
-    [duplicateDecisions, fullStatementTransactions],
-  );
-  const activeDuplicateIds = useMemo(
-    () =>
-      new Set(duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((tx) => tx.id))),
-    [duplicateClusters],
-  );
-  const duplicateMetaById = useMemo(() => {
-    const map = new Map<
-      string,
-      { clusterKey: string; label: string; category: string; lastNormalDate: string | null }
-    >();
-    duplicateClusters.forEach((cluster) => {
-      const lastCharged = cluster.lastNormalChargeDate ?? cluster.lastNormalDate;
-      cluster.allTransactions.forEach((tx) => {
-        map.set(tx.id, {
-          clusterKey: cluster.key,
-          label: cluster.label,
-          category: cluster.category,
-          lastNormalDate: lastCharged,
-        });
-      });
-    });
-    return map;
-  }, [duplicateClusters]);
   const transferTransactions = statementTransactions.filter((t) => t.kind.startsWith("transfer"));
   useEffect(() => {
     if (isAddingAccount && !addBaseTransactionId && transferTransactions.length > 0) {
@@ -625,15 +589,6 @@ export default function DemoPage() {
     totalIncome > 0 ? Math.min(100, Math.round((essentialsTotal / totalIncome) * 100)) : 0;
   const otherPercent = Math.max(0, 100 - essentialsPercent);
   const leftAfterBills = totalIncome - essentialsTotal;
-  const currency = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
-  const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
   const summaryCards = [
     { label: "Net this month", value: currency.format(netThisMonth), to: "review" as TabId },
     { label: "Total income", value: currency.format(totalIncome), to: "cashflow" as TabId },
@@ -824,74 +779,6 @@ export default function DemoPage() {
       }
     };
   }, []);
-  useEffect(() => {
-    if (!showDuplicateOverlay) return;
-    const previousOverflow =
-      typeof document !== "undefined" ? (document.body.style.overflow as string | undefined) : undefined;
-    if (typeof document !== "undefined") {
-      document.body.style.overflow = "hidden";
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setShowDuplicateOverlay(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const container = duplicateOverlayRef.current;
-      if (!container) return;
-      const focusable = container.querySelectorAll<HTMLElement>(
-        'a, button, textarea, input, select, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (event.shiftKey) {
-        if (active === first || active === container) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    const focusTarget =
-      duplicateOverlayRef.current?.querySelector<HTMLElement>("[data-autofocus]") ??
-      duplicateOverlayRef.current;
-    focusTarget?.focus();
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      if (typeof document !== "undefined" && typeof previousOverflow === "string") {
-        document.body.style.overflow = previousOverflow;
-      }
-    };
-  }, [showDuplicateOverlay]);
-  useEffect(() => {
-    if (showDuplicateOverlay) return;
-    const trigger = duplicateOverlayTriggerRef.current;
-    if (trigger) {
-      trigger.focus();
-      duplicateOverlayTriggerRef.current = null;
-    }
-  }, [showDuplicateOverlay]);
-  useEffect(() => {
-    if (!showDuplicateOverlay) return;
-    setExpandedDuplicateClusters(new Set());
-  }, [showDuplicateOverlay, duplicateClusters]);
-  useEffect(() => {
-    if (cashflowMonths.length === 0) return;
-    const latestKey = cashflowMonths[cashflowMonths.length - 1]?.key;
-    if (cashflowMonths.length === 1) {
-      setExpandedCashflowMonths(new Set([latestKey]));
-      return;
-    }
-    if (cashflowMonths.length > 1 && expandedCashflowMonths.size === 0) {
-      setExpandedCashflowMonths(new Set([latestKey]));
-    }
-  }, [cashflowMonths, expandedCashflowMonths.size]);
   const resetTab = useCallback(() => {
     setActiveTab("overview");
     if (typeof window !== "undefined") {
@@ -1022,9 +909,7 @@ export default function DemoPage() {
     setSelectedYearTo(defaultRange.toYear);
     lastGeneratedRangeRef.current = null;
     hasTouchedRangeRef.current = false;
-    setShowDuplicateOverlay(false);
-    setExpandedDuplicateClusters(new Set());
-    setDuplicateDecisions({});
+    resetDuplicates();
     hydratedFromStorageRef.current = false;
     setCustomAccounts([]);
     setAccountOverrides({});
@@ -1133,31 +1018,6 @@ export default function DemoPage() {
       return next;
     });
   };
-  const handleDuplicateDecision = (txId: string, decision: "confirmed" | "dismissed") => {
-    setDuplicateDecisions((prev) => ({ ...prev, [txId]: decision }));
-  };
-  const handleDismissDuplicate = (txId: string) => handleDuplicateDecision(txId, "dismissed");
-  const handleConfirmDuplicate = (txId: string) => handleDuplicateDecision(txId, "confirmed");
-  const handleOpenDuplicateOverlay = (trigger?: HTMLElement | null) => {
-    if (typeof document !== "undefined") {
-      duplicateOverlayTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null);
-    }
-    setShowDuplicateOverlay(true);
-  };
-  const handleCloseDuplicateOverlay = () => {
-    setShowDuplicateOverlay(false);
-  };
-  const toggleDuplicateCluster = (key: string) => {
-    setExpandedDuplicateClusters((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
   const defaultModeForAccountType = (type: string): OwnershipMode =>
     /credit|loan|mortgage/i.test(type) ? "payment" : "spending";
   const startEditingAccount = (acc: TransferAccount) => {
@@ -1215,28 +1075,6 @@ export default function DemoPage() {
       return next;
     });
     resetEditingAccount();
-  };
-  const handleSwipeStart = (event: React.TouchEvent) => {
-    const touch = event.touches[0];
-    swipeStateRef.current = { startX: touch.clientX, startY: touch.clientY, triggered: false };
-  };
-  const handleSwipeMove = (event: React.TouchEvent) => {
-    const touch = event.touches[0];
-    const dx = touch.clientX - swipeStateRef.current.startX;
-    const dy = touch.clientY - swipeStateRef.current.startY;
-    if (swipeStateRef.current.triggered) return;
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    const currentIndex = tabs.findIndex((t) => t.id === activeTab);
-    if (dx < 0 && currentIndex < tabs.length - 1) {
-      setActiveTab(tabs[currentIndex + 1].id);
-      swipeStateRef.current.triggered = true;
-    } else if (dx > 0 && currentIndex > 0) {
-      setActiveTab(tabs[currentIndex - 1].id);
-      swipeStateRef.current.triggered = true;
-    }
-  };
-  const handleSwipeEnd = () => {
-    swipeStateRef.current = { startX: 0, startY: 0, triggered: false };
   };
   const handleSaveNewAccount = () => {
     if (!addAccountName.trim() || selectedAccountTxIds.size === 0) return;
