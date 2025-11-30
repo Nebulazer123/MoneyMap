@@ -616,6 +616,7 @@ export default function DemoPage() {
     if (!showGroupedTable) return;
     setExpandedMonths(new Set());
   }, [monthsSignature, showGroupedTable]);
+  const cashFlowRows = getCashFlowByDate(statementTransactions, ownership, ownershipModes);
   const cashflowMonths = useMemo(() => {
     const monthMap = new Map<
       number,
@@ -667,7 +668,6 @@ export default function DemoPage() {
     ownershipModes,
   );
   const feeRows = getFeeTransactions(statementTransactions, ownership, ownershipModes);
-  const cashFlowRows = getCashFlowByDate(statementTransactions, ownership, ownershipModes);
   const totalFees = getTotalFees(statementTransactions, ownership, ownershipModes);
   const recurringRows = statementTransactions.filter((t) => {
     if (isInternalTransfer(t, ownership, ownershipModes)) return false;
