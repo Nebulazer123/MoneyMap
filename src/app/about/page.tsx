@@ -32,7 +32,7 @@ export default function AboutPage() {
   return (
     <main className="text-white">
       <div className="mx-auto max-w-6xl space-y-8 px-4 pb-16 pt-10 sm:space-y-10 sm:px-6 lg:px-8 lg:pt-14">
-        <GlassPanel variant="hero" className="sm:p-8">
+        <GlassPanel variant="hero">
           <div className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
             Phase one demo
           </div>
@@ -46,7 +46,7 @@ export default function AboutPage() {
         </GlassPanel>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <GlassPanel className="h-full p-5">
+          <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Who this is for</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -57,7 +57,7 @@ export default function AboutPage() {
               <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Early stage founders or hiring managers testing a finance UX concept.</span></li>
             </ul>
           </GlassPanel>
-          <GlassPanel className="h-full p-5">
+          <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">What MoneyMap does in phase one</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -68,7 +68,7 @@ export default function AboutPage() {
               <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Turns the mess into simple summaries and charts.</span></li>
             </ul>
           </GlassPanel>
-          <GlassPanel className="h-full p-5">
+          <GlassPanel variant="card" className="h-full p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">What it does not do yet</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -87,15 +87,15 @@ export default function AboutPage() {
             <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <GlassPanel className="p-4">
+            <GlassPanel variant="card" className="p-4 backdrop-blur-xl">
               <p className="text-sm font-semibold text-white">1. Ingest a messy statement</p>
               <p className="mt-2 text-sm text-zinc-300">Randomizes merchants, dates, and amounts to imitate real noise without touching real accounts.</p>
             </GlassPanel>
-            <GlassPanel className="p-4">
+            <GlassPanel variant="card" className="p-4 backdrop-blur-xl">
               <p className="text-sm font-semibold text-white">2. Separate real spending from transfers</p>
               <p className="mt-2 text-sm text-zinc-300">Applies ownership rules so moves between your own accounts do not inflate income or spending.</p>
             </GlassPanel>
-            <GlassPanel className="p-4">
+            <GlassPanel variant="card" className="p-4 backdrop-blur-xl">
               <p className="text-sm font-semibold text-white">3. Highlight subscriptions, fees, and oddities</p>
               <p className="mt-2 text-sm text-zinc-300">Surfaces duplicate charges, recurring bills, and patterns that might need your attention.</p>
             </GlassPanel>
@@ -103,7 +103,7 @@ export default function AboutPage() {
         </GlassPanel>
 
         <section className="grid gap-4 lg:grid-cols-3">
-          <GlassPanel className="p-5">
+          <GlassPanel variant="card" className="p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Vision</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -112,7 +112,7 @@ export default function AboutPage() {
               Long term, MoneyMap should accept real statements locally in the browser, label them clearly, and give calm suggestions instead of panic. The tool should feel like a coach that explains your month, not a bank that sells you products.
             </p>
           </GlassPanel>
-          <GlassPanel className="p-5">
+          <GlassPanel variant="card" className="p-5">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">Privacy and data</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -121,7 +121,7 @@ export default function AboutPage() {
               This demo only uses fake data and never uploads anything. Future phases should still keep analysis local when possible and always ask for explicit consent before storing or sharing anything.
             </p>
           </GlassPanel>
-          <GlassPanel className="p-5 lg:col-span-3">
+          <GlassPanel variant="card" className="p-5 lg:col-span-3">
             <div className="group inline-flex flex-col gap-2">
               <h3 className="text-lg font-semibold text-white">For employers and reviewers</h3>
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
@@ -165,18 +165,17 @@ export default function AboutPage() {
                 variant: "secondary",
               },
             ].map((item) => (
-              <div
+              <GlassPanel
                 key={item.label}
-                className={`relative overflow-hidden rounded-xl p-4 pl-5 transition duration-200 hover:-translate-y-0.5 hover:border-emerald-400/40 ${
-                  item.variant === "primary"
-                    ? "border border-emerald-500/70 bg-emerald-500/10 shadow-md shadow-emerald-500/15"
-                    : "border border-zinc-700 bg-zinc-900/70"
+                variant="card"
+                className={`relative p-4 pl-5 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 ${
+                  item.variant === "primary" ? "ring-emerald-300/30" : ""
                 }`}
               >
                 <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500/70" aria-hidden="true" />
                 <p className="text-sm font-semibold text-white">{item.label}</p>
                 <p className="mt-2 text-sm text-zinc-300">{item.body}</p>
-              </div>
+              </GlassPanel>
             ))}
           </div>
         </GlassPanel>
@@ -186,16 +185,20 @@ export default function AboutPage() {
             <h2 className="text-2xl font-semibold text-white">FAQ</h2>
             <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
           </div>
-          <div className="divide-y divide-zinc-800">
+          <div className="space-y-3">
             {faqItems.map((item, index) => {
               const isOpen = openIndex === index;
               return (
-                <div key={item.question} className="overflow-hidden rounded-xl border border-zinc-800/80 bg-white/5 transition duration-200 hover:-translate-y-0.5 hover:border-emerald-400/50">
+                <GlassPanel
+                  key={item.question}
+                  variant="card"
+                  className="overflow-hidden p-0 transition duration-200 hover:-translate-y-0.5 backdrop-blur-xl"
+                >
                   <button
                     type="button"
                     onClick={() => toggleItem(index)}
                     aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-white transition duration-200 hover:bg-zinc-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:px-6"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-white transition duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:px-6"
                   >
                     <span>{item.question}</span>
                     <span
@@ -206,11 +209,11 @@ export default function AboutPage() {
                     </span>
                   </button>
                   {isOpen && (
-                    <div className="border-t border-zinc-800 px-4 py-3 text-sm text-zinc-300 transition-all duration-200 sm:px-6">
+                    <div className="border-t border-white/10 px-4 py-3 text-sm text-zinc-300 transition-all duration-200 sm:px-6">
                       {item.answer}
                     </div>
                   )}
-                </div>
+                </GlassPanel>
               );
             })}
           </div>

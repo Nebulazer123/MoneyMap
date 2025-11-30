@@ -20,7 +20,6 @@ import { useStatementFlow } from "./hooks/useStatementFlow";
 import { useGestureTabs } from "./hooks/useGestureTabs";
 import { currency, dateFormatter } from "./utils/format";
 import { useOwnershipAccounts } from "./hooks/useOwnershipAccounts";
-import { SummaryCards } from "./components/SummaryCards";
 import { TabsBar } from "./components/TabsBar";
 import { OverviewTab } from "./components/OverviewTab";
 import { RecurringTab } from "./components/RecurringTab";
@@ -221,14 +220,44 @@ export default function DemoPage() {
     setExpandedCashflowDates,
   } = useExpansionState({ showGroupedTable, monthsSignature, cashflowMonths });
 
-  const summaryCards = useMemo(
-    () => [
-      { label: "Net this month", value: currency.format(netThisMonth), to: "review" as TabId },
-      { label: "Total income", value: currency.format(totalIncome), to: "cashflow" as TabId },
-      { label: "Total spending", value: currency.format(totalSpending), to: "overview" as TabId },
-      { label: "Total subscriptions", value: currency.format(totalSubscriptions), to: "recurring" as TabId },
-    ],
-    [netThisMonth, totalIncome, totalSpending, totalSubscriptions],
+  const showResults = flowStep === "results";
+  const hasResults = showResults && statementTransactions.length > 0;
+
+  const summaryTiles = useMemo(
+    () => {
+      const placeholderValue = "—";
+      const placeholderSubtext = "Run the analysis to see totals";
+      const formatValue = (amount: number) => (hasResults ? currency.format(amount) : placeholderValue);
+      const formatSubtext = (copy: string) => (hasResults ? copy : placeholderSubtext);
+      return [
+        {
+          label: "Income this period",
+          value: formatValue(totalIncome),
+          subtext: formatSubtext("Money in after taxes"),
+        },
+        {
+          label: "Spending this period",
+          value: formatValue(totalSpending),
+          subtext: formatSubtext("Out the door on everything"),
+        },
+        {
+          label: "Net cash flow",
+          value: formatValue(netThisMonth),
+          subtext: formatSubtext("What is left after the dust settles"),
+        },
+        {
+          label: "Subscriptions and bills",
+          value: formatValue(totalSubscriptions),
+          subtext: formatSubtext("Auto charges that hit every month"),
+        },
+        {
+          label: "Fees and charges",
+          value: formatValue(totalFees),
+          subtext: formatSubtext("Bank and card fees for this range"),
+        },
+      ];
+    },
+    [hasResults, netThisMonth, totalFees, totalIncome, totalSpending, totalSubscriptions],
   );
 
   const handleUpdateTransactionCategory = useCallback(
@@ -252,8 +281,6 @@ export default function DemoPage() {
   const overviewTransactions = activeSpendingGroupId
     ? groupedTransactionsByGroup.get(activeSpendingGroupId) ?? []
     : [];
-  const showResults = flowStep === "results";
-  const hasResults = showResults && statementTransactions.length > 0;
 
   const { totalInflowStatement, totalOutflowStatement, netStatement } = useMemo(() => {
     const totals = statementTransactions.reduce(
@@ -334,6 +361,24 @@ export default function DemoPage() {
         totalOutflowStatement={totalOutflowStatement}
         netStatement={netStatement}
       />
+      {showResults && (
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-4 animate-fade-rise">
+          {summaryTiles.map((tile) => (
+            <GlassPanel
+              key={tile.label}
+              variant="card"
+              tabIndex={0}
+              className="h-full transform transition hover:-translate-y-0.5 hover:border-white/30 focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+            >
+              <div className="flex h-full flex-col gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-100/70">{tile.label}</p>
+                <p className="text-xl font-semibold text-white sm:text-2xl">{tile.value}</p>
+                <p className="text-[11px] text-zinc-300/80">{tile.subtext}</p>
+              </div>
+            </GlassPanel>
+          ))}
+        </div>
+      )}
       <GlassPanel variant="hero" className="space-y-6 sm:space-y-8 animate-fade-rise">
         {showResults && (
           <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />

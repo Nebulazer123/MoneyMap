@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
 import type { TabId } from "../../../lib/dashboard/config";
@@ -68,6 +68,7 @@ export function CashflowTab({
                 }
                 return next;
               });
+
             return (
               <GlassPanel
                 key={month.key}
@@ -100,8 +101,8 @@ export function CashflowTab({
                     type="button"
                     aria-label="Toggle daily rows for this month"
                     aria-expanded={isExpanded}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.stopPropagation();
                       toggle();
                     }}
                     className="text-zinc-400 transition hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
@@ -124,6 +125,7 @@ export function CashflowTab({
                         {month.rows.map((row) => {
                           const isDayExpanded = expandedCashflowDates[row.date];
                           const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+
                           return (
                             <div key={row.date} className="text-xs sm:text-sm">
                               <button
@@ -150,18 +152,18 @@ export function CashflowTab({
                                 <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
                                 <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
                                   <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
-                                    {isDayExpanded ? "▾" : "▸"}
-                              </span>
-                              {currency.format(row.netForThatDate)}
-                            </span>
-                          </button>
-                          {isDayExpanded && (
-                            <div className="border-t border-white/10 bg-zinc-950/70 px-4 py-3 text-zinc-200">
-                              {dayTransactions.length === 0 ? (
-                                <p className="text-[11px] text-zinc-400">No transactions for this day.</p>
-                              ) : (
-                                <div className="space-y-2 text-[11px] sm:text-xs">
-                                  {dayTransactions.map((tx) => (
+                                    {isDayExpanded ? "v" : ">"}
+                                  </span>
+                                  {currency.format(row.netForThatDate)}
+                                </span>
+                              </button>
+                              {isDayExpanded && (
+                                <div className="border-t border-white/10 bg-zinc-950/70 px-4 py-3 text-zinc-200">
+                                  {dayTransactions.length === 0 ? (
+                                    <p className="text-[11px] text-zinc-400">No transactions for this day.</p>
+                                  ) : (
+                                    <div className="space-y-2 text-[11px] sm:text-xs">
+                                      {dayTransactions.map((tx) => (
                                         <div key={tx.id} className="flex items-center justify-between">
                                           <span className="truncate pr-2" title={tx.description}>
                                             {tx.description}
@@ -182,7 +184,7 @@ export function CashflowTab({
                     </div>
                   </div>
                 )}
-              </div>
+              </GlassPanel>
             );
           })}
         </div>
@@ -199,6 +201,7 @@ export function CashflowTab({
               {cashFlowRows.map((row) => {
                 const isDayExpanded = expandedCashflowDates[row.date];
                 const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+
                 return (
                   <div key={row.date} className="text-xs sm:text-sm">
                     <button
@@ -225,7 +228,7 @@ export function CashflowTab({
                       <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
                       <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
                         <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
-                          {isDayExpanded ? "▾" : "▸"}
+                          {isDayExpanded ? "v" : ">"}
                         </span>
                         {currency.format(row.netForThatDate)}
                       </span>

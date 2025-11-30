@@ -77,7 +77,7 @@ export default function Home() {
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(24,30,48,0.28),rgba(0,0,0,0.94)),linear-gradient(to_bottom,rgba(0,0,0,0.78),rgba(0,0,0,0.96))]"
+        className="pointer-events-none absolute inset-0 bg-black/55 backdrop-blur-2xl bg-[radial-gradient(circle_at_18%_18%,rgba(27,148,120,0.08),transparent_42%),radial-gradient(circle_at_82%_14%,rgba(109,40,217,0.08),transparent_38%),linear-gradient(to_bottom,rgba(3,4,7,0.86),rgba(4,6,10,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
       />
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">
@@ -130,11 +130,14 @@ export default function Home() {
                 {stepCards.map((card, idx) => (
                   <GlassPanel
                     key={card.title}
-                    className="group relative h-full transition duration-200 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:border-white/22"
+                    variant="card"
+                    className="group relative h-full backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-emerald-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)]"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Step {idx + 1}</div>
-                    <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
-                    <p className="mt-2 text-sm text-zinc-300">{card.stepCopy}</p>
+                    <div className="outline-none focus-visible:outline-none" tabIndex={0}>
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Step {idx + 1}</div>
+                      <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
+                      <p className="mt-2 text-sm text-zinc-300">{card.stepCopy}</p>
+                    </div>
                   </GlassPanel>
                 ))}
               </div>

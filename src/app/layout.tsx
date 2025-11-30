@@ -19,12 +19,12 @@ export default function RootLayout({
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-purple-950/20 to-black" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_36%,rgba(4,6,10,0.96),rgba(3,4,7,0.98)),linear-gradient(to_bottom,rgba(3,4,7,0.94),rgba(4,5,9,0.98))]" />
           <div
-            className="absolute inset-0 blur-[180px] opacity-50"
+            className="absolute inset-0 blur-[200px] opacity-60"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.12), transparent 60%), radial-gradient(circle at 50% 110%, rgba(6, 182, 212, 0.10), transparent 60%), radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.08), transparent 50%)",
+                "radial-gradient(circle at 18% 18%, rgba(34, 197, 94, 0.14), transparent 40%), radial-gradient(circle at 82% 18%, rgba(109, 40, 217, 0.12), transparent 44%), radial-gradient(circle at 50% 88%, rgba(27, 94, 89, 0.12), transparent 48%)",
               backgroundRepeat: "no-repeat",
             }}
           />

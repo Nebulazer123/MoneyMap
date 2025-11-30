@@ -3,6 +3,7 @@ import React from "react";
 import type { TabId } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
 import { SectionHeader } from "./SectionHeader";
+import { GlassPanel } from "./GlassPanel";
 
 type Props = {
   currency: Intl.NumberFormat;
@@ -32,7 +33,7 @@ export function RecurringTab({
   handleDismissDuplicate,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise">
+    <GlassPanel variant="card" className="px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise backdrop-blur-xl sm:backdrop-blur-2xl">
       <SectionHeader
         title="Recurring"
         caption="Subscriptions, bills, and auto payments for this period."
@@ -111,6 +112,6 @@ export function RecurringTab({
           </div>
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }
