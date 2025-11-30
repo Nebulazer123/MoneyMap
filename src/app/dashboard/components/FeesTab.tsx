@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
 
 type Props = {
   currency: Intl.NumberFormat;
@@ -11,9 +12,12 @@ type Props = {
 
 export function FeesTab({ currency, dateFormatter, feeRows, totalFees }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-      <h2 className="text-lg font-semibold text-white">Fees</h2>
-      <p className="mt-1 text-sm text-zinc-400">Bank and service fees charged this month.</p>
+    <div className="space-y-6">
+      <SectionHeader
+        title="Fees and charges that pile up"
+        description="Bank and service fees this month"
+      />
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
       <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-300">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-zinc-400">Total fees this month</span>
@@ -39,6 +43,7 @@ export function FeesTab({ currency, dateFormatter, feeRows, totalFees }: Props) 
             ))}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
