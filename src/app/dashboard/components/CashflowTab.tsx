@@ -2,8 +2,6 @@ import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
 import type { TabId } from "../../../lib/dashboard/config";
-import InfoTip from "./InfoTip";
-import { SectionHeader } from "./SectionHeader";
 
 type CashflowRow = {
   date: string;
@@ -48,13 +46,13 @@ export function CashflowTab({
   setExpandedCashflowDates,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionHeader title="Cashflow" caption="Income and spending over the month." />
-        <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
+    <div className="space-y-4 animate-fade-rise">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Daily cash flow</h2>
+        <p className="text-sm text-zinc-500">Money in and out, day by day</p>
       </div>
       {showGroupedCashflow ? (
-        <div className="mt-4 space-y-3">
+        <div className="space-y-3">
           {cashflowMonths.map((month) => {
             const isExpanded = expandedCashflowMonths.has(month.key);
             const toggle = () =>

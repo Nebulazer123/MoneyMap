@@ -278,14 +278,14 @@ export default function DemoPage() {
 
   return (
     <div
-      className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-16 pt-10 sm:space-y-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-16"
+      className="mx-auto w-full max-w-5xl space-y-6 px-4 pb-16 pt-4 sm:space-y-8 sm:px-6 sm:pt-6 lg:px-8"
       onTouchStart={handleSwipeStart}
       onTouchMove={handleSwipeMove}
       onTouchEnd={handleSwipeEnd}
     >
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
+      <header className="animate-fade-rise">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard</h1>
+        <p className="mt-1 text-sm text-zinc-500">Synthetic data only</p>
       </header>
 
       <StatementPanel
@@ -460,16 +460,16 @@ export default function DemoPage() {
         />
       )}
 
-      <div className="flex flex-wrap gap-2 text-xs text-zinc-400">
+      <div className="flex flex-wrap items-center gap-3 text-xs">
         <button
           type="button"
           onClick={handleRestartAll}
-          className="rounded-full border border-zinc-700 px-3 py-2 font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+          className="rounded-full border border-zinc-800 px-3 py-2 font-medium text-zinc-400 transition hover:border-zinc-600 hover:text-white"
         >
-          Restart demo
+          Restart
         </button>
-        <span className="text-zinc-500">
-          Data generated locally. Internal transfers excluded from spending total: {currency.format(internalTransfersTotal)}
+        <span className="text-zinc-600">
+          Transfers excluded: {currency.format(internalTransfersTotal)}
         </span>
       </div>
     </div>

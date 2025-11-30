@@ -4,7 +4,6 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
 import { getCategoriesForGroup, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import type { Transaction } from "../../../lib/fakeData";
-import { SectionHeader } from "./SectionHeader";
 
 export type SpendingGroup = {
   id: OverviewGroupKey;
@@ -98,18 +97,19 @@ export function OverviewTab({
 
   const transactionsEmptyState =
     flowStep !== "results" || filteredTransactions.length === 0
-      ? "Transactions for this category will appear here after you analyze a sample statement."
+      ? "Select a category to see transactions."
       : null;
 
   return (
-    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8 animate-fade-rise">
-      <SectionHeader title="Overview" caption="Where your money went this month." className="text-center" />
+    <div className="space-y-6 animate-fade-rise">
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-white">Overview</h2>
+        <p className="text-sm text-zinc-500">Where your money went</p>
+      </div>
       {showChart && (
-        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6" tabIndex={-1}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Spending by group</h3>
-          </div>
-          <div className="mt-4 h-80 w-full">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-5 sm:px-6">
+          <h3 className="text-sm font-medium text-zinc-300">Spending by category</h3>
+          <div className="mt-4 h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

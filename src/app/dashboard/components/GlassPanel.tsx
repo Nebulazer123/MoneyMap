@@ -3,28 +3,29 @@ import React from "react";
 type GlassPanelProps = {
   children: React.ReactNode;
   className?: string;
-  variant?: "hero" | "card";
+  variant?: "hero" | "card" | "tile";
+  style?: React.CSSProperties;
 };
 
-export function GlassPanel({ children, className = "", variant = "card" }: GlassPanelProps) {
-  const variantClasses =
-    variant === "hero" ? "p-6 sm:p-8 md:p-10 border border-white/18" : "p-4 sm:p-5 border border-white/14";
+export function GlassPanel({ children, className = "", variant = "card", style }: GlassPanelProps) {
+  const variantStyles = {
+    hero: "p-6 sm:p-8 md:p-10 rounded-3xl border border-white/10",
+    card: "p-4 sm:p-5 rounded-2xl border border-white/8",
+    tile: "p-4 rounded-xl border border-white/8",
+  };
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[28px] ${variantClasses} bg-[linear-gradient(140deg,rgba(11,17,28,0.9),rgba(12,22,36,0.8))] shadow-[0_24px_60px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition duration-200 ${className}`}
+      style={style}
+      className={`relative overflow-hidden ${variantStyles[variant]} bg-[linear-gradient(145deg,rgba(10,14,20,0.95),rgba(8,12,18,0.9))] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300 ${className}`}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-px rounded-[26px] border border-white/18 shadow-inner shadow-white/5"
+        className="pointer-events-none absolute inset-px rounded-[inherit] border border-white/5"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(14,165,233,0.08),transparent_36%),radial-gradient(circle_at_85%_8%,rgba(16,185,129,0.09),transparent_34%)] opacity-70"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(125deg,rgba(255,255,255,0.07),rgba(255,255,255,0)_40%)] opacity-40 mix-blend-screen"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.06),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(139,92,246,0.05),transparent_50%)]"
       />
       <div className="relative z-10">{children}</div>
     </div>

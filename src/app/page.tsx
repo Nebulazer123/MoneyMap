@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { GlassPanel } from "./dashboard/components/GlassPanel";
-import { SectionHeader } from "./dashboard/components/SectionHeader";
 
 type Slide =
   | { title: string; heading: string; body: string }
-  | { title: string; heading: string; list: string[] };
+  | { title: string; heading: string; list: string[]; cta?: boolean };
 
 export default function Home() {
   const [isLearnMoreOpen, setIsLearnMoreOpen] = useState(false);
@@ -15,49 +14,51 @@ export default function Home() {
 
   const stepCards = [
     {
-      title: "Start with a messy month",
-      stepCopy: "Start with a messy month of paychecks, bills, and everyday swipes.",
+      title: "Upload a messy month",
+      description: "Paychecks, bills, everyday purchases.",
+      icon: "📄",
     },
     {
-      title: "Tell us which accounts are yours",
-      stepCopy: "Flag your own accounts so internal transfers stop inflating spending or income.",
+      title: "Flag your accounts",
+      description: "Internal transfers stay separate.",
+      icon: "🏦",
     },
     {
-      title: "Scan subscriptions and fees",
-      stepCopy: "Spot recurring charges and junk fees without ever touching real bank logins.",
+      title: "Spot hidden fees",
+      description: "Subscriptions and charges, revealed.",
+      icon: "🔍",
     },
   ];
 
   const learnMoreSlides: Slide[] = useMemo(
     () => [
       {
-        title: "Step one",
+        title: "Step 1",
         heading: "Drop in a messy month",
-        body:
-          "Upload or copy in paychecks, bills, and small purchases - basically the statement that feels too messy to look at.",
+        body: "Upload your paychecks, bills, and purchases—even the statement that feels overwhelming.",
       },
       {
-        title: "Step two",
-        heading: "Let MoneyMap sort the clutter",
-        body:
-          "Mark which accounts are yours so internal transfers disappear from spending, then see everything else grouped clearly.",
+        title: "Step 2",
+        heading: "Let MoneyMap sort it",
+        body: "Mark your accounts so transfers disappear from totals. Everything else gets grouped clearly.",
       },
       {
-        title: "Step three",
-        heading: "Spot subscriptions and fees",
-        body:
-          "Scan a clean ledger of subscriptions, bank fees, and other leaks so you know what is draining your month.",
+        title: "Step 3",
+        heading: "See what matters",
+        body: "Subscriptions, bank fees, and patterns that need attention—all in one clean view.",
       },
       {
-        title: "What you will see on your dashboard",
-        heading: "A quick snapshot every time",
-        list: ["Net", "Income", "Spending", "Subscriptions"],
+        title: "Ready",
+        heading: "Your dashboard awaits",
+        list: ["Net cash flow", "Income breakdown", "Spending by category", "Subscription tracker"],
+        cta: true,
       },
     ],
     [],
   );
 
   const currentSlide = learnMoreSlides[activeSlide] ?? learnMoreSlides[0];
+  const isLastSlide = activeSlide === learnMoreSlides.length - 1;
 
   const handleClose = () => {
     setIsLearnMoreOpen(false);
@@ -71,38 +72,41 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
+      {/* Background gradient */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[url('/home-grid-bg.png')] bg-cover bg-center"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-950 to-black"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(24,30,48,0.28),rgba(0,0,0,0.94)),linear-gradient(to_bottom,rgba(0,0,0,0.78),rgba(0,0,0,0.96))]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.08),transparent_50%),radial-gradient(ellipse_at_bottom,rgba(139,92,246,0.06),transparent_50%)]"
       />
+
       <div className="relative text-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">
-          <section className="relative">
-            <GlassPanel variant="hero" className="relative overflow-hidden sm:px-10 sm:py-14">
-              <div className="relative z-10 max-w-3xl space-y-4">
-                <span className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
-                  Phase one demo
+        <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 pb-16 pt-8 sm:gap-12 sm:px-6 sm:pt-12 lg:px-8">
+          {/* Hero Section */}
+          <section className="animate-fade-rise">
+            <GlassPanel variant="hero" className="text-center sm:py-16">
+              <div className="mx-auto max-w-2xl space-y-6">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Demo
                 </span>
-                <div className="space-y-3">
-                  <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">Welcome to MoneyMap</h1>
-                  <p className="max-w-2xl text-lg text-zinc-100">
-                    Stress test your spending without sharing real bank logins.
-                  </p>
-                  <p className="max-w-3xl text-sm text-zinc-400">
-                    Everything here runs on synthetic statements in your browser. No bank credentials, no uploads, just a safe
-                    walkthrough of what MoneyMap could feel like.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                  MoneyMap
+                </h1>
+                <p className="text-lg text-zinc-300 sm:text-xl">
+                  Stress test your spending without sharing real bank logins.
+                </p>
+                <p className="text-sm text-zinc-500">
+                  Synthetic data only. Nothing leaves your browser.
+                </p>
+                <div className="flex flex-col items-center justify-center gap-3 pt-2 sm:flex-row sm:gap-4">
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
+                    className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-zinc-100 hover:shadow-lg hover:shadow-white/10"
                   >
-                    Open the dashboard
+                    Open dashboard
                   </Link>
                   <button
                     type="button"
@@ -110,7 +114,7 @@ export default function Home() {
                       setIsLearnMoreOpen(true);
                       setActiveSlide(0);
                     }}
-                    className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-5 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+                    className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-6 py-3 text-sm font-medium text-zinc-300 transition-all hover:border-zinc-500 hover:bg-white/5 hover:text-white"
                   >
                     How it works
                   </button>
@@ -119,76 +123,112 @@ export default function Home() {
             </GlassPanel>
           </section>
 
-          <section className="mt-2 sm:mt-0">
-            <GlassPanel variant="hero" className="space-y-6 sm:p-8">
-              <SectionHeader
-                label="How this demo works"
-                title="Three quick steps to see a messy month cleaned up."
-                caption="All of it stays fake, but the flow mirrors how MoneyMap would treat a real statement."
-              />
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {stepCards.map((card, idx) => (
-                  <GlassPanel
-                    key={card.title}
-                    className="group relative h-full transition duration-200 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:border-white/22"
-                  >
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Step {idx + 1}</div>
-                    <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
-                    <p className="mt-2 text-sm text-zinc-300">{card.stepCopy}</p>
-                  </GlassPanel>
-                ))}
-              </div>
-            </GlassPanel>
+          {/* Step Cards */}
+          <section className="animate-fade-rise" style={{ animationDelay: "0.1s" }}>
+            <div className="mb-6 text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                Three steps
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-white sm:text-2xl">
+                See a messy month cleaned up
+              </h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {stepCards.map((card, idx) => (
+                <div
+                  key={card.title}
+                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5"
+                >
+                  <div className="flex h-full flex-col">
+                    <span className="text-2xl">{card.icon}</span>
+                    <p className="mt-4 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      Step {idx + 1}
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-white">
+                      {card.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-zinc-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      {card.description}
+                    </p>
+                  </div>
+                  {/* Subtle glow on hover */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                    style={{
+                      background: "radial-gradient(circle at 50% 0%, rgba(16,185,129,0.08), transparent 60%)",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </section>
         </div>
 
+        {/* How it works overlay */}
         {isLearnMoreOpen && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
             onClick={handleClose}
             role="presentation"
           >
             <div
-              className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+              className="w-full max-w-lg animate-fade-rise rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                    How this demo works
+                  <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                    {currentSlide.title}
                   </p>
-                  <h3 className="mt-1 text-xl font-semibold text-white">{currentSlide.title}</h3>
+                  <h3 className="mt-1 text-xl font-semibold text-white">{currentSlide.heading}</h3>
                 </div>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-full border border-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
-                  aria-label="Close overlay"
+                  className="rounded-full p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+                  aria-label="Close"
                 >
-                  Close
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-              <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-                <h4 className="text-lg font-semibold text-white">{currentSlide.heading}</h4>
+
+              <div className="mt-4">
                 {"body" in currentSlide ? (
-                  <p className="mt-2 text-sm text-zinc-300">{currentSlide.body}</p>
+                  <p className="text-sm leading-relaxed text-zinc-400">{currentSlide.body}</p>
                 ) : (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-300">
+                  <ul className="space-y-2 text-sm text-zinc-400">
                     {currentSlide.list.map((item) => (
-                      <li key={item}>{item}</li>
+                      <li key={item} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        {item}
+                      </li>
                     ))}
                   </ul>
                 )}
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex gap-2">
+
+              {"cta" in currentSlide && currentSlide.cta && (
+                <Link
+                  href="/dashboard"
+                  onClick={handleClose}
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-100"
+                >
+                  Get started
+                </Link>
+              )}
+
+              <div className="mt-6 flex items-center justify-between">
+                <div className="flex gap-1.5">
                   {learnMoreSlides.map((_, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => goToSlide(idx)}
-                      className={`h-2.5 w-2.5 rounded-full transition ${
-                        idx === activeSlide ? "bg-white" : "bg-zinc-700 hover:bg-zinc-500"
+                      className={`h-2 w-2 rounded-full transition-all ${
+                        idx === activeSlide ? "bg-white w-4" : "bg-zinc-700 hover:bg-zinc-500"
                       }`}
                       aria-label={`Go to slide ${idx + 1}`}
                     />
@@ -199,18 +239,19 @@ export default function Home() {
                     type="button"
                     onClick={() => goToSlide(activeSlide - 1)}
                     disabled={activeSlide === 0}
-                    className="rounded-full border border-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Prev
+                    Back
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => goToSlide(activeSlide + 1)}
-                    disabled={activeSlide === learnMoreSlides.length - 1}
-                    className="rounded-full border border-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
+                  {!isLastSlide && (
+                    <button
+                      type="button"
+                      onClick={() => goToSlide(activeSlide + 1)}
+                      className="rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700"
+                    >
+                      Next
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

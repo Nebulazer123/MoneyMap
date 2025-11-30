@@ -79,39 +79,41 @@ export function StatementPanel({
   return (
     <>
       {flowStep === "idle" && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-5 py-8 text-center text-zinc-200">
-          <h2 className="text-xl font-semibold text-white">Start your demo analysis</h2>
-          <p className="mt-2 text-sm text-zinc-400">MoneyMap will generate a randomized demo statement and analyze it locally.</p>
-          <div className="mt-4 flex justify-center">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-6 py-10 text-center animate-fade-rise">
+          <h2 className="text-xl font-semibold text-white">Generate a sample statement</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
+            Create randomized transactions to explore the dashboard.
+          </p>
+          <div className="mt-6 flex justify-center">
             <button
               type="button"
               onClick={onStart}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200"
+              className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-100"
             >
-              Generate sample statement
+              Generate
             </button>
           </div>
         </div>
       )}
 
       {(flowStep === "statement" || flowStep === "analyzing" || flowStep === "results") && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-5 py-6 text-zinc-200 sm:px-6">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 px-5 py-5 text-zinc-200 sm:px-6 animate-fade-rise">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">Demo statement</h2>
-              <p className="text-sm text-zinc-400">
-                Randomized transactions across your selected months - income, bills, subscriptions, fees, and transfers.
+              <h2 className="text-base font-semibold text-white">Sample statement</h2>
+              <p className="text-sm text-zinc-500">
+                Income, bills, subscriptions, and transfers.
               </p>
-              {isEditing && <p className="mt-1 text-xs text-zinc-500">Editing only affects this demo and saves locally on this device.</p>}
-              <div className="mt-2 flex flex-col gap-3 text-xs text-zinc-300 sm:gap-4 md:flex-row md:items-start md:gap-6">
-                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">From</span>
+              {isEditing && <p className="mt-1 text-xs text-zinc-600">Changes saved locally.</p>}
+              <div className="mt-3 flex flex-col gap-3 text-xs text-zinc-300 sm:gap-4 md:flex-row md:items-start md:gap-6">
+                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">From</span>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                     <label className="flex flex-col gap-1 text-zinc-400" htmlFor="month-from-select">
-                      <span>Month</span>
+                      <span className="sr-only">Month</span>
                       <select
                         id="month-from-select"
-                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white"
                         value={selectedMonthFrom}
                         onChange={(e) => setSelectedMonthFrom(Number(e.target.value))}
                       >
@@ -123,10 +125,10 @@ export function StatementPanel({
                       </select>
                     </label>
                     <label className="flex flex-col gap-1 text-zinc-400" htmlFor="year-from-select">
-                      <span>Year</span>
+                      <span className="sr-only">Year</span>
                       <select
                         id="year-from-select"
-                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white"
                         value={selectedYearFrom}
                         onChange={(e) => setSelectedYearFrom(Number(e.target.value))}
                       >
@@ -139,14 +141,14 @@ export function StatementPanel({
                     </label>
                   </div>
                 </div>
-                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">To</span>
+                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">To</span>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                     <label className="flex flex-col gap-1 text-zinc-400" htmlFor="month-to-select">
-                      <span>Month</span>
+                      <span className="sr-only">Month</span>
                       <select
                         id="month-to-select"
-                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white"
                         value={selectedMonthTo}
                         onChange={(e) => setSelectedMonthTo(Number(e.target.value))}
                       >
@@ -158,10 +160,10 @@ export function StatementPanel({
                       </select>
                     </label>
                     <label className="flex flex-col gap-1 text-zinc-400" htmlFor="year-to-select">
-                      <span>Year</span>
+                      <span className="sr-only">Year</span>
                       <select
                         id="year-to-select"
-                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-white"
                         value={selectedYearTo}
                         onChange={(e) => setSelectedYearTo(Number(e.target.value))}
                       >
@@ -180,11 +182,11 @@ export function StatementPanel({
               <button
                 type="button"
                 onClick={onToggleEditing}
-                className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                  isEditing ? "border-emerald-400 bg-emerald-900/40 text-emerald-100" : "border-zinc-700 bg-zinc-900 text-white hover:border-zinc-500 hover:bg-zinc-800"
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  isEditing ? "border-emerald-400/50 bg-emerald-900/30 text-emerald-200" : "border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white"
                 }`}
               >
-                {isEditing ? "Done editing" : "Edit transactions"}
+                {isEditing ? "Done" : "Edit"}
               </button>
               {flowStep !== "results" && (
                 <>
@@ -192,17 +194,17 @@ export function StatementPanel({
                     type="button"
                     onClick={onRegenerate}
                     disabled={flowStep === "analyzing"}
-                    className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Regenerate statement
+                    Regenerate
                   </button>
                   <button
                     type="button"
                     onClick={onAnalyze}
                     disabled={flowStep === "analyzing" || statementTransactions.length === 0}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-2.5 text-base font-semibold text-black shadow-sm transition hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/80 focus-visible:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 w-full sm:w-auto"
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Analyze this statement
+                    Analyze
                     <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <path d="M3.75 8h8.5m0 0L9.5 4.75M12.25 8 9.5 11.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -213,16 +215,16 @@ export function StatementPanel({
                 <button
                   type="button"
                   onClick={onToggleShowStatement}
-                  className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+                  className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white"
                 >
-                  {showStatement ? "Hide statement" : "Show statement"}
+                  {showStatement ? "Hide" : "Show"}
                 </button>
               )}
             </div>
           </div>
           {flowStep === "analyzing" && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+            <div className="mt-4 flex items-center gap-2 text-sm text-zinc-400">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
               <span>Analyzing...</span>
             </div>
           )}
