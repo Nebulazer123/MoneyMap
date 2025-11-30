@@ -80,7 +80,7 @@ export default function Home() {
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-black/80 to-black"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(24,30,48,0.28),rgba(0,0,0,0.94)),linear-gradient(to_bottom,rgba(0,0,0,0.78),rgba(0,0,0,0.96))]"
       />
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">

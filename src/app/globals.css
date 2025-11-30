@@ -30,9 +30,9 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
-  background-size: 70px 70px;
+  background-size: 80px 80px;
   mix-blend-mode: soft-light;
-  opacity: 0.06;
+  opacity: 0.05;
   z-index: 0;
 }
 
