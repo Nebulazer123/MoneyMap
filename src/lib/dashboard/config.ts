@@ -50,15 +50,17 @@ export const categoryOptions = [
   "Utilities",
   "Transport",
   "Fees",
+  "Transfer",
   "Other",
 ] as const;
 
 export const categoryEmojis = {
   ...categoryEmojiMap,
-  "Bills & services": "??",
-  Insurance: "???",
-  Loans: "??",
-  Education: "??",
+  "Bills & services": "🧾",
+  Insurance: "🛡️",
+  Loans: "🏦",
+  Education: "🎓",
+  Transfer: "↔️",
 };
 
 export const displayCategoryLabels: Record<string, string> = {
@@ -87,34 +89,33 @@ export const accountTypeOptions = [
 ] as const;
 
 export type OverviewGroupKey =
-  | "rentUtilities"
-  | "groceriesDining"
-  | "transport"
+  | "rent_utils"
+  | "groceries_dining"
+  | "auto"
   | "subscriptions"
   | "insurance"
-  | "loans"
   | "education"
-  | "billsServices"
-  | "otherFees";
+  | "transfers"
+  | "other_fees";
 
 export const overviewGroupMeta: Record<
   OverviewGroupKey,
   { label: string; categories: string[]; color: string; emoji: string }
 > = {
-  rentUtilities: {
+  rent_utils: {
     label: "Rent and utilities",
     categories: ["Rent", "Utilities"],
     color: "#f97316",
     emoji: categoryEmojis.Rent,
   },
-  groceriesDining: {
+  groceries_dining: {
     label: "Groceries and dining",
     categories: ["Groceries", "Dining"],
     color: "#22d3ee",
     emoji: categoryEmojis.Groceries,
   },
-  transport: {
-    label: "Transport",
+  auto: {
+    label: "Auto",
     categories: ["Transport"],
     color: "#0ea5e9",
     emoji: categoryEmojis.Transport,
@@ -131,28 +132,22 @@ export const overviewGroupMeta: Record<
     color: "#22c55e",
     emoji: categoryEmojis.Insurance,
   },
-  loans: {
-    label: "Loans",
-    categories: ["Loans"],
-    color: "#f43f5e",
-    emoji: categoryEmojis.Loans,
-  },
   education: {
     label: "Education",
     categories: ["Education"],
     color: "#3b82f6",
     emoji: categoryEmojis.Education,
   },
-  billsServices: {
-    label: "Bills & services",
-    categories: ["Bills & services", "Bills"],
-    color: "#10b981",
-    emoji: categoryEmojis["Bills & services"],
+  transfers: {
+    label: "Transfers",
+    categories: ["Transfer"],
+    color: "#f59e0b",
+    emoji: categoryEmojis.Transfer,
   },
-  otherFees: {
+  other_fees: {
     label: "Other including fees",
-    categories: ["Fees", "Other"],
-    color: "#fbbf24",
+    categories: ["Fees", "Other", "Loans", "Bills & services", "Bills"],
+    color: "#a855f7",
     emoji: categoryEmojis.Other,
   },
 };

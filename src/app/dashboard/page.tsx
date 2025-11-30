@@ -13,7 +13,6 @@ import {
   type OverviewGroupKey,
   type TabId,
 } from "../../lib/dashboard/config";
-import { getDisplayCategory } from "../../lib/dashboard/categories";
 import { useDuplicates } from "./hooks/useDuplicates";
 import { useExpansionState } from "./hooks/useExpansionState";
 import { useDateRange } from "./hooks/useDateRange";
@@ -36,7 +35,6 @@ export default function DemoPage() {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
   });
-  const [activeOverviewCategory, setActiveOverviewCategory] = useState<string>("Rent");
   const [activeSpendingGroup, setActiveSpendingGroup] = useState<OverviewGroupKey | null>(null);
 
   const {
@@ -175,6 +173,7 @@ export default function DemoPage() {
     topSpendingCategories,
     groupedSpendingData,
     resolvedActiveSpendingGroup,
+    groupedTransactionsByGroup,
     subscriptionRows,
     leftAfterBills,
     transportPercent,
@@ -234,17 +233,27 @@ export default function DemoPage() {
     [flowStep, setFlowStep, setFullStatementTransactions],
   );
 
-  const overviewTransactions = useMemo(
-    () =>
-      statementTransactions.filter((tx) => {
-        const cat = getDisplayCategory(tx);
-        return cat === activeOverviewCategory;
-      }),
-    [activeOverviewCategory, statementTransactions],
-  );
-
   const activeSpendingGroupId = resolvedActiveSpendingGroup(activeSpendingGroup);
+  const overviewTransactions = activeSpendingGroupId
+    ? groupedTransactionsByGroup.get(activeSpendingGroupId) ?? []
+    : [];
   const hasResults = flowStep === "results" && statementTransactions.length > 0;
+
+  const { totalInflowStatement, totalOutflowStatement, netStatement } = useMemo(() => {
+    const totals = statementTransactions.reduce(
+      (acc, tx) => {
+        if (tx.amount > 0) acc.in += tx.amount;
+        if (tx.amount < 0) acc.out += Math.abs(tx.amount);
+        return acc;
+      },
+      { in: 0, out: 0 },
+    );
+    return {
+      totalInflowStatement: totals.in,
+      totalOutflowStatement: totals.out,
+      netStatement: totals.in - totals.out,
+    };
+  }, [statementTransactions]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -305,6 +314,9 @@ export default function DemoPage() {
         normalizedRange={normalizedRange}
         onAddTransaction={handleAddTransaction}
         onChangeCategory={handleUpdateTransactionCategory}
+        totalInflowStatement={totalInflowStatement}
+        totalOutflowStatement={totalOutflowStatement}
+        netStatement={netStatement}
       />
 
       {hasResults && (
@@ -326,11 +338,9 @@ export default function DemoPage() {
           currency={currency}
           dateFormatter={dateFormatter}
           groupedSpendingData={groupedSpendingData}
-          activeSpendingGroupId={activeSpendingGroupId}
-          onSelectSpendingGroup={(groupId) => setActiveSpendingGroup(groupId)}
+          activeGroupId={activeSpendingGroupId}
+          onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
           categoryBreakdown={categoryBreakdown}
-          activeOverviewCategory={activeOverviewCategory}
-          onSelectOverviewCategory={setActiveOverviewCategory}
           overviewTransactions={overviewTransactions}
           flowStep={flowStep}
         />

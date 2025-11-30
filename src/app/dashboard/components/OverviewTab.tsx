@@ -1,9 +1,7 @@
 import React from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-import type { OverviewGroupKey } from "../../../lib/dashboard/config";
-import { categoryEmojis } from "../../../lib/dashboard/config";
-import { getDisplayCategory } from "../../../lib/dashboard/categories";
+import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
 
 export type SpendingGroup = {
@@ -16,15 +14,34 @@ export type SpendingGroup = {
   percent: number;
 };
 
+type DetailCardConfig = {
+  label: string;
+  categories: string[];
+  groupId: OverviewGroupKey;
+  emoji: string;
+};
+
+const detailCardsConfig: DetailCardConfig[] = [
+  { label: "Rent", categories: ["Rent"], groupId: "rent_utils", emoji: categoryEmojis.Rent },
+  { label: "Utilities", categories: ["Utilities"], groupId: "rent_utils", emoji: categoryEmojis.Utilities },
+  { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
+  { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
+  { label: "Groceries", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
+  { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
+  { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
+  { label: "Insurance", categories: ["Insurance"], groupId: "insurance", emoji: categoryEmojis.Insurance },
+  { label: "Transfers", categories: ["Transfer"], groupId: "transfers", emoji: categoryEmojis.Transfer },
+  { label: "Education", categories: ["Education"], groupId: "education", emoji: categoryEmojis.Education },
+  { label: "Other", categories: ["Other", "Loans", "Bills & services", "Bills"], groupId: "other_fees", emoji: categoryEmojis.Other },
+];
+
 export type OverviewTabProps = {
   currency: Intl.NumberFormat;
   dateFormatter: Intl.DateTimeFormat;
   groupedSpendingData: SpendingGroup[];
-  activeSpendingGroupId: OverviewGroupKey | null;
-  onSelectSpendingGroup: (groupId: OverviewGroupKey | null) => void;
+  activeGroupId: OverviewGroupKey | null;
+  onSelectGroup: (groupId: OverviewGroupKey | null) => void;
   categoryBreakdown: { category: string; amount: number }[];
-  activeOverviewCategory: string;
-  onSelectOverviewCategory: (category: string) => void;
   overviewTransactions: Transaction[];
   flowStep: "idle" | "statement" | "analyzing" | "results";
 };
@@ -33,23 +50,32 @@ export function OverviewTab({
   currency,
   dateFormatter,
   groupedSpendingData,
-  activeSpendingGroupId,
-  onSelectSpendingGroup,
+  activeGroupId,
+  onSelectGroup,
   categoryBreakdown,
-  activeOverviewCategory,
-  onSelectOverviewCategory,
   overviewTransactions,
   flowStep,
 }: OverviewTabProps) {
-  const categoryEmojiLookup = categoryEmojis as Record<string, string>;
-  const activeGroupDetails = groupedSpendingData.find((group) => group.id === activeSpendingGroupId) ?? null;
+  const activeGroupDetails = groupedSpendingData.find((group) => group.id === activeGroupId) ?? null;
   const showChart = flowStep === "results" && groupedSpendingData.length > 0;
+  const categoryAmountMap = new Map(categoryBreakdown.map((item) => [item.category, item.amount]));
+  const tableGroupMeta = activeGroupId ? overviewGroupMeta[activeGroupId] : null;
 
   const getGroupIdFromEntry = (entry: unknown): OverviewGroupKey | null => {
     if (!entry || typeof entry !== "object") return null;
     const candidate = entry as { id?: string; payload?: { id?: string } };
     return (candidate.id ?? candidate.payload?.id ?? null) as OverviewGroupKey | null;
   };
+
+  const detailCards = detailCardsConfig.map((card) => {
+    const amount = card.categories.reduce((sum, name) => sum + (categoryAmountMap.get(name) ?? 0), 0);
+    return { ...card, amount };
+  });
+
+  const transactionsEmptyState =
+    flowStep !== "results" || overviewTransactions.length === 0
+      ? "Transactions for this category will appear here after you analyze a sample statement."
+      : null;
 
   return (
     <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8">
@@ -58,7 +84,7 @@ export function OverviewTab({
       {showChart && (
         <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6" tabIndex={-1}>
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Spending by category</h3>
+            <h3 className="text-sm font-semibold text-white">Spending by group</h3>
           </div>
           <div className="mt-4 h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -74,8 +100,8 @@ export function OverviewTab({
                   strokeWidth={0}
                   isAnimationActive
                   animationDuration={800}
-                  onClick={(entry) => onSelectSpendingGroup(getGroupIdFromEntry(entry))}
-                  onMouseEnter={(entry) => onSelectSpendingGroup(getGroupIdFromEntry(entry))}
+                  onClick={(entry) => onSelectGroup(getGroupIdFromEntry(entry))}
+                  onMouseEnter={(entry) => onSelectGroup(getGroupIdFromEntry(entry))}
                 >
                   {groupedSpendingData.map((item) => (
                     <Cell key={item.id} fill={item.color} cursor="pointer" />
@@ -86,16 +112,16 @@ export function OverviewTab({
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {groupedSpendingData.map((item) => {
-              const isActive = item.id === activeSpendingGroupId;
+              const isActive = item.id === activeGroupId;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onSelectSpendingGroup(item.id)}
+                  onClick={() => onSelectGroup(item.id)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      onSelectSpendingGroup(item.id);
+                      onSelectGroup(item.id);
                     }
                   }}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
@@ -108,7 +134,7 @@ export function OverviewTab({
                     <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="flex items-center gap-1">
                       <span aria-hidden="true">{item.emoji}</span>
-                      <span>{item.label === "Transport" ? "Auto" : item.label}</span>
+                      <span>{item.label}</span>
                     </span>
                   </div>
                   <div className="text-right text-xs text-zinc-400">
@@ -123,7 +149,7 @@ export function OverviewTab({
             <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm text-zinc-200">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-white">
-                  {activeGroupDetails.emoji} {activeGroupDetails.label === "Transport" ? "Auto" : activeGroupDetails.label}
+                  {activeGroupDetails.emoji} {activeGroupDetails.label}
                 </span>
                 <span className="text-xs text-zinc-400">{currency.format(activeGroupDetails.value)}</span>
               </div>
@@ -144,28 +170,30 @@ export function OverviewTab({
         </div>
       )}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {categoryBreakdown.map((item) => (
+        {detailCards.map((card) => (
           <button
-            key={item.category}
+            key={card.label}
             type="button"
-            onClick={() => onSelectOverviewCategory(item.category)}
+            onClick={() => onSelectGroup(card.groupId)}
             className={`w-full rounded-lg border px-4 py-3 text-left transition ${
-              activeOverviewCategory === item.category
+              activeGroupId === card.groupId
                 ? "border-zinc-600 bg-zinc-800"
                 : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
             }`}
           >
             <p className="flex items-center gap-2 text-sm text-zinc-400">
-              <span aria-hidden="true">{categoryEmojiLookup[item.category] ?? ""}</span>
-              <span>{getDisplayCategory(item.category)}</span>
+              <span aria-hidden="true">{card.emoji}</span>
+              <span>{card.label}</span>
             </p>
-            <p className="mt-1 text-lg font-semibold text-white">{currency.format(item.amount)}</p>
+            <p className="mt-1 text-lg font-semibold text-white">{currency.format(card.amount)}</p>
           </button>
         ))}
       </div>
       <div className="mt-6 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">Transactions for {getDisplayCategory(activeOverviewCategory)}</h3>
+          <h3 className="text-sm font-semibold text-white">
+            Transactions for {tableGroupMeta ? tableGroupMeta.label : "this category"}
+          </h3>
         </div>
         <div className="overflow-x-auto rounded-lg border border-zinc-800">
           <div className="min-w-[520px]">
@@ -174,8 +202,8 @@ export function OverviewTab({
               <span>Description</span>
               <span className="text-right">Amount</span>
             </div>
-            {overviewTransactions.length === 0 ? (
-              <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">No transactions for this category in this period.</div>
+            {transactionsEmptyState ? (
+              <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">{transactionsEmptyState}</div>
             ) : (
               <div className="divide-y divide-zinc-800">
                 {overviewTransactions.map((tx) => (

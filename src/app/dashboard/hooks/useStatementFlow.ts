@@ -218,7 +218,7 @@ export function useStatementFlow({
   const handleToggleEditing = (force?: boolean) => {
     setIsEditing((prev) => {
       const next = typeof force === "boolean" ? force : !prev;
-      setShowStatement(next ? true : false);
+      setShowStatement(true);
       return next;
     });
   };

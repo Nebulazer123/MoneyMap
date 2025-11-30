@@ -3,6 +3,7 @@ import React from "react";
 import { months } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
 import AddTransactionRow from "./AddTransactionRow";
+import InfoTip from "./InfoTip";
 
 export type StatementMonth = { key: number; label: string; transactions: Transaction[] };
 
@@ -36,6 +37,9 @@ type Props = {
   normalizedRange: { start: { month: number; year: number }; end: { month: number; year: number } };
   onAddTransaction: (details: { date: string; description: string; category: string; amount: string }) => boolean;
   onChangeCategory: (txId: string, category: string) => void;
+  totalInflowStatement: number;
+  totalOutflowStatement: number;
+  netStatement: number;
 };
 
 export function StatementPanel({
@@ -68,6 +72,9 @@ export function StatementPanel({
   normalizedRange,
   onAddTransaction,
   onChangeCategory,
+  totalInflowStatement,
+  totalOutflowStatement,
+  netStatement,
 }: Props) {
   return (
     <>
@@ -193,7 +200,7 @@ export function StatementPanel({
                     type="button"
                     onClick={onAnalyze}
                     disabled={flowStep === "analyzing" || statementTransactions.length === 0}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black shadow-sm transition hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/80 focus-visible:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-2.5 text-base font-semibold text-black shadow-sm transition hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/80 focus-visible:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 w-full sm:w-auto"
                   >
                     Analyze this statement
                     <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -258,7 +265,12 @@ export function StatementPanel({
                                 <span>Date</span>
                                 <span>Description</span>
                                 <span>Category</span>
-                                <span className="text-right">Amount</span>
+                                <span className="flex items-center justify-end gap-1">
+                                  Amount
+                                  <InfoTip
+                                    label={`Totals for this sample statement\nTotal in: ${currency.format(totalInflowStatement)}\nTotal out: ${currency.format(totalOutflowStatement)}\nNet: ${currency.format(netStatement)}`}
+                                  />
+                                </span>
                               </div>
                               <div className="divide-y divide-zinc-800">
                                 {month.transactions.map((tx) => (
@@ -304,7 +316,12 @@ export function StatementPanel({
                       <span>Date</span>
                       <span>Description</span>
                       <span>Category</span>
-                      <span className="text-right">Amount</span>
+                      <span className="flex items-center justify-end gap-1">
+                        Amount
+                        <InfoTip
+                          label={`Totals for this sample statement\nTotal in: ${currency.format(totalInflowStatement)}\nTotal out: ${currency.format(totalOutflowStatement)}\nNet: ${currency.format(netStatement)}`}
+                        />
+                      </span>
                     </div>
                     {statementTransactionsSorted.length === 0 ? (
                       <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">No transactions in this view.</div>

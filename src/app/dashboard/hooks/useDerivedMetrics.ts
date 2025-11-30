@@ -17,7 +17,7 @@ import {
   type OwnershipMap,
   type OwnershipMode,
 } from "../../../lib/fakeData";
-import { getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
+import { getOverviewGroupForCategory, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import { overviewGroupMeta, type OverviewGroupKey, months } from "../../../lib/dashboard/config";
 
 export function useDerivedMetrics({
@@ -254,55 +254,26 @@ export function useDerivedMetrics({
   );
 
   const groupedSpendingData = useMemo(() => {
-    const capturedCategories = new Set<string>();
-    const groups: {
-      id: OverviewGroupKey;
-      label: string;
-      value: number;
-      categories: { name: string; amount: number }[];
-      color: string;
-      emoji: string;
-    }[] = [];
     const categoryAmountMapLocal = new Map<string, number>();
     categoryBreakdown.forEach((item) => {
       categoryAmountMapLocal.set(item.category, Math.abs(item.amount));
     });
-    (Object.entries(overviewGroupMeta) as [OverviewGroupKey, (typeof overviewGroupMeta)[OverviewGroupKey]][]).forEach(
-      ([id, meta]) => {
-        if (id === "otherFees") return;
-        meta.categories.forEach((cat) => capturedCategories.add(cat));
-        const categories = meta.categories
-          .map((name) => ({ name, amount: categoryAmountMapLocal.get(name) ?? 0 }))
-          .filter((entry) => entry.amount > 0);
-        const value = categories.reduce((sum, entry) => sum + entry.amount, 0);
-        groups.push({
-          id,
-          label: meta.label,
-          value,
-          categories,
-          color: meta.color,
-          emoji: meta.emoji,
-        });
-      },
-    );
-    const otherCategories = categoryBreakdown.filter(
-      (item) => !capturedCategories.has(item.category),
-    );
-    const otherValue = otherCategories.reduce(
-      (sum, item) => sum + Math.abs(item.amount),
-      0,
-    );
-    const otherCategoryDetails = otherCategories.map((item) => ({
-      name: item.category,
-      amount: Math.abs(item.amount),
-    }));
-    groups.push({
-      id: "otherFees",
-      label: overviewGroupMeta.otherFees.label,
-      value: otherValue,
-      categories: otherCategoryDetails,
-      color: overviewGroupMeta.otherFees.color,
-      emoji: overviewGroupMeta.otherFees.emoji,
+    const groups = (Object.entries(overviewGroupMeta) as [
+      OverviewGroupKey,
+      (typeof overviewGroupMeta)[OverviewGroupKey],
+    ][]).map(([id, meta]) => {
+      const categories = meta.categories
+        .map((name) => ({ name, amount: categoryAmountMapLocal.get(name) ?? 0 }))
+        .filter((entry) => entry.amount > 0);
+      const value = categories.reduce((sum, entry) => sum + entry.amount, 0);
+      return {
+        id,
+        label: meta.label,
+        value,
+        categories,
+        color: meta.color,
+        emoji: meta.emoji,
+      };
     });
     const filtered = groups.filter((group) => group.value > 0);
     const total = filtered.reduce((sum, group) => sum + group.value, 0);
@@ -312,10 +283,25 @@ export function useDerivedMetrics({
     }));
   }, [categoryBreakdown]);
 
+  const groupedTransactionsByGroup = useMemo(() => {
+    const map = new Map<OverviewGroupKey, Transaction[]>();
+    statementTransactions.forEach((tx) => {
+      if (!isRealSpending(tx, ownership, ownershipModes)) return;
+      const displayCategory = getTransactionDisplayCategory(tx);
+      const groupId = getOverviewGroupForCategory(displayCategory) ?? "other_fees";
+      if (!map.has(groupId)) {
+        map.set(groupId, []);
+      }
+      map.get(groupId)!.push(tx);
+    });
+    map.forEach((list) => {
+      list.sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
+    });
+    return map;
+  }, [ownership, ownershipModes, statementTransactions]);
+
   const resolvedActiveSpendingGroup = (activeSpendingGroup: OverviewGroupKey | null) =>
-    activeSpendingGroup && groupedSpendingData.some((group) => group.id === activeSpendingGroup)
-      ? activeSpendingGroup
-      : groupedSpendingData[0]?.id ?? null;
+    activeSpendingGroup ?? groupedSpendingData[0]?.id ?? null;
 
   return {
     statementTransactionsSorted,
@@ -339,6 +325,7 @@ export function useDerivedMetrics({
     topSpendingCategories,
     groupedSpendingData,
     resolvedActiveSpendingGroup,
+    groupedTransactionsByGroup,
     subscriptionRows,
     leftAfterBills,
     transportPercent,
