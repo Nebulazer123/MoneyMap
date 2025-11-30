@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 
 import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
 import type { Transaction, TransferAccount, OwnershipMode } from "../../../lib/fakeData";
 import InfoTip from "./InfoTip";
+import { SubscriptionsOverlay } from "./SubscriptionsOverlay";
 
 export type BudgetItem = {
   category: string;
@@ -22,10 +23,11 @@ type Props = {
     subscriptionCount: number;
     totalSubscriptions: number;
     totalFees: number;
+    internalTransfersTotal: number;
   };
+  subscriptionRows: Transaction[];
   feeRows: Transaction[];
   topSpendingCategories: { category: string; amount: number }[];
-  internalTransfersTotal: number;
   duplicateClusters: DuplicateClusterView[];
   leftAfterBills: number;
   budgetGuidance: BudgetItem[];
@@ -76,9 +78,9 @@ export function ReviewTab({
   currency,
   dateFormatter,
   summaryStats,
+  subscriptionRows,
   feeRows,
   topSpendingCategories,
-  internalTransfersTotal,
   duplicateClusters,
   leftAfterBills,
   budgetGuidance,
@@ -121,6 +123,9 @@ export function ReviewTab({
   handleToggleAccountTransaction,
   handleSaveNewAccount,
 }: Props) {
+  const [isSubscriptionsOverlayOpen, setIsSubscriptionsOverlayOpen] = useState(false);
+  const hasSubscriptions = subscriptionRows.length > 0;
+
   return (
     <div className="space-y-4">
       <div className="text-center">
@@ -150,7 +155,11 @@ export function ReviewTab({
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setIsSubscriptionsOverlayOpen(true)}
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+        >
           <p className="text-sm font-semibold text-white">Subscriptions</p>
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -161,8 +170,11 @@ export function ReviewTab({
               <span className="text-zinc-400">Total</span>
               <span className="font-semibold text-white">{currency.format(summaryStats.totalSubscriptions)}</span>
             </div>
+            {!hasSubscriptions && (
+              <p className="text-[11px] text-zinc-500">No subscriptions detected this period.</p>
+            )}
           </div>
-        </div>
+        </button>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
           <p className="text-sm font-semibold text-white">Fees</p>
           <div className="mt-3 space-y-1 text-sm">
@@ -193,7 +205,9 @@ export function ReviewTab({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
           <p className="text-sm font-semibold text-white">Internal transfers this period</p>
-          <p className="mt-2 text-xl font-semibold text-white">{currency.format(internalTransfersTotal)}</p>
+          <p className="mt-2 text-xl font-semibold text-white">
+            {currency.format(summaryStats.internalTransfersTotal)}
+          </p>
           <p className="mt-1 text-xs text-zinc-400">Money moved between your own accounts. Ignored for income and spending.</p>
         </div>
         <button
@@ -524,6 +538,14 @@ export function ReviewTab({
             </div>
           )}
         </div>
+      )}
+      {isSubscriptionsOverlayOpen && (
+        <SubscriptionsOverlay
+          subscriptions={subscriptionRows}
+          currency={currency}
+          dateFormatter={dateFormatter}
+          onClose={() => setIsSubscriptionsOverlayOpen(false)}
+        />
       )}
     </div>
   );

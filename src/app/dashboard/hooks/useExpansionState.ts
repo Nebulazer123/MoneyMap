@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function useExpansionState({
   showGroupedTable,
@@ -10,8 +10,14 @@ export function useExpansionState({
   cashflowMonths: { key: number }[];
 }) {
   const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
-  const [expandedCashflowMonths, setExpandedCashflowMonths] = useState<Set<number>>(new Set());
+  const [expandedCashflowMonths, setExpandedCashflowMonths] = useState<Set<number>>(
+    () => new Set(),
+  );
   const [expandedCashflowDates, setExpandedCashflowDates] = useState<Record<string, boolean>>({});
+  const monthsKey = useMemo(
+    () => cashflowMonths.map((m) => m.key).join("|"),
+    [cashflowMonths],
+  );
 
   useEffect(() => {
     if (!showGroupedTable) return;
@@ -20,17 +26,9 @@ export function useExpansionState({
   }, [monthsSignature, showGroupedTable]);
 
   useEffect(() => {
-    if (cashflowMonths.length === 0) return;
-    const latestKey = cashflowMonths[cashflowMonths.length - 1]?.key;
-    if (cashflowMonths.length === 1) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExpandedCashflowMonths(new Set([latestKey]));
-      return;
-    }
-    if (cashflowMonths.length > 1 && expandedCashflowMonths.size === 0) {
-      setExpandedCashflowMonths(new Set([latestKey]));
-    }
-  }, [cashflowMonths, expandedCashflowMonths.size]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedCashflowMonths(new Set());
+  }, [monthsKey]);
 
   return {
     expandedMonths,

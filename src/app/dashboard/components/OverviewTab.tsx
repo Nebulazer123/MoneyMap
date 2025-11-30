@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
+import { getCategoriesForGroup, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import type { Transaction } from "../../../lib/fakeData";
 
 export type SpendingGroup = {
@@ -58,8 +59,14 @@ export function OverviewTab({
 }: OverviewTabProps) {
   const activeGroupDetails = groupedSpendingData.find((group) => group.id === activeGroupId) ?? null;
   const showChart = flowStep === "results" && groupedSpendingData.length > 0;
-  const categoryAmountMap = new Map(categoryBreakdown.map((item) => [item.category, item.amount]));
   const tableGroupMeta = activeGroupId ? overviewGroupMeta[activeGroupId] : null;
+  const groupCategoryAmountMap = useMemo(() => {
+    const map = new Map<OverviewGroupKey, Map<string, number>>();
+    groupedSpendingData.forEach((group) => {
+      map.set(group.id, new Map(group.categories.map((cat) => [cat.name, cat.amount])));
+    });
+    return map;
+  }, [groupedSpendingData]);
 
   const getGroupIdFromEntry = (entry: unknown): OverviewGroupKey | null => {
     if (!entry || typeof entry !== "object") return null;
@@ -68,12 +75,22 @@ export function OverviewTab({
   };
 
   const detailCards = detailCardsConfig.map((card) => {
-    const amount = card.categories.reduce((sum, name) => sum + (categoryAmountMap.get(name) ?? 0), 0);
+    const amountsForGroup = groupCategoryAmountMap.get(card.groupId);
+    const amount = card.categories.reduce((sum, name) => sum + (amountsForGroup?.get(name) ?? 0), 0);
     return { ...card, amount };
   });
 
+  const filteredTransactions = useMemo(() => {
+    if (!activeGroupId) return [];
+    const categories = new Set(getCategoriesForGroup(activeGroupId));
+    if (categories.size === 0) return [];
+    return overviewTransactions
+      .filter((tx) => categories.has(getTransactionDisplayCategory(tx)))
+      .sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
+  }, [activeGroupId, overviewTransactions]);
+
   const transactionsEmptyState =
-    flowStep !== "results" || overviewTransactions.length === 0
+    flowStep !== "results" || filteredTransactions.length === 0
       ? "Transactions for this category will appear here after you analyze a sample statement."
       : null;
 
@@ -206,7 +223,7 @@ export function OverviewTab({
               <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">{transactionsEmptyState}</div>
             ) : (
               <div className="divide-y divide-zinc-800">
-                {overviewTransactions.map((tx) => (
+                {filteredTransactions.map((tx) => (
                   <div key={tx.id} className="grid grid-cols-3 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm">
                     <span className="text-zinc-300">{dateFormatter.format(new Date(tx.date))}</span>
                     <span className="truncate" title={tx.description}>

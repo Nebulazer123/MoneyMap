@@ -813,6 +813,17 @@ export function isInternalTransfer(
   return bothOwned && !eitherPayment;
 }
 
+export function getInternalTransfersTotal(
+  list: Transaction[],
+  ownershipMap: OwnershipMap = {},
+  accountModes?: AccountModeMap,
+): number {
+  return list.reduce((sum, tx) => {
+    if (!isInternalTransfer(tx, ownershipMap, accountModes)) return sum;
+    return sum + Math.abs(tx.amount);
+  }, 0);
+}
+
 export function isRealIncome(
   t: Transaction,
   ownershipMap: OwnershipMap = {},
@@ -1218,9 +1229,7 @@ export function getSummaryStats(
   const subscriptionCount = subscriptionTransactions.length;
 
   const totalFees = getTotalFees(list, ownershipMap, accountModes);
-  const totalInternalTransfers = list
-    .filter((t) => isInternalTransfer(t, ownershipMap, accountModes))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const totalInternalTransfers = getInternalTransfersTotal(list, ownershipMap, accountModes);
 
   const expenses = list.filter((t) => isRealSpending(t, ownershipMap, accountModes));
   const largestExpense =

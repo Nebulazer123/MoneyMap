@@ -193,8 +193,17 @@ export default function DemoPage() {
       subscriptionCount: subscriptionRows.length,
       totalSubscriptions,
       totalFees,
+      internalTransfersTotal,
     }),
-    [totalIncome, totalSpending, netThisMonth, subscriptionRows.length, totalSubscriptions, totalFees],
+    [
+      totalIncome,
+      totalSpending,
+      netThisMonth,
+      subscriptionRows.length,
+      totalSubscriptions,
+      totalFees,
+      internalTransfersTotal,
+    ],
   );
 
   const {
@@ -331,9 +340,11 @@ export default function DemoPage() {
         />
       )}
 
-      <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+      {flowStep === "results" && (
+        <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+      )}
 
-      {activeTab === "overview" && (
+      {flowStep === "results" && activeTab === "overview" && (
         <OverviewTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -346,7 +357,7 @@ export default function DemoPage() {
         />
       )}
 
-      {activeTab === "recurring" && (
+      {flowStep === "results" && activeTab === "recurring" && (
         <RecurringTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -361,11 +372,11 @@ export default function DemoPage() {
         />
       )}
 
-      {activeTab === "fees" && (
+      {flowStep === "results" && activeTab === "fees" && (
         <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
       )}
 
-      {activeTab === "cashflow" && (
+      {flowStep === "results" && activeTab === "cashflow" && (
         <CashflowTab
           currency={currency}
           dateFormatter={dateFormatter}
@@ -382,15 +393,15 @@ export default function DemoPage() {
         />
       )}
 
-      {activeTab === "review" && (
+      {flowStep === "results" && activeTab === "review" && (
         <ReviewTab
           currency={currency}
           dateFormatter={dateFormatter}
           summaryStats={summaryStatsForReview}
           feeRows={feeRows}
           topSpendingCategories={topSpendingCategories}
-          internalTransfersTotal={internalTransfersTotal}
           duplicateClusters={duplicateClusters}
+          subscriptionRows={subscriptionRows}
           leftAfterBills={leftAfterBills}
           budgetGuidance={budgetGuidance}
           transportPercent={transportPercent}

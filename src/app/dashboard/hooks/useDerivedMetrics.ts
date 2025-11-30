@@ -10,6 +10,7 @@ import {
   getFeeTransactions,
   getCashFlowByDate,
   getSummaryStats,
+  getInternalTransfersTotal,
   getBudgetGuidance,
   isInternalTransfer,
   isRealSpending,
@@ -17,8 +18,11 @@ import {
   type OwnershipMap,
   type OwnershipMode,
 } from "../../../lib/fakeData";
-import { getOverviewGroupForCategory, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
-import { overviewGroupMeta, type OverviewGroupKey, months } from "../../../lib/dashboard/config";
+import {
+  getOverviewGroupForCategory,
+  getTransactionDisplayCategory,
+} from "../../../lib/dashboard/categories";
+import { overviewGroupMeta, overviewGroupOrder, type OverviewGroupKey, months } from "../../../lib/dashboard/config";
 
 export function useDerivedMetrics({
   statementTransactions,
@@ -131,11 +135,7 @@ export function useDerivedMetrics({
   const totalSubscriptions = getTotalSubscriptions(statementTransactions, ownership, ownershipModes);
 
   const internalTransfersTotal = useMemo(
-    () =>
-      statementTransactions.reduce((sum, tx) => {
-        if (!isInternalTransfer(tx, ownership, ownershipModes)) return sum;
-        return sum + Math.abs(tx.amount);
-      }, 0),
+    () => getInternalTransfersTotal(statementTransactions, ownership, ownershipModes),
     [ownership, ownershipModes, statementTransactions],
   );
 
@@ -253,21 +253,40 @@ export function useDerivedMetrics({
     [categoryBreakdown],
   );
 
-  const groupedSpendingData = useMemo(() => {
-    const categoryAmountMapLocal = new Map<string, number>();
-    categoryBreakdown.forEach((item) => {
-      categoryAmountMapLocal.set(item.category, Math.abs(item.amount));
+  const groupedTransactionsByGroup = useMemo(() => {
+    const map = new Map<OverviewGroupKey, Transaction[]>();
+    overviewGroupOrder.forEach((groupId) => map.set(groupId, []));
+    statementTransactions.forEach((tx) => {
+      if (!isRealSpending(tx, ownership, ownershipModes)) return;
+      const displayCategory = getTransactionDisplayCategory(tx);
+      const groupId = getOverviewGroupForCategory(displayCategory) ?? "other_fees";
+      const list = map.get(groupId);
+      if (!list) return;
+      list.push(tx);
     });
-    const groups = (Object.entries(overviewGroupMeta) as [
-      OverviewGroupKey,
-      (typeof overviewGroupMeta)[OverviewGroupKey],
-    ][]).map(([id, meta]) => {
-      const categories = meta.categories
-        .map((name) => ({ name, amount: categoryAmountMapLocal.get(name) ?? 0 }))
-        .filter((entry) => entry.amount > 0);
+    map.forEach((list) => {
+      list.sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
+    });
+    return map;
+  }, [ownership, ownershipModes, statementTransactions]);
+
+  const groupedSpendingData = useMemo(() => {
+    const groups = overviewGroupOrder.map((groupId) => {
+      const meta = overviewGroupMeta[groupId];
+      const transactions = groupedTransactionsByGroup.get(groupId) ?? [];
+      const categoryTotals = new Map<string, number>();
+      transactions.forEach((tx) => {
+        const displayCategory = getTransactionDisplayCategory(tx);
+        const prev = categoryTotals.get(displayCategory) ?? 0;
+        categoryTotals.set(displayCategory, prev + Math.abs(tx.amount));
+      });
+      const categories = Array.from(categoryTotals.entries()).map(([name, amount]) => ({
+        name,
+        amount,
+      }));
       const value = categories.reduce((sum, entry) => sum + entry.amount, 0);
       return {
-        id,
+        id: groupId,
         label: meta.label,
         value,
         categories,
@@ -279,26 +298,9 @@ export function useDerivedMetrics({
     const total = filtered.reduce((sum, group) => sum + group.value, 0);
     return filtered.map((group) => ({
       ...group,
-      percent: total > 0 ? Math.max(1, Math.round((group.value / total) * 100)) : 0,
+      percent: total > 0 ? Math.round((group.value / total) * 100) : 0,
     }));
-  }, [categoryBreakdown]);
-
-  const groupedTransactionsByGroup = useMemo(() => {
-    const map = new Map<OverviewGroupKey, Transaction[]>();
-    statementTransactions.forEach((tx) => {
-      if (!isRealSpending(tx, ownership, ownershipModes)) return;
-      const displayCategory = getTransactionDisplayCategory(tx);
-      const groupId = getOverviewGroupForCategory(displayCategory) ?? "other_fees";
-      if (!map.has(groupId)) {
-        map.set(groupId, []);
-      }
-      map.get(groupId)!.push(tx);
-    });
-    map.forEach((list) => {
-      list.sort((a, b) => Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`));
-    });
-    return map;
-  }, [ownership, ownershipModes, statementTransactions]);
+  }, [groupedTransactionsByGroup]);
 
   const resolvedActiveSpendingGroup = (activeSpendingGroup: OverviewGroupKey | null) =>
     activeSpendingGroup ?? groupedSpendingData[0]?.id ?? null;

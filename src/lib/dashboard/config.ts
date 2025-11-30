@@ -56,7 +56,15 @@ export const categoryOptions = [
 
 export const categoryEmojis = {
   ...categoryEmojiMap,
+  Rent: "🏠",
+  Groceries: "🛒",
+  Dining: "🍽️",
+  Transport: "🚗",
+  Subscriptions: "📺",
+  Utilities: "💡",
   "Bills & services": "🧾",
+  Fees: "💸",
+  Other: "🌀",
   Insurance: "🛡️",
   Loans: "🏦",
   Education: "🎓",
@@ -97,6 +105,17 @@ export type OverviewGroupKey =
   | "education"
   | "transfers"
   | "other_fees";
+
+export const overviewGroupOrder: OverviewGroupKey[] = [
+  "rent_utils",
+  "groceries_dining",
+  "auto",
+  "subscriptions",
+  "insurance",
+  "education",
+  "transfers",
+  "other_fees",
+];
 
 export const overviewGroupMeta: Record<
   OverviewGroupKey,

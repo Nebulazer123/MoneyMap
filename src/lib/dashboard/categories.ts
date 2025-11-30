@@ -1,9 +1,10 @@
-// Category helper utilities: string normalization, display mapping, emoji lookups, and overview grouping helpers consumed by the dashboard’s analytics and UI.
+// Category helper utilities: string normalization, display mapping, emoji lookups, and overview grouping helpers consumed by the dashboard's analytics and UI.
 import { Transaction } from "../fakeData";
 import {
   categoryEmojis,
   displayCategoryLabels,
   overviewGroupMeta,
+  overviewGroupOrder,
   type OverviewGroupKey,
 } from "./config";
 
@@ -49,3 +50,8 @@ export const getOverviewGroupForCategory = (category: string): OverviewGroupKey 
   );
   return (entry?.[0] as OverviewGroupKey | undefined) ?? null;
 };
+
+export const getCategoriesForGroup = (groupId: OverviewGroupKey): string[] =>
+  overviewGroupMeta[groupId]?.categories ?? [];
+
+export const getOverviewGroupOrder = (): OverviewGroupKey[] => [...overviewGroupOrder];

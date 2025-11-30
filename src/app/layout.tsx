@@ -20,8 +20,14 @@ export default function RootLayout({
           className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950" />
-          <div className="absolute left-1/5 top-[-10%] h-96 w-96 rounded-full bg-emerald-500/16 blur-[140px]" />
-          <div className="absolute bottom-[-15%] right-0 h-[28rem] w-[28rem] rounded-full bg-cyan-500/14 blur-[170px]" />
+          <div
+            className="absolute inset-0 blur-[180px] opacity-60"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.18), transparent 60%), radial-gradient(circle at 50% 110%, rgba(6, 182, 212, 0.16), transparent 60%)",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
         </div>
         <div className="relative z-10 flex min-h-screen flex-col">
           <NavBar />
