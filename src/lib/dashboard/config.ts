@@ -56,19 +56,19 @@ export const categoryOptions = [
 
 export const categoryEmojis = {
   ...categoryEmojiMap,
-  Rent: "🏠",
-  Groceries: "🛒",
-  Dining: "🍽️",
-  Transport: "🚗",
-  Subscriptions: "📺",
-  Utilities: "💡",
-  "Bills & services": "🧾",
-  Fees: "💸",
-  Other: "🌀",
-  Insurance: "🛡️",
-  Loans: "🏦",
-  Education: "🎓",
-  Transfer: "↔️",
+  Rent: "🏘️",
+  Groceries: "🛍️",
+  Dining: "🍣",
+  Transport: "🚙",
+  Subscriptions: "♾️",
+  Utilities: "⚡",
+  "Bills & services": "📋",
+  Fees: "💰",
+  Other: "✨",
+  Insurance: "🔒",
+  Loans: "🏛️",
+  Education: "📚",
+  Transfer: "🔄",
 };
 
 export const displayCategoryLabels: Record<string, string> = {

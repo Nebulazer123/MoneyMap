@@ -60,7 +60,7 @@ export default function Home() {
   const stepCards = [
     {
       title: "Drop in a messy month",
-      stepCopy: "Paychecks, bills, and swipes — drop in the chaos.",
+      stepCopy: "Paychecks, bills, and swipes. Drop in the chaos.",
       icon: (
         <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
@@ -69,7 +69,7 @@ export default function Home() {
     },
     {
       title: "Let MoneyMap sort the clutter",
-      stepCopy: "Claim your accounts so transfers stop double-counting.",
+      stepCopy: "Claim your accounts so transfers stop double counting.",
       icon: (
         <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -92,17 +92,17 @@ export default function Home() {
       {
         title: "Step one",
         heading: "Drop in a messy month",
-        body: "Paychecks, bills, and everyday swipes — the statement that feels too chaotic to read.",
+        body: "Paychecks, bills, and everyday swipes. A statement that can feel too chaotic to read.",
       },
       {
         title: "Step two",
         heading: "Let MoneyMap sort the clutter",
-        body: "Mark which accounts are yours so internal transfers stop inflating your spending.",
+        body: "Mark which accounts are yours so internal transfers do not inflate your spending.",
       },
       {
         title: "Step three",
         heading: "Spot subscriptions and fees",
-        body: "Catch recurring charges and junk fees so you know what is quietly draining your month.",
+        body: "Catch recurring charges and fees so you know what is quietly draining your month.",
       },
       {
         title: "What you will see on your dashboard",
@@ -146,7 +146,7 @@ export default function Home() {
           <section className="relative">
             <GlassPanel variant="hero" className="relative overflow-hidden sm:px-10 sm:py-14">
               <div className="relative z-10 max-w-3xl space-y-4">
-                <span className="inline-flex items-center rounded-full border border-purple-400/50 bg-purple-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-purple-100">
+                <span className="inline-flex items-center rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-purple-200">
                   Phase one demo
                 </span>
                 <div className="space-y-3">
@@ -186,7 +186,8 @@ export default function Home() {
               <SectionHeader
                 label="How this demo works"
                 title="Three quick steps to see a messy month cleaned up."
-                caption="All of it stays fake, but the flow mirrors how MoneyMap would treat a real statement."
+                caption="All of it stays fake, and the flow mirrors how MoneyMap treats a real statement."
+                accentColor="purple"
               />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stepCards.map((card, idx) => (
@@ -302,7 +303,6 @@ export default function Home() {
             <GlassPanel variant="hero" className="space-y-6">
               <div className="text-center space-y-2">
                 <h2 className="text-3xl font-bold text-white">See your money clearly</h2>
-                <p className="text-sm text-zinc-400">Dashboard preview from a sample month</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[
@@ -326,7 +326,7 @@ export default function Home() {
                   </GlassPanel>
                 ))}
               </div>
-              <p className="text-center text-xs text-zinc-500 pt-4">Sample data from a demo month. Your actual data will vary.</p>
+              
             </GlassPanel>
           </section>
         </div>
@@ -376,9 +376,7 @@ export default function Home() {
                     <div className="relative z-10 flex flex-col gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400">{currentSlide.title}</p>
                       <h4 className="text-lg font-semibold leading-tight text-white sm:text-xl">{currentSlide.heading}</h4>
-                      <div
-                        className="mt-1 max-h-0 overflow-hidden text-sm text-zinc-300 opacity-0 transition-all duration-200 ease-out motion-reduce:max-h-none motion-reduce:opacity-100 motion-reduce:translate-y-0 group-hover:max-h-40 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:max-h-40 group-focus-within:opacity-100 group-focus-within:translate-y-0 translate-y-1"
-                      >
+                      <div className="mt-1 text-sm text-zinc-300">
                         {"body" in currentSlide ? (
                           <p className="leading-relaxed">{currentSlide.body}</p>
                         ) : (

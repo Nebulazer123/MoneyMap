@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   accountTypeOptions,
   categoryOptions,
@@ -30,6 +31,8 @@ import { ReviewTab } from "./components/ReviewTab";
 import { DuplicateOverlay } from "./components/DuplicateOverlay";
 import { GlassPanel } from "./components/GlassPanel";
 export default function DemoPage() {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [flashContent, setFlashContent] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
@@ -223,6 +226,36 @@ export default function DemoPage() {
   const showResults = flowStep === "results";
   const hasResults = showResults && statementTransactions.length > 0;
 
+  const startStepCards = [
+    {
+      title: "Drop in a messy month",
+      stepCopy: "Paychecks, bills, and swipes. Drop in the chaos.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+    },
+    {
+      title: "Let MoneyMap sort the clutter",
+      stepCopy: "Claim your accounts so transfers stop double counting.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Spot subscriptions and fees",
+      stepCopy: "See recurring charges and junk fees at a glance.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+    },
+  ];
+
   const summaryTiles = useMemo(
     () => {
       const placeholderValue = "—";
@@ -239,8 +272,9 @@ export default function DemoPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
           ),
-          color: "text-emerald-400",
-          borderColor: "border-l-emerald-500/40",
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
+          targetTab: "overview" as TabId,
         },
         {
           label: "Spending this period",
@@ -253,6 +287,7 @@ export default function DemoPage() {
           ),
           color: "text-rose-400",
           borderColor: "border-l-rose-500/40",
+          targetTab: "overview" as TabId,
         },
         {
           label: "Net cash flow",
@@ -263,8 +298,9 @@ export default function DemoPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
             </svg>
           ),
-          color: netThisMonth >= 0 ? "text-emerald-400" : "text-rose-400",
-          borderColor: netThisMonth >= 0 ? "border-l-emerald-500/40" : "border-l-rose-500/40",
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
+          targetTab: "cashflow" as TabId,
         },
         {
           label: "Subscriptions and bills",
@@ -277,6 +313,7 @@ export default function DemoPage() {
           ),
           color: "text-purple-400",
           borderColor: "border-l-purple-500/40",
+          targetTab: "recurring" as TabId,
         },
         {
           label: "Fees and charges",
@@ -289,6 +326,7 @@ export default function DemoPage() {
           ),
           color: "text-amber-400",
           borderColor: "border-l-amber-500/40",
+          targetTab: "fees" as TabId,
         },
       ];
     },
@@ -350,6 +388,64 @@ export default function DemoPage() {
         <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
       </header>
 
+      {!hasResults && (
+        <GlassPanel variant="hero" className="space-y-6 sm:space-y-8 animate-fade-rise">
+          <SectionHeader
+            label="Phase one demo"
+            title="Start your demo analysis"
+            caption="Runs locally on synthetic statements. No credentials or uploads."
+            accentColor="purple"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleStart}
+              className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300/60"
+            >
+              Generate sample statement
+            </button>
+            <button
+              type="button"
+              onClick={handleRestartAll}
+              className="inline-flex items-center justify-center rounded-full border border-purple-400/60 px-6 py-3 text-sm font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-500/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.35)]"
+            >
+              Restart demo
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-6 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              Learn how it works
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {startStepCards.map((card, idx) => (
+              <GlassPanel
+                key={card.title}
+                variant="card"
+                className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)]"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none" tabIndex={0}>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+                      {card.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 mb-1">Step {idx + 1}</div>
+                      <p className="text-base font-semibold text-white sm:text-lg">{card.title}</p>
+                    </div>
+                  </div>
+                  <div className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
+                    <p className="text-sm text-zinc-300 leading-relaxed">{card.stepCopy}</p>
+                  </div>
+                </div>
+              </GlassPanel>
+            ))}
+          </div>
+        </GlassPanel>
+      )}
+
       <StatementPanel
         flowStep={flowStep}
         showStatement={showStatement}
@@ -402,7 +498,14 @@ export default function DemoPage() {
             <GlassPanel
               key={tile.label}
               variant="card"
+              role="button"
               tabIndex={0}
+              onClick={() => {
+                setActiveTab(tile.targetTab);
+                contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                setFlashContent(true);
+                window.setTimeout(() => setFlashContent(false), 1200);
+              }}
               className={`h-full transform transition border-l-4 ${tile.borderColor} hover:-translate-y-0.5 hover:border-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900`}
             >
               <div className="flex h-full flex-col gap-3">
@@ -421,7 +524,11 @@ export default function DemoPage() {
           ))}
         </div>
       )}
-      <GlassPanel variant="hero" className="space-y-6 sm:space-y-8 animate-fade-rise">
+      <GlassPanel
+        variant="hero"
+        ref={contentRef}
+        className={`space-y-6 sm:space-y-8 animate-fade-rise ${flashContent ? "ring-2 ring-purple-300/50" : ""}`}
+      >
         {showResults && (
           <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
         )}
