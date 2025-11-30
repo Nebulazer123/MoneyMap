@@ -280,9 +280,14 @@ export default function DemoPage() {
       onTouchMove={handleSwipeMove}
       onTouchEnd={handleSwipeEnd}
     >
-      <header className="space-y-2">
+      <header className="space-y-3">
+        <div className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+          Demo view only
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
+        <p className="text-sm text-zinc-400">
+          Synthetic statements in your browser, nothing ever leaves this tab.
+        </p>
       </header>
 
       <StatementPanel
