@@ -745,6 +745,46 @@ export const transactions: Transaction[] = [
     source: "Credit card",
     target: "Gas Station",
   },
+  {
+    id: "t52",
+    date: "2025-11-12",
+    description: "Netflix subscription",
+    amount: -15.99,
+    category: "Subscriptions",
+    kind: "subscription",
+    source: "Credit card",
+    target: "Netflix",
+  },
+  {
+    id: "t53",
+    date: "2025-11-14",
+    description: "Netflix subscription",
+    amount: -15.99,
+    category: "Subscriptions",
+    kind: "subscription",
+    source: "Credit card",
+    target: "Netflix",
+  },
+  {
+    id: "t54",
+    date: "2025-11-09",
+    description: "Mobile plan duplicate",
+    amount: -78,
+    category: "Subscriptions",
+    kind: "subscription",
+    source: "Credit card",
+    target: "Wireless Carrier",
+  },
+  {
+    id: "t55",
+    date: "2025-11-12",
+    description: "Mobile plan duplicate",
+    amount: -78,
+    category: "Subscriptions",
+    kind: "subscription",
+    source: "Credit card",
+    target: "Wireless Carrier",
+  },
 ];
 
 export const budgetGuidelineRatios: Record<string, number> = {
@@ -1555,7 +1595,8 @@ export function generateSampleStatement(
 
       const sign = Math.sign(profiled.amount) || 1;
       const baseAmount = Math.abs(profiled.amount);
-      const factor = 0.85 + Math.random() * 0.3; // 0.85 - 1.15
+      const stableAmountIds = new Set(["t52", "t53", "t54", "t55"]);
+      const factor = stableAmountIds.has(t.id) ? 1 : 0.85 + Math.random() * 0.3; // 0.85 - 1.15
       const amount = Number((baseAmount * factor * sign).toFixed(2));
 
       return {
