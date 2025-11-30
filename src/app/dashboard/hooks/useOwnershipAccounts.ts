@@ -190,7 +190,7 @@ export function useOwnershipAccounts({
 
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [addAccountName, setAddAccountName] = useState("");
-  const [addAccountType, setAddAccountType] = useState("Checking");
+  const [addAccountType, setAddAccountTypeState] = useState<string>("Checking");
   const [addBaseTransactionId, setAddBaseTransactionId] = useState("");
   const [selectedAccountTxIds, setSelectedAccountTxIds] = useState<Set<string>>(new Set());
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -446,7 +446,7 @@ export function useOwnershipAccounts({
     });
     setIsAddingAccount(false);
     setAddAccountName("");
-    setAddAccountType("Checking");
+    setAddAccountTypeState("Checking");
     setAddBaseTransactionId("");
     setSelectedAccountTxIds(new Set());
   };
@@ -459,7 +459,7 @@ export function useOwnershipAccounts({
     setOwnership({});
     setIsAddingAccount(false);
     setAddAccountName("");
-    setAddAccountType("Checking");
+    setAddAccountTypeState("Checking");
     setAddBaseTransactionId("");
     setSelectedAccountTxIds(new Set());
     resetEditingAccount();
@@ -487,7 +487,7 @@ export function useOwnershipAccounts({
     addAccountName,
     setAddAccountName,
     addAccountType,
-    setAddAccountType,
+    setAddAccountType: (value: string) => setAddAccountTypeState(value),
     addBaseTransactionId,
     setAddBaseTransactionId,
     selectedAccountTxIds,
