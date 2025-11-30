@@ -4,6 +4,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
 import { getCategoriesForGroup, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
 
 export type SpendingGroup = {
   id: OverviewGroupKey;
