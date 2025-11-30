@@ -42,7 +42,7 @@ export const getTransactionDisplayCategory = (tx: Transaction): string => {
 
 export const getDisplayCategory = (category: string) => displayCategoryLabels[category] ?? category;
 
-export const getCategoryEmoji = (category: string) => categoryEmojis[category];
+export const getCategoryEmoji = (category: string) => categoryEmojis[category as keyof typeof categoryEmojis];
 
 export const getOverviewGroupForCategory = (category: string): OverviewGroupKey | null => {
   const entry = Object.entries(overviewGroupMeta).find(([, meta]) =>

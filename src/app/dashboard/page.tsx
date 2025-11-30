@@ -614,7 +614,6 @@ export default function DemoPage() {
             expandedCashflowDates={expandedCashflowDates}
             setExpandedCashflowDates={setExpandedCashflowDates}
             cashFlowRows={cashFlowRows}
-            internalTransfersTotal={internalTransfersTotal}
             showGroupedCashflow={showGroupedCashflow}
             flowStep={flowStep}
           />
@@ -639,9 +638,6 @@ export default function DemoPage() {
             otherPercent={otherPercent}
             netThisMonth={netThisMonth}
             totalIncome={totalIncome}
-            duplicateMetaById={duplicateMetaById}
-            duplicateDecisions={duplicateDecisions}
-            activeDuplicateIds={activeDuplicateIds}
             handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
             transferAccounts={transferAccounts}
             ownership={ownership}

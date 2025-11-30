@@ -243,7 +243,7 @@ export function useOwnershipAccounts({
   const [selectedAccountTxIds, setSelectedAccountTxIds] = useState<Set<string>>(new Set());
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountName, setEditingAccountName] = useState("");
-  const [editingAccountType, setEditingAccountType] = useState(accountTypeOptions[0]);
+  const [editingAccountType, setEditingAccountType] = useState<string>(accountTypeOptions[0]);
   const [claimedCandidateKeys, setClaimedCandidateKeys] = useState<Set<string>>(new Set());
   const [candidateDrafts, setCandidateDrafts] = useState<Record<string, CandidateDraft>>({});
 
