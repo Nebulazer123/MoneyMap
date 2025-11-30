@@ -361,8 +361,9 @@ export default function DemoPage() {
               }
             }}
           />
-          <div className="space-y-4">
-            <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-md shadow-black/10">
+            <div className="space-y-4">
+              <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
             {activeTab === "overview" && (
               <OverviewTab
                 currency={currency}
@@ -458,7 +459,8 @@ export default function DemoPage() {
                 handleToggleAccountTransaction={handleToggleAccountTransaction}
                 handleSaveNewAccount={handleSaveNewAccount}
               />
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
