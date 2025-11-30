@@ -24,7 +24,6 @@ export function useDuplicates(transactions: Transaction[]) {
   const duplicateOverlayTriggerRef = useRef<HTMLElement | null>(null);
   const duplicateOverlayRef = useRef<HTMLDivElement | null>(null);
   const [expandedDuplicateClusters, setExpandedDuplicateClusters] = useState<Set<string>>(new Set());
-  const lastResetSignatureRef = useRef<string | null>(null);
 
   const duplicateClusters: DuplicateClusterView[] = useMemo(
     () => buildDuplicateClusters(transactions, duplicateDecisions),
@@ -120,13 +119,9 @@ export function useDuplicates(transactions: Transaction[]) {
   }, [showDuplicateOverlay]);
 
   useEffect(() => {
-    if (!showDuplicateOverlay) {
-      lastResetSignatureRef.current = null;
-      return;
-    }
+    if (!showDuplicateOverlay) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedDuplicateClusters(new Set());
-    lastResetSignatureRef.current = "open";
   }, [showDuplicateOverlay]);
 
   const handleDuplicateDecision = (txId: string, decision: "confirmed" | "dismissed") => {
