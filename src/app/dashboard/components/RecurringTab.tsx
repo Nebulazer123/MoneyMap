@@ -2,6 +2,7 @@ import React from "react";
 
 import type { TabId } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
 
 type Props = {
   currency: Intl.NumberFormat;
@@ -28,9 +29,12 @@ export function RecurringTab({
   handleDismissDuplicate,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-      <h2 className="text-lg font-semibold text-white">Recurring charges</h2>
-      <p className="mt-1 text-sm text-zinc-400">Subscriptions, bills, and payments for this month.</p>
+    <div className="space-y-6">
+      <SectionHeader
+        title="Subscriptions, bills, and auto payments"
+        description="This month's recurring charges"
+      />
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {activeDuplicateIds.size > 0 ? (
           <p className="text-xs text-amber-200">We spotted charges that look off-pattern. Review them to confirm or dismiss.</p>
@@ -105,6 +109,7 @@ export function RecurringTab({
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
