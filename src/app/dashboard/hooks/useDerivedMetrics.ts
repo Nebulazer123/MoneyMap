@@ -13,11 +13,11 @@ import {
   getBudgetGuidance,
   isInternalTransfer,
   isRealSpending,
-  getTransactionDisplayCategory,
   type Transaction,
   type OwnershipMap,
   type OwnershipMode,
 } from "../../../lib/fakeData";
+import { getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import { overviewGroupMeta, type OverviewGroupKey, months } from "../../../lib/dashboard/config";
 
 export function useDerivedMetrics({

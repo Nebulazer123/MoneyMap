@@ -8,8 +8,8 @@ import {
   STORAGE_HIDDEN_ACCOUNTS_KEY,
   STORAGE_OWNERSHIP_MODES_KEY,
 } from "../../../lib/dashboard/config";
-import { parseInstitutionAndLast4, titleCase, type Transaction, TransferAccount, OwnershipMode, OwnershipMap } from "../../../lib/fakeData";
-import { descriptionKey } from "../../../lib/dashboard/categories";
+import { parseInstitutionAndLast4, type Transaction, TransferAccount, OwnershipMode, OwnershipMap } from "../../../lib/fakeData";
+import { descriptionKey, titleCase } from "../../../lib/dashboard/categories";
 
 const loadCustomAccounts = (): TransferAccount[] => {
   try {
