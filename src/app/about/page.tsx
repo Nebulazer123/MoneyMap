@@ -52,9 +52,9 @@ export default function AboutPage() {
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>People who stare at their bank app and feel slightly lost.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Students learning how cash flow really behaves.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Early stage founders or hiring managers testing a finance UX concept.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>People who stare at their bank app and feel slightly lost.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Students learning how cash flow really behaves.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Early stage founders or hiring managers testing a finance UX concept.</span></li>
             </ul>
           </GlassPanel>
           <GlassPanel className="h-full p-5">
@@ -63,9 +63,9 @@ export default function AboutPage() {
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Generates messy synthetic statements.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Labels income, spending, subscriptions, fees, and transfers.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Turns the mess into simple summaries and charts.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Generates messy synthetic statements.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Labels income, spending, subscriptions, fees, and transfers.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Turns the mess into simple summaries and charts.</span></li>
             </ul>
           </GlassPanel>
           <GlassPanel className="h-full p-5">
@@ -74,9 +74,9 @@ export default function AboutPage() {
               <div className="h-px w-10 bg-emerald-500/60 transition-all group-hover:w-16" />
             </div>
             <ul className="mt-3 space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Does not connect to banks or credit cards.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Does not store uploads or account credentials.</span></li>
-              <li className="flex gap-2"><span className="text-emerald-300">{"•"}</span><span>Is not accounting software and does not pretend to be.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Does not connect to banks or credit cards.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Does not store uploads or account credentials.</span></li>
+              <li className="flex gap-2"><span className="text-emerald-300">-</span><span>Is not accounting software and does not pretend to be.</span></li>
             </ul>
           </GlassPanel>
         </section>
@@ -150,17 +150,17 @@ export default function AboutPage() {
           <div className="space-y-3">
             {[
               {
-                label: "Phase one — demo only",
+                label: "Phase one - demo only",
                 body: "Synthetic statements, ownership aware analytics, and interactive dashboard tabs using demo data only.",
                 variant: "primary",
               },
               {
-                label: "Phase two — local uploads",
+                label: "Phase two - local uploads",
                 body: "Local CSV uploads parsed in the browser, sharper duplicate detection, and more specific guidance about subscriptions and fees.",
                 variant: "secondary",
               },
               {
-                label: "Phase three — shared insights",
+                label: "Phase three - shared insights",
                 body: "Optional account saving, trend history, and ways to export or share summaries while keeping ownership clear.",
                 variant: "secondary",
               },

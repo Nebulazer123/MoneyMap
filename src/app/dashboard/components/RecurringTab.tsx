@@ -2,6 +2,7 @@ import React from "react";
 
 import type { TabId } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
 
 type Props = {
   currency: Intl.NumberFormat;
@@ -31,9 +32,11 @@ export function RecurringTab({
   handleDismissDuplicate,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-      <h2 className="text-lg font-semibold text-white">Recurring charges</h2>
-      <p className="mt-1 text-sm text-zinc-400">Subscriptions, bills, and payments for this month.</p>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise">
+      <SectionHeader
+        title="Recurring"
+        caption="Subscriptions, bills, and auto payments for this period."
+      />
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {activeDuplicateIds.size > 0 ? (
           <p className="text-xs text-amber-200">We spotted charges that look off-pattern. Review them to confirm or dismiss.</p>
@@ -43,7 +46,7 @@ export function RecurringTab({
         <button
           type="button"
           onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
-          className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+          className="ml-auto inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] font-semibold text-white transition transform hover:-translate-y-0.5 hover:border-emerald-400/70 hover:bg-zinc-800 hover:shadow-lg hover:shadow-emerald-500/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           Show possible duplicates
         </button>

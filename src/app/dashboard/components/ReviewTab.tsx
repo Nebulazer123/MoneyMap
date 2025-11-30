@@ -4,6 +4,7 @@ import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
 import type { Transaction, TransferAccount, OwnershipMode } from "../../../lib/fakeData";
 import InfoTip from "./InfoTip";
 import { SubscriptionsOverlay } from "./SubscriptionsOverlay";
+import { SectionHeader } from "./SectionHeader";
 
 export type BudgetItem = {
   category: string;
@@ -148,16 +149,16 @@ export function ReviewTab({
   const hasSubscriptions = subscriptionRows.length > 0;
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-white">Review</h2>
-        <div className="mt-1 flex items-center justify-center gap-2 text-sm text-zinc-400">
-          <p className="text-sm text-zinc-400">Snapshot for this period across your accounts.</p>
-          <InfoTip label={"Snapshot of this month.\nHighlights key spending patterns and fees.\nRuns on sample data."} />
-        </div>
+    <div className="space-y-4 animate-fade-rise">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader title="Review" caption="Big picture summary for this sample month." />
+        <InfoTip label={"Snapshot of this month.\nHighlights key spending patterns and fees.\nRuns on sample data."} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <div
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Snapshot</p>
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -179,7 +180,7 @@ export function ReviewTab({
         <button
           type="button"
           onClick={() => setIsSubscriptionsOverlayOpen(true)}
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition transform hover:-translate-y-0.5 hover:border-emerald-400/60 hover:bg-zinc-800 hover:shadow-lg hover:shadow-emerald-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           <p className="text-sm font-semibold text-white">Subscriptions</p>
           <div className="mt-3 space-y-1 text-sm">
@@ -196,7 +197,10 @@ export function ReviewTab({
             )}
           </div>
         </button>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <div
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Fees</p>
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -211,7 +215,10 @@ export function ReviewTab({
             )}
           </div>
         </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <div
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Top spending categories</p>
           <div className="mt-3 space-y-2 text-sm">
             {topSpendingCategories.map((item) => (
@@ -224,7 +231,10 @@ export function ReviewTab({
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <div
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Internal transfers this period</p>
           <p className="mt-2 text-xl font-semibold text-white">
             {currency.format(summaryStats.internalTransfersTotal)}
@@ -234,7 +244,7 @@ export function ReviewTab({
         <button
           type="button"
           onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition transform hover:-translate-y-0.5 hover:border-amber-300/60 hover:bg-zinc-800 hover:shadow-lg hover:shadow-amber-400/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-amber-300">⚠️</span>
@@ -247,7 +257,10 @@ export function ReviewTab({
           </p>
           <p className="mt-1 text-xs text-zinc-400">Review potential duplicate charges and confirm or dismiss them.</p>
         </button>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <div
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Money left after bills</p>
           <p className="mt-2 text-xl font-semibold text-white">{currency.format(leftAfterBills)}</p>
           <p className="mt-1 text-xs text-zinc-400">Approximate money left after rent, utilities, groceries, and basic fees.</p>

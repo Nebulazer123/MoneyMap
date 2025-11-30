@@ -4,6 +4,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
 import { getCategoriesForGroup, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
 
 export type SpendingGroup = {
   id: OverviewGroupKey;
@@ -101,9 +102,8 @@ export function OverviewTab({
       : null;
 
   return (
-    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8">
-      <h2 className="text-lg font-semibold text-white text-center">Overview</h2>
-      <p className="mt-2 text-center text-sm text-zinc-400">Where your money went this month.</p>
+    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8 animate-fade-rise">
+      <SectionHeader title="Overview" caption="Where your money went this month." className="text-center" />
       {showChart && (
         <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6" tabIndex={-1}>
           <div className="flex items-center justify-between">
@@ -147,10 +147,10 @@ export function OverviewTab({
                       onSelectGroup(item.id);
                     }
                   }}
-                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
                     isActive
                       ? "border-zinc-500 bg-zinc-800"
-                      : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
+                      : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
                   }`}
                 >
                   <div className="flex items-center gap-3 text-zinc-200">
@@ -198,10 +198,10 @@ export function OverviewTab({
             key={card.label}
             type="button"
             onClick={() => onSelectGroup(card.groupId)}
-            className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+            className={`w-full rounded-lg border px-4 py-3 text-left transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
               activeGroupId === card.groupId
                 ? "border-zinc-600 bg-zinc-800"
-                : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
+                : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800"
             }`}
           >
             <p className="flex items-center gap-2 text-sm text-zinc-400">
