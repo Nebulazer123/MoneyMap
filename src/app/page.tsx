@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -131,11 +131,14 @@ export default function Home() {
           </section>
 
           <section className="mx-auto max-w-6xl px-0 sm:px-0 mt-10 sm:mt-12 lg:mt-16">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6 sm:p-8">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 sm:p-8 shadow-md shadow-black/10">
               <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-white">How this demo works</h2>
+                <div className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                  How this demo works
+                </div>
+                <h2 className="text-xl font-semibold text-white">Three quick steps</h2>
                 <p className="text-sm text-zinc-400">
-                  Three quick steps to see how MoneyMap treats a messy month.
+                  See how MoneyMap turns a messy month into something you can actually understand.
                 </p>
               </div>
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +146,7 @@ export default function Home() {
                   <div
                     key={card.title}
                     tabIndex={0}
-                    className="group relative rounded-xl border border-zinc-800 bg-zinc-900/80 p-4 transition-transform transition-shadow duration-200 hover:-translate-y-1 hover:border-zinc-600 hover:bg-zinc-900 hover:shadow-lg focus:-translate-y-1 focus:border-zinc-600 focus:bg-zinc-900 focus:shadow-lg focus:outline-none"
+                    className="group relative rounded-xl border border-zinc-800 bg-zinc-900/80 p-4 transition-transform transition-shadow transition-colors duration-200 hover:-translate-y-1 hover:border-emerald-600/40 hover:bg-zinc-900 hover:shadow-lg hover:shadow-emerald-500/10 focus:-translate-y-1 focus:border-emerald-600/40 focus:bg-zinc-900 focus:shadow-lg focus:shadow-emerald-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                   >
                     <div className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                       Step {idx + 1}
