@@ -39,9 +39,6 @@ type Props = {
   otherPercent: number;
   netThisMonth: number;
   totalIncome: number;
-  duplicateMetaById: Map<string, { clusterKey: string; label: string; category: string; lastNormalDate: string | null }>;
-  duplicateDecisions: Record<string, "confirmed" | "dismissed">;
-  activeDuplicateIds: Set<string>;
   handleOpenDuplicateOverlay: (trigger?: HTMLElement | null) => void;
   transferAccounts: TransferAccount[];
   ownership: Record<string, boolean>;
@@ -56,13 +53,13 @@ type Props = {
   handleSaveEditedAccount: (acc: TransferAccount) => void;
   handleDeleteAccount: (acc: TransferAccount) => void;
   resetEditingAccount: () => void;
-  accountTypeOptions: string[];
+  accountTypeOptions: readonly string[];
   isAddingAccount: boolean;
   setIsAddingAccount: React.Dispatch<React.SetStateAction<boolean>>;
   addAccountName: string;
   setAddAccountName: (name: string) => void;
   addAccountType: string;
-  setAddAccountType: (type: string) => void;
+  setAddAccountType: React.Dispatch<React.SetStateAction<string>>;
   addBaseTransactionId: string;
   setAddBaseTransactionId: (id: string) => void;
   transferTransactions: Transaction[];

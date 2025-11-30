@@ -21,7 +21,7 @@ export function FeesTab({ currency, dateFormatter, feeRows, totalFees }: Props) 
         </div>
       </div>
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
-        <div className="min-w[480px]">
+        <div className="min-w-[480px]">
           <div className="grid grid-cols-3 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
             <span>Name</span>
             <span className="text-right">Amount</span>

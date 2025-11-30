@@ -488,7 +488,7 @@ export function useOwnershipAccounts({
     addAccountName,
     setAddAccountName,
     addAccountType,
-    setAddAccountType: (value: string) => setAddAccountTypeState(value),
+    setAddAccountType: setAddAccountTypeState,
     addBaseTransactionId,
     setAddBaseTransactionId,
     selectedAccountTxIds,
@@ -508,6 +508,5 @@ export function useOwnershipAccounts({
     suggestedAccountTransactions,
     transferTransactions,
     resetAccounts,
-    getAccountTypeLabel,
   };
 }
