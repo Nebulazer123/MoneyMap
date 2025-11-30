@@ -150,6 +150,15 @@ export default function DemoPage() {
     ownership,
     ownershipModes,
   });
+  const summaryItems =
+    Array.isArray(summaryStats)
+      ? summaryStats
+      : summaryStats
+        ? Object.entries(summaryStats).map(([label, value]) => ({
+            label,
+            value: typeof value === "number" ? value : Number(value ?? 0),
+          }))
+        : [];
 
   const {
     expandedMonths,
@@ -329,7 +338,7 @@ export default function DemoPage() {
         <div className="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
           <h2 className="text-lg font-semibold text-white">Review</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {summaryStats.map((item) => (
+            {summaryItems.map((item) => (
               <div key={item.label} className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-3">
                 <p className="text-sm text-zinc-400">{item.label}</p>
                 <p className="mt-1 text-xl font-semibold text-white">{currency.format(item.value)}</p>
