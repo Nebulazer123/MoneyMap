@@ -1,0 +1,39 @@
+# MoneyMap agent guide
+
+This project is MoneyMap, a Next js App Router app written in TypeScript and React.
+
+Use the configured model (`gpt-5.1-codex-max`) and do not change model or sandbox settings from inside the session.
+
+## Code editing rules
+
+When touching code in this repository, always follow these rules
+
+1. Never rewrite an entire file. Work as a surgical editor.
+2. Only show the exact functions, components, or blocks that changed.
+3. If a change affects several areas, first output a very short plan, then show only the changed snippets.
+4. Keep each reply under about 80 lines including plan plus code.
+5. If you cannot fit all required changes into that limit, say so clearly and stop instead of truncating.
+
+These rules apply to every code editing turn.
+
+## Tech stack and constraints
+
+Project stack
+
+- TypeScript
+- React
+- Next js App Router
+- Tailwind CSS
+
+Constraints
+
+- Do not modify `srclibfakeData.ts` exports.
+- Do not change any localStorage key names or meanings.
+- Preserve existing component props and public APIs unless explicitly asked to refactor them.
+- Keep styles consistent with existing Tailwind classes and layout.
+
+Behavior expectations
+
+- Prefer small, focused helper functions over large rewrites.
+- Keep code idiomatic for modern React and Next js (clientserver components, hooks, etc).
+- When uncertain about existing behavior, avoid speculative changes and call out assumptions in comments.

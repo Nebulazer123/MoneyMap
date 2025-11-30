@@ -10,17 +10,17 @@ import {
   getTotalSubscriptions,
   getSubscriptionTransactions,
   getFeeTransactions,
-  getSpendingByCategory,
   getCashFlowByDate,
   getSummaryStats,
   getBudgetGuidance,
-  getTransactionsByCategory,
   transactions,
   Transaction,
+  BudgetGuidanceItem,
   OwnershipMap,
   OwnershipMode,
   TransferAccount,
   isInternalTransfer,
+  isRealSpending,
   analyzeDuplicateCharges,
   DuplicateCluster,
   parseInstitutionAndLast4,
@@ -29,7 +29,7 @@ import {
 type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
 const tabs: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "recurring", label: "Recurring" },
+  { id: "recurring", label: "Recurring charges" },
   { id: "fees", label: "Fees" },
   { id: "cashflow", label: "Daily cash flow" },
   { id: "review", label: "Review" },
@@ -60,10 +60,19 @@ const categoryOptions = [
   "Fees",
   "Other",
 ];
-const categoryEmojis = categoryEmojiMap;
+const categoryEmojis = {
+  ...categoryEmojiMap,
+  "Bills & services": "??",
+  Insurance: "???",
+  Loans: "??",
+  Education: "??",
+};
 const displayCategoryLabels: Record<string, string> = {
   Transport: "Auto",
   "Bills & services": "Bills & services",
+  Insurance: "Insurance",
+  Loans: "Loans",
+  Education: "Education",
 };
 const accountTypeLabels: Record<string, string> = {
   navy_checking: "Checking",
@@ -134,6 +143,19 @@ const loadCustomAccounts = (): TransferAccount[] => {
     // ignore bad data
   }
   return [];
+};
+const classifyBillsCategory = (description: string): "Insurance" | "Loans" | "Education" | "Bills & services" => {
+  const lower = description.toLowerCase();
+  if (/tuition|college|university|school|education|bursar/.test(lower)) return "Education";
+  if (/loan|lender|servicer|finance|mortgage|car payment|auto payment|repayment/.test(lower)) return "Loans";
+  if (/insurance|premium/.test(lower)) return "Insurance";
+  return "Bills & services";
+};
+const getTransactionDisplayCategory = (tx: Transaction): string => {
+  if (tx.category === "Bills & services" || tx.category === "Bills") {
+    return classifyBillsCategory(tx.description);
+  }
+  return tx.category;
 };
 type AddTransactionRowProps = {
   rangeStartMonth: number;
@@ -230,6 +252,9 @@ type OverviewGroupKey =
   | "groceriesDining"
   | "transport"
   | "subscriptions"
+  | "insurance"
+  | "loans"
+  | "education"
   | "otherFees";
 type DuplicateClusterView = DuplicateCluster & {
   suspiciousTransactions: Transaction[];
@@ -264,6 +289,24 @@ const overviewGroupMeta: Record<
     categories: ["Subscriptions"],
     color: "#c084fc",
     emoji: categoryEmojis.Subscriptions,
+  },
+  insurance: {
+    label: "Insurance",
+    categories: ["Insurance"],
+    color: "#22c55e",
+    emoji: categoryEmojis.Insurance,
+  },
+  loans: {
+    label: "Loans",
+    categories: ["Loans"],
+    color: "#f43f5e",
+    emoji: categoryEmojis.Loans,
+  },
+  education: {
+    label: "Education",
+    categories: ["Education"],
+    color: "#3b82f6",
+    emoji: categoryEmojis.Education,
   },
   otherFees: {
     label: "Other including fees",
@@ -658,6 +701,7 @@ export default function DemoPage() {
     });
     return sortedMonths;
   }, [cashFlowRows]);
+  const showGroupedCashflow = cashflowMonths.length > 1;
   const totalIncome = getTotalIncome(statementTransactions, ownership, ownershipModes);
   const totalSpending = getTotalSpending(statementTransactions, ownership, ownershipModes);
   const netThisMonth = getNetThisMonth(statementTransactions, ownership, ownershipModes);
@@ -685,37 +729,69 @@ export default function DemoPage() {
     [fullStatementTransactions],
   );
   const duplicateClusters: DuplicateClusterView[] = useMemo(() => {
-    return duplicateAnalysis.clusters
-      .map((cluster) => {
-        const flaggedIds = new Set(cluster.suspiciousTransactionIds);
-        const allTransactions = cluster.transactions
-          .map((tx) => fullStatementTransactions.find((fullTx) => fullTx.id === tx.id) ?? tx)
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        const suspiciousTransactions = allTransactions
-          .filter((tx) => flaggedIds.has(tx.id))
-          .filter((tx) => duplicateDecisions[tx.id] !== "dismissed");
-        if (suspiciousTransactions.length === 0) return null;
-        const suspiciousTotal = suspiciousTransactions.reduce(
-          (sum, tx) => sum + Math.abs(tx.amount),
-          0,
-        );
-        return {
-          ...cluster,
-          suspiciousTransactions,
-          suspiciousTotal,
-          allTransactions,
-          flaggedIds,
-        };
-      })
-      .filter((cluster): cluster is DuplicateClusterView => Boolean(cluster));
+    const modeAmount = (amounts: number[]) => {
+      const counts = new Map<number, number>();
+      amounts.forEach((amt) => counts.set(amt, (counts.get(amt) ?? 0) + 1));
+      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      return sorted[0]?.[0] ?? 0;
+    };
+    const medianIntervalDays = (txs: Transaction[]) => {
+      const intervals: number[] = [];
+      for (let i = 1; i < txs.length; i += 1) {
+        const prev = new Date(txs[i - 1].date).getTime();
+        const curr = new Date(txs[i].date).getTime();
+        intervals.push(Math.abs(curr - prev) / (1000 * 60 * 60 * 24));
+      }
+      if (intervals.length === 0) return 0;
+      const sorted = intervals.sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    };
+    return duplicateAnalysis.clusters.map((cluster) => {
+      const allTransactions = cluster.transactions
+        .map((tx) => fullStatementTransactions.find((fullTx) => fullTx.id === tx.id) ?? tx)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const baseline = modeAmount(allTransactions.map((tx) => Math.abs(tx.amount)));
+      const medianInterval = medianIntervalDays(allTransactions);
+      const flaggedIds = new Set<string>();
+      const amountTolerance = baseline > 0 ? baseline * 0.2 : 0;
+      allTransactions.forEach((tx, idx) => {
+        const amountDiff = Math.abs(Math.abs(tx.amount) - baseline);
+        const isAmountOutlier = baseline > 0 && amountDiff > amountTolerance;
+        const prev = allTransactions[idx - 1];
+        const isFast =
+          !!prev &&
+          medianInterval > 0 &&
+          Math.abs(new Date(tx.date).getTime() - new Date(prev.date).getTime()) /
+            (1000 * 60 * 60 * 24) <
+            medianInterval * 0.6;
+        if (isAmountOutlier || isFast) {
+          flaggedIds.add(tx.id);
+        }
+      });
+      const suspiciousTransactions = allTransactions
+        .filter((tx) => flaggedIds.has(tx.id))
+        .filter((tx) => duplicateDecisions[tx.id] !== "dismissed");
+      const suspiciousTotal = suspiciousTransactions.reduce(
+        (sum, tx) => sum + Math.abs(tx.amount),
+        0,
+      );
+      const lastNormalChargeDate =
+        allTransactions.length > 0 ? allTransactions[allTransactions.length - 1].date : null;
+      return {
+        ...cluster,
+        suspiciousTransactions,
+        suspiciousTotal,
+        allTransactions,
+        flaggedIds,
+        lastNormalDate: lastNormalChargeDate,
+        lastNormalChargeDate,
+      };
+    });
   }, [duplicateAnalysis, duplicateDecisions, fullStatementTransactions]);
   const activeDuplicateIds = useMemo(
     () =>
-      new Set(
-        duplicateClusters.flatMap((cluster) =>
-          cluster.suspiciousTransactions.map((tx) => tx.id),
-        ),
-      ),
+      new Set(duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((tx) => tx.id))),
     [duplicateClusters],
   );
   const duplicateMetaById = useMemo(() => {
@@ -724,12 +800,13 @@ export default function DemoPage() {
       { clusterKey: string; label: string; category: string; lastNormalDate: string | null }
     >();
     duplicateClusters.forEach((cluster) => {
-      cluster.suspiciousTransactions.forEach((tx) => {
+      const lastCharged = cluster.lastNormalChargeDate ?? cluster.lastNormalDate;
+      cluster.allTransactions.forEach((tx) => {
         map.set(tx.id, {
           clusterKey: cluster.key,
           label: cluster.label,
           category: cluster.category,
-          lastNormalDate: cluster.lastNormalDate,
+          lastNormalDate: lastCharged,
         });
       });
     });
@@ -742,18 +819,81 @@ export default function DemoPage() {
       setAddBaseTransactionId(first.id);
     }
   }, [isAddingAccount, addBaseTransactionId, transferTransactions]);
-  const categoryBreakdown = getSpendingByCategory(
-    statementTransactions,
-    ownership,
-    ownershipModes,
+  const categoryBreakdown = useMemo(() => {
+    const totals = new Map<string, number>();
+    statementTransactions.forEach((tx) => {
+      if (!isRealSpending(tx, ownership, ownershipModes)) return;
+      const bucket = getTransactionDisplayCategory(tx);
+      const prev = totals.get(bucket) ?? 0;
+      totals.set(bucket, prev + Math.abs(tx.amount));
+    });
+    return Array.from(totals.entries()).map(([category, amount]) => ({ category, amount }));
+  }, [statementTransactions, ownership, ownershipModes]);
+  const categoryAmountMap = useMemo(
+    () => new Map(categoryBreakdown.map((item) => [item.category, item.amount])),
+    [categoryBreakdown],
   );
   const summaryStats = getSummaryStats(statementTransactions, ownership, ownershipModes);
-  const budgetGuidance = getBudgetGuidance(statementTransactions, ownership, ownershipModes);
-  const overviewTransactions = getTransactionsByCategory(
-    activeOverviewCategory,
-    statementTransactions,
-    ownership,
-    ownershipModes,
+  const baseBudgetGuidance = useMemo(
+    () => getBudgetGuidance(statementTransactions, ownership, ownershipModes),
+    [statementTransactions, ownership, ownershipModes],
+  );
+  const budgetGuidance = useMemo(() => {
+    const billsBuckets = ["Insurance", "Loans", "Education", "Bills & services"];
+    const billsActualTotal = billsBuckets.reduce(
+      (sum, cat) => sum + (categoryAmountMap.get(cat) ?? 0),
+      0,
+    );
+    const billsBase = baseBudgetGuidance.find((item) => item.category === "Bills & services");
+    const billsRecommendedTotal = billsBase?.recommendedAmount ?? 0;
+    const splitBills = billsBuckets
+      .map((cat) => {
+        const actual = categoryAmountMap.get(cat) ?? 0;
+        if (actual <= 0) return null;
+        const share = billsActualTotal > 0 ? actual / billsActualTotal : 0;
+        const recommendedAmount = billsRecommendedTotal * share;
+        const delta = actual - recommendedAmount;
+        return {
+          category: cat,
+          name: cat,
+          actual,
+          actualAmount: actual,
+          recommendedMax: recommendedAmount,
+          recommendedAmount,
+          delta,
+          differenceAmount: Math.abs(delta),
+          differenceDirection: delta > 0 ? ("over" as const) : ("under" as const),
+        };
+      })
+      .filter((item): item is BudgetGuidanceItem => Boolean(item));
+    const nonBills = baseBudgetGuidance
+      .filter((item) => item.category !== "Bills & services")
+      .map((item) => {
+        const actual = categoryAmountMap.get(item.category) ?? item.actualAmount;
+        const delta = actual - item.recommendedAmount;
+        return {
+          ...item,
+          actual,
+          actualAmount: actual,
+          delta,
+          differenceAmount: Math.abs(delta),
+          differenceDirection: delta > 0 ? ("over" as const) : ("under" as const),
+        };
+      });
+    return [...nonBills, ...splitBills];
+  }, [baseBudgetGuidance, categoryAmountMap]);
+  const topSpendingCategories = useMemo(
+    () => [...categoryBreakdown].sort((a, b) => b.amount - a.amount).slice(0, 3),
+    [categoryBreakdown],
+  );
+  const overviewTransactions = useMemo(
+    () =>
+      statementTransactions.filter(
+        (t) =>
+          getTransactionDisplayCategory(t) === activeOverviewCategory &&
+          !isInternalTransfer(t, ownership, ownershipModes),
+      ),
+    [activeOverviewCategory, ownership, ownershipModes, statementTransactions],
   );
   const transportSpend =
     categoryBreakdown.find((item) => item.category === "Transport")?.amount ?? 0;
@@ -1490,82 +1630,92 @@ export default function DemoPage() {
                   Editing only affects this demo and saves locally on this device.
                 </p>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-300 sm:gap-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="text-zinc-400" htmlFor="month-from-select">
-                    Month from
-                  </label>
-                  <select
-                    id="month-from-select"
-                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                    value={selectedMonthFrom}
-                    onChange={(e) => {
-                      hasTouchedRangeRef.current = true;
-                      setSelectedMonthFrom(Number(e.target.value));
-                    }}
-                  >
-                    {months.map((m, idx) => (
-                      <option key={m} value={idx}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <label className="text-zinc-400" htmlFor="year-from-select">
-                    Year from
-                  </label>
-                  <select
-                    id="year-from-select"
-                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                    value={selectedYearFrom}
-                    onChange={(e) => {
-                      hasTouchedRangeRef.current = true;
-                      setSelectedYearFrom(Number(e.target.value));
-                    }}
-                  >
-                    {yearOptions.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
+              <div className="mt-2 flex flex-col gap-3 text-xs text-zinc-300 sm:gap-4 md:flex-row md:items-start md:gap-6">
+                <div className="flex w-full flex-col gap-2 sm:gap-3 md:w-auto">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+                    From
+                  </span>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <label className="text-zinc-400" htmlFor="month-from-select">
+                      Month
+                    </label>
+                    <select
+                      id="month-from-select"
+                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                      value={selectedMonthFrom}
+                      onChange={(e) => {
+                        hasTouchedRangeRef.current = true;
+                        setSelectedMonthFrom(Number(e.target.value));
+                      }}
+                    >
+                      {months.map((m, idx) => (
+                        <option key={m} value={idx}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="text-zinc-400" htmlFor="year-from-select">
+                      Year
+                    </label>
+                    <select
+                      id="year-from-select"
+                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                      value={selectedYearFrom}
+                      onChange={(e) => {
+                        hasTouchedRangeRef.current = true;
+                        setSelectedYearFrom(Number(e.target.value));
+                      }}
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:ml-4">
-                  <label className="text-zinc-400" htmlFor="month-to-select">
-                    Month to
-                  </label>
-                  <select
-                    id="month-to-select"
-                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                    value={selectedMonthTo}
-                    onChange={(e) => {
-                      hasTouchedRangeRef.current = true;
-                      setSelectedMonthTo(Number(e.target.value));
-                    }}
-                  >
-                    {months.map((m, idx) => (
-                      <option key={m} value={idx}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <label className="text-zinc-400" htmlFor="year-to-select">
-                    Year to
-                  </label>
-                  <select
-                    id="year-to-select"
-                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                    value={selectedYearTo}
-                    onChange={(e) => {
-                      hasTouchedRangeRef.current = true;
-                      setSelectedYearTo(Number(e.target.value));
-                    }}
-                  >
-                    {yearOptions.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex w-full flex-col gap-2 sm:gap-3 md:w-auto">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+                    To
+                  </span>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <label className="text-zinc-400" htmlFor="month-to-select">
+                      Month
+                    </label>
+                    <select
+                      id="month-to-select"
+                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                      value={selectedMonthTo}
+                      onChange={(e) => {
+                        hasTouchedRangeRef.current = true;
+                        setSelectedMonthTo(Number(e.target.value));
+                      }}
+                    >
+                      {months.map((m, idx) => (
+                        <option key={m} value={idx}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="text-zinc-400" htmlFor="year-to-select">
+                      Year
+                    </label>
+                    <select
+                      id="year-to-select"
+                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                      value={selectedYearTo}
+                      onChange={(e) => {
+                        hasTouchedRangeRef.current = true;
+                        setSelectedYearTo(Number(e.target.value));
+                      }}
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2131,7 +2281,7 @@ export default function DemoPage() {
             )}
             {activeTab === "recurring" && (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-                <h2 className="text-lg font-semibold text-white">Recurring</h2>
+                <h2 className="text-lg font-semibold text-white">Recurring charges</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Subscriptions, bills, and payments for this month.
                 </p>
@@ -2170,9 +2320,7 @@ export default function DemoPage() {
                         const duplicateDecision = duplicateDecisions[row.id];
                         const isDuplicate = activeDuplicateIds.has(row.id);
                         const meta = duplicateMetaById.get(row.id);
-                        const tooltipText = meta
-                          ? `${meta.lastNormalDate ? `Last normal charge: ${dateFormatter.format(new Date(meta.lastNormalDate))}. ` : ""}This charge is off pattern for timing or amount.`
-                          : "This charge is off pattern for timing or amount.";
+                        const lastCharged = meta?.lastNormalDate ?? row.date;
                         return (
                         <div
                           key={row.id}
@@ -2182,32 +2330,34 @@ export default function DemoPage() {
                             <span className="flex items-center gap-2 truncate" title={row.description}>
                               <span className="truncate">{row.description}</span>
                               {isDuplicate && duplicateDecision !== "dismissed" && (
-                                <span
-                                  className="rounded-full border border-amber-300/50 bg-amber-900/30 px-2 py-[2px] text-[10px] font-medium text-amber-100"
-                                  title={tooltipText}
-                                >
-                                  possible duplicate
-                                </span>
+                                <div className="group relative inline-flex items-center">
+                                  <span className="rounded-full border border-amber-300/50 bg-amber-900/30 px-2 py-[2px] text-[10px] font-medium text-amber-100">
+                                    possible duplicate
+                                  </span>
+                                  <div className="pointer-events-none absolute left-0 top-full z-10 mt-2 hidden w-max flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-[11px] text-zinc-200 shadow-lg group-hover:flex group-focus-within:flex">
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-amber-300/50 px-2 py-[3px] font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-900/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70"
+                                        onClick={() => handleConfirmDuplicate(row.id)}
+                                      >
+                                        Confirm problem
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-zinc-700 px-2 py-[3px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                        onClick={() => handleDismissDuplicate(row.id)}
+                                      >
+                                        Dismiss
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
                             </span>
-                            {isDuplicate && duplicateDecision !== "dismissed" && (
-                              <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
-                                <button
-                                  type="button"
-                                  className="rounded-full border border-amber-300/50 px-2 py-[3px] font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-900/50"
-                                  onClick={() => handleConfirmDuplicate(row.id)}
-                                >
-                                  Confirm problem
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-full border border-zinc-700 px-2 py-[3px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
-                                  onClick={() => handleDismissDuplicate(row.id)}
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                            )}
+                            <p className="text-[11px] text-zinc-500">
+                              Last charged on {dateFormatter.format(new Date(lastCharged))}
+                            </p>
                           </div>
                           <span className="text-zinc-400">{displayCategory}</span>
                           <span className="text-right font-medium">
@@ -2271,169 +2421,282 @@ export default function DemoPage() {
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-white">Daily cash flow</h2>
-                    <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
+                  <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
                 </div>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Daily inflow and outflow for this month.
+                  Daily inflow and outflow for this period.
                 </p>
-                <div className="mt-4 space-y-3">
-                  {cashflowMonths.map((month) => {
-                    const isExpanded = expandedCashflowMonths.has(month.key);
-                    const toggle = () =>
-                      setExpandedCashflowMonths((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(month.key)) {
-                          next.delete(month.key);
-                        } else {
-                          next.add(month.key);
-                        }
-                        return next;
-                      });
-                    return (
-                      <div key={month.key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
-                        <button
-                          type="button"
-                          onClick={toggle}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              toggle();
-                            }
-                          }}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-800/60"
-                        >
-                          <div className="space-y-1 text-sm">
-                            <p className="font-semibold text-white">{month.label}</p>
-                            <div className="flex flex-wrap gap-4 text-[11px] text-zinc-400">
-                              <span>In: {currency.format(month.totalIn)}</span>
-                              <span>Out: {currency.format(month.totalOut)}</span>
-                              <span
-                                className={`font-semibold ${
-                                  month.totalNet >= 0 ? "text-emerald-300" : "text-rose-300"
-                                }`}
-                              >
-                                Net: {currency.format(month.totalNet)}
-                              </span>
-                            </div>
-                          </div>
-                          <span
-                            aria-hidden="true"
-                            className={`text-zinc-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                {showGroupedCashflow ? (
+                  <div className="mt-4 space-y-3">
+                    {cashflowMonths.map((month) => {
+                      const isExpanded = expandedCashflowMonths.has(month.key);
+                      const toggle = () =>
+                        setExpandedCashflowMonths((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(month.key)) {
+                            next.delete(month.key);
+                          } else {
+                            next.add(month.key);
+                          }
+                          return next;
+                        });
+                      return (
+                        <div key={month.key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={toggle}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                toggle();
+                              }
+                            }}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
                           >
-                            ▸
-                          </span>
-                        </button>
-                        {isExpanded && (
-                          <div className="overflow-x-auto border-t border-zinc-800">
-                            <div className="min-w-[520px]">
-                              <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                                <span>Date</span>
-                                <span className="text-right">Inflow</span>
-                                <span className="text-right">Outflow</span>
-                                <span className="text-right">Net</span>
+                            <div className="space-y-1 text-sm">
+                              <p className="font-semibold text-white">{month.label}</p>
+                              <div className="flex flex-wrap gap-4 text-[11px] text-zinc-400">
+                                <span>In: {currency.format(month.totalIn)}</span>
+                                <span>Out: {currency.format(month.totalOut)}</span>
+                                <span
+                                  className={`font-semibold ${
+                                    month.totalNet >= 0 ? "text-emerald-300" : "text-rose-300"
+                                  }`}
+                                >
+                                  Net: {currency.format(month.totalNet)}
+                                </span>
                               </div>
-                              <div className="divide-y divide-zinc-800">
-                                {month.rows.map((row) => {
-                                  const isDayExpanded = expandedCashflowDates[row.date];
-                                  const dayTransactions = statementTransactions.filter(
-                                    (tx) => tx.date === row.date,
-                                  );
-                                  return (
-                                    <div key={row.date} className="text-xs sm:text-sm">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setExpandedCashflowDates((prev) => ({
-                                            ...prev,
-                                            [row.date]: !prev[row.date],
-                                          }))
-                                        }
-                                        onKeyDown={(event) => {
-                                          if (event.key === "Enter" || event.key === " ") {
-                                            event.preventDefault();
+                            </div>
+                            <button
+                              type="button"
+                              aria-label="Toggle daily rows for this month"
+                              aria-expanded={isExpanded}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggle();
+                              }}
+                              className="text-zinc-400 transition hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d={isExpanded ? "M4 10 8 6l4 4" : "M4 6l4 4 4-4"}
+                                  stroke="currentColor"
+                                  strokeWidth="1.6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          {isExpanded && (
+                            <div className="overflow-x-auto border-t border-zinc-800">
+                              <div className="min-w-[520px]">
+                                <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                                  <span>Date</span>
+                                  <span className="text-right">Inflow</span>
+                                  <span className="text-right">Outflow</span>
+                                  <span className="text-right">Net</span>
+                                </div>
+                                <div className="divide-y divide-zinc-800">
+                                  {month.rows.map((row) => {
+                                    const isDayExpanded = expandedCashflowDates[row.date];
+                                    const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+                                    return (
+                                      <div key={row.date} className="text-xs sm:text-sm">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
                                             setExpandedCashflowDates((prev) => ({
                                               ...prev,
                                               [row.date]: !prev[row.date],
-                                            }));
+                                            }))
                                           }
-                                        }}
-                                        className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
-                                      >
-                                        <span className="text-zinc-300">
-                                          {dateFormatter.format(new Date(row.date))}
-                                        </span>
-                                        <span className="text-right font-medium">
-                                          {currency.format(row.totalInflowForThatDate)}
-                                        </span>
-                                        <span className="text-right font-medium text-zinc-300">
-                                          {currency.format(row.totalOutflowForThatDate)}
-                                        </span>
-                                        <span
-                                          className={`flex items-center justify-end gap-2 text-right font-semibold ${
-                                            row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"
-                                          }`}
+                                          onKeyDown={(event) => {
+                                            if (event.key === "Enter" || event.key === " ") {
+                                              event.preventDefault();
+                                              setExpandedCashflowDates((prev) => ({
+                                                ...prev,
+                                                [row.date]: !prev[row.date],
+                                              }));
+                                            }
+                                          }}
+                                          className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
                                         >
+                                          <span className="text-zinc-300">
+                                            {dateFormatter.format(new Date(row.date))}
+                                          </span>
+                                          <span className="text-right font-medium">
+                                            {currency.format(row.totalInflowForThatDate)}
+                                          </span>
+                                          <span className="text-right font-medium text-zinc-300">
+                                            {currency.format(row.totalOutflowForThatDate)}
+                                          </span>
+                                          <span
+                                            className={`flex items-center justify-end gap-2 text-right font-semibold ${
+                                              row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"
+                                            }`}
+                                          >
                                           <span
                                             aria-hidden="true"
                                             className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}
                                           >
-                                            ▸
+                                            {isDayExpanded ? "▾" : "▸"}
                                           </span>
-                                          {currency.format(row.netForThatDate)}
-                                        </span>
-                                      </button>
-                                      {isDayExpanded && (
-                                        <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
-                                          {dayTransactions.length === 0 ? (
-                                            <p className="text-[11px] text-zinc-400">
-                                              No transactions for this day.
-                                            </p>
-                                          ) : (
-                                            <div className="space-y-2 text-[11px] sm:text-xs">
-                                              {dayTransactions.map((tx) => (
-                                                <div
-                                                  key={tx.id}
-                                                  className="flex items-center justify-between"
-                                                >
-                                                  <span className="truncate pr-2" title={tx.description}>
-                                                    {tx.description}
-                                                  </span>
-                                                  <span
-                                                    className={`font-semibold ${
-                                                      tx.amount > 0
-                                                        ? "text-emerald-400"
-                                                        : tx.amount < 0
-                                                          ? "text-red-300"
-                                                          : "text-zinc-200"
-                                                    }`}
+                                            {currency.format(row.netForThatDate)}
+                                          </span>
+                                        </button>
+                                        {isDayExpanded && (
+                                          <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
+                                            {dayTransactions.length === 0 ? (
+                                              <p className="text-[11px] text-zinc-400">
+                                                No transactions for this day.
+                                              </p>
+                                            ) : (
+                                              <div className="space-y-2 text-[11px] sm:text-xs">
+                                                {dayTransactions.map((tx) => (
+                                                  <div
+                                                    key={tx.id}
+                                                    className="flex items-center justify-between"
                                                   >
-                                                    {currency.format(tx.amount)}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                                                    <span className="truncate pr-2" title={tx.description}>
+                                                      {tx.description}
+                                                    </span>
+                                                    <span
+                                                      className={`font-semibold ${
+                                                        tx.amount > 0
+                                                          ? "text-emerald-400"
+                                                          : tx.amount < 0
+                                                            ? "text-red-300"
+                                                            : "text-zinc-200"
+                                                      }`}
+                                                    >
+                                                      {currency.format(tx.amount)}
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
+                    <div className="min-w-[520px]">
+                      <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                        <span>Date</span>
+                        <span className="text-right">Inflow</span>
+                        <span className="text-right">Outflow</span>
+                        <span className="text-right">Net</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="divide-y divide-zinc-800">
+                        {cashFlowRows.map((row) => {
+                          const isDayExpanded = expandedCashflowDates[row.date];
+                          const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+                          return (
+                            <div key={row.date} className="text-xs sm:text-sm">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedCashflowDates((prev) => ({
+                                    ...prev,
+                                    [row.date]: !prev[row.date],
+                                  }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setExpandedCashflowDates((prev) => ({
+                                      ...prev,
+                                      [row.date]: !prev[row.date],
+                                    }));
+                                  }
+                                }}
+                                className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
+                              >
+                                <span className="text-zinc-300">
+                                  {dateFormatter.format(new Date(row.date))}
+                                </span>
+                                <span className="text-right font-medium">
+                                  {currency.format(row.totalInflowForThatDate)}
+                                </span>
+                                <span className="text-right font-medium text-zinc-300">
+                                  {currency.format(row.totalOutflowForThatDate)}
+                                </span>
+                                <span
+                                  className={`flex items-center justify-end gap-2 text-right font-semibold ${
+                                    row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"
+                                  }`}
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}
+                                  >
+                                    {isDayExpanded ? "▾" : "▸"}
+                                  </span>
+                                  {currency.format(row.netForThatDate)}
+                                </span>
+                              </button>
+                              {isDayExpanded && (
+                                <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
+                                  {dayTransactions.length === 0 ? (
+                                    <p className="text-[11px] text-zinc-400">
+                                      No transactions for this day.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-2 text-[11px] sm:text-xs">
+                                      {dayTransactions.map((tx) => (
+                                        <div key={tx.id} className="flex items-center justify-between">
+                                          <span className="truncate pr-2" title={tx.description}>
+                                            {tx.description}
+                                          </span>
+                                          <span
+                                            className={`font-semibold ${
+                                              tx.amount > 0
+                                                ? "text-emerald-400"
+                                                : tx.amount < 0
+                                                  ? "text-red-300"
+                                                  : "text-zinc-200"
+                                            }`}
+                                          >
+                                            {currency.format(tx.amount)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            {activeTab === "review" && (
+            )}            {activeTab === "review" && (
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-lg font-semibold text-white">Review</h2>
                   <div className="mt-1 flex items-center justify-center gap-2 text-sm text-zinc-400">
-                    <p className="text-sm text-zinc-400">Snapshot for this month across your accounts.</p>
+                    <p className="text-sm text-zinc-400">Snapshot for this period across your accounts.</p>
                     <InfoTip label={"Snapshot of this month.\nHighlights key spending patterns and fees.\nRuns on sample data."} />
                   </div>
                 </div>
@@ -2491,40 +2754,16 @@ export default function DemoPage() {
                           {currency.format(summaryStats.totalFees)}
                         </span>
                       </div>
-                      {summaryStats.largestSingleExpense && (
-                        <div className="space-y-1 text-xs text-zinc-400">
-                          <button
-                            type="button"
-                            onClick={() => setShowLargestExpenseDetail((prev) => !prev)}
-                            className="flex w-full items-center justify-between rounded-md border border-transparent px-1 py-1 text-left transition hover:border-zinc-700 hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
-                          >
-                            <span>Largest expense</span>
-                            <span className="text-white">
-                              {currency.format(summaryStats.largestSingleExpense.amount)}
-                            </span>
-                          </button>
-                          {showLargestExpenseDetail && (
-                            <div className="rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-2 text-[11px] text-zinc-300">
-                              <div className="flex justify-between">
-                                <span className="text-zinc-400">Date</span>
-                                <span className="text-white">
-                                  {dateFormatter.format(new Date(summaryStats.largestSingleExpense.date))}
-                                </span>
-                              </div>
-                              <div className="mt-1 flex justify-between">
-                                <span className="text-zinc-400">Merchant</span>
-                                <span className="truncate text-white" title={summaryStats.largestSingleExpense.description}>
-                                  {summaryStats.largestSingleExpense.description}
-                                </span>
-                              </div>
-                              <div className="mt-1 flex justify-between">
-                                <span className="text-zinc-400">Amount</span>
-                                <span className="text-white">
-                                  {currency.format(summaryStats.largestSingleExpense.amount)}
-                                </span>
-                              </div>
-                            </div>
-                          )}
+                      {feeRows.length > 0 && (
+                        <div className="flex justify-between text-xs text-zinc-400">
+                          <span>Largest fee</span>
+                          <span className="text-white">
+                            {currency.format(
+                              Math.max(
+                                ...feeRows.map((f) => Math.abs(f.amount)),
+                              ),
+                            )}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -2532,7 +2771,7 @@ export default function DemoPage() {
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
                     <p className="text-sm font-semibold text-white">Top spending categories</p>
                     <div className="mt-3 space-y-2 text-sm">
-                      {summaryStats.topSpendingCategories.map((item) => (
+                      {topSpendingCategories.map((item) => (
                         <div key={item.category} className="flex justify-between">
                           <span className="text-zinc-400">{getDisplayCategory(item.category)}</span>
                           <span className="font-semibold text-white">
@@ -2545,7 +2784,7 @@ export default function DemoPage() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
-                    <p className="text-sm font-semibold text-white">Internal transfers this month</p>
+                    <p className="text-sm font-semibold text-white">Internal transfers this period</p>
                     <p className="mt-2 text-xl font-semibold text-white">
                       {currency.format(summaryStats.totalInternalTransfers)}
                     </p>
@@ -2559,12 +2798,14 @@ export default function DemoPage() {
                     className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
                   >
                     <div className="flex items-center gap-2">
-                      {duplicateClusters.length > 0 && <span aria-hidden="true">⚠️</span>}
+                      <span aria-hidden="true" className="text-amber-300">
+                        ⚠️
+                      </span>
                       <p className="text-sm font-semibold text-white">Duplicate charges</p>
                     </div>
                     <p className="mt-2 text-xl font-semibold text-white">
                       {duplicateClusters.length === 0
-                        ? "No suspected duplicate charges"
+                        ? "No suspected duplicates"
                         : `${duplicateClusters.length} merchant${duplicateClusters.length === 1 ? "" : "s"} with possible duplicates`}
                     </p>
                     <p className="mt-1 text-xs text-zinc-400">
@@ -3143,3 +3384,12 @@ export default function DemoPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

@@ -76,7 +76,7 @@ export default function Home() {
     <main className="relative min-h-screen overflow-hidden">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[url('/home-grid-bg-2%20copy.png')] bg-cover bg-center"
+        className="pointer-events-none absolute inset-0 bg-[url('/home-grid-bg.png')] bg-cover bg-center"
       />
       <div
         aria-hidden="true"
@@ -84,7 +84,15 @@ export default function Home() {
       />
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">
-          <section className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-950/90 px-6 py-12 sm:px-10 sm:py-16">
+          <section className="relative overflow-hidden rounded-3xl border border-zinc-800/80 bg-gradient-to-br from-zinc-950 via-zinc-950 to-black px-6 py-12 shadow-[0_25px_80px_rgba(0,0,0,0.45)] ring-1 ring-white/5 sm:px-10 sm:py-16">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-75 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.08),transparent_38%),radial-gradient(circle_at_82%_12%,rgba(59,130,246,0.1),transparent_34%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.08),transparent_45%)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_26%),linear-gradient(300deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_30%)] opacity-60"
+            />
             <div className="hero-wave" />
             <div className="hero-wave-fade" />
             <div className="relative z-10 max-w-3xl space-y-4">
@@ -113,7 +121,7 @@ export default function Home() {
                   }}
                   className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-5 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
                 >
-                  Learn more
+                  How it works
                 </button>
               </div>
             </div>
