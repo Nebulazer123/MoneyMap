@@ -1,6 +1,6 @@
 export default function AboutPage() {
   return (
-    <main className="bg-zinc-950 text-white">
+    <main className="text-white">
       <div className="mx-auto max-w-4xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
         <header className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">About MoneyMap</h1>

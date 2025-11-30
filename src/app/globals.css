@@ -30,20 +30,11 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
-<<<<<<< Updated upstream
   background-size: 80px 80px;
   mix-blend-mode: soft-light;
   opacity: 0.05;
   z-index: 0;
 }
-=======
-  background-size: 70px 70px;
-  mix-blend-mode: soft-light;
-  opacity: 0.06;
-  z-index: 0;
-}
-
->>>>>>> Stashed changes
 @keyframes moneymapHeroWave {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
