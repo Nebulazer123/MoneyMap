@@ -1,7 +1,9 @@
- "use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { GlassPanel } from "./dashboard/components/GlassPanel";
+import { SectionHeader } from "./dashboard/components/SectionHeader";
 
 type Slide =
   | { title: string; heading: string; body: string }
@@ -13,21 +15,16 @@ export default function Home() {
 
   const stepCards = [
     {
-      title: "Have a messy statement?",
-      defaultCopy: "Start with a month of paychecks, bills, and everyday spending.",
-      stepCopy: "Drop in paychecks, bills, and small purchases you want to make sense of.",
+      title: "Start with a messy month",
+      stepCopy: "Start with a messy month of paychecks, bills, and everyday swipes.",
     },
     {
-      title: "Run the clutter through MoneyMap",
-      defaultCopy: "Tell MoneyMap which accounts are yours so transfers stop bloating spending.",
-      stepCopy:
-        "We group regular charges, match your accounts, and turn the noise into a simple ledger.",
+      title: "Tell us which accounts are yours",
+      stepCopy: "Flag your own accounts so internal transfers stop inflating spending or income.",
     },
     {
-      title: "See subscriptions and fees clearly",
-      defaultCopy: "Call out recurring charges, streaming, and the fees that pile up.",
-      stepCopy:
-        "We surface subscriptions, bank fees, and other recurring charges so they are easy to spot.",
+      title: "Scan subscriptions and fees",
+      stepCopy: "Spot recurring charges and junk fees without ever touching real bank logins.",
     },
   ];
 
@@ -84,36 +81,28 @@ export default function Home() {
       />
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">
-          <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-950 via-[#0b1220] to-black px-6 py-12 shadow-[0_25px_80px_rgba(0,0,0,0.45)] ring-1 ring-white/10 sm:px-10 sm:py-16">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-80 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.08),transparent_38%),radial-gradient(circle_at_82%_12%,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.1),transparent_45%)]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0)_28%),linear-gradient(300deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_32%)] opacity-70"
-            />
-            <div className="pointer-events-none absolute inset-8 rounded-2xl border border-white/5 bg-gradient-to-b from-white/5 via-white/0 to-transparent" />
-            <div className="hero-wave" />
-            <div className="hero-wave-fade" />
-            <div className="relative z-10 max-w-3xl rounded-2xl border border-white/5 bg-black/30 p-6 backdrop-blur-sm sm:p-8">
-              <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+          <section className="relative">
+            <GlassPanel variant="hero" className="relative overflow-hidden sm:px-10 sm:py-14">
+              <div className="relative z-10 max-w-3xl space-y-4">
+                <span className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
                   Phase one demo
-                </p>
-                <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">MoneyMap</h1>
-                <p className="max-w-3xl text-lg text-zinc-200">
-                  Stress test your spending without sharing real data.
-                </p>
-                <p className="max-w-3xl text-sm text-zinc-400">
-                  This demo runs on fake data only. It never connects to real banks or stores real statements.
-                </p>
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                </span>
+                <div className="space-y-3">
+                  <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">Welcome to MoneyMap</h1>
+                  <p className="max-w-2xl text-lg text-zinc-100">
+                    Stress test your spending without sharing real bank logins.
+                  </p>
+                  <p className="max-w-3xl text-sm text-zinc-400">
+                    Everything here runs on synthetic statements in your browser. No bank credentials, no uploads, just a safe
+                    walkthrough of what MoneyMap could feel like.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   <Link
                     href="/dashboard"
                     className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
                   >
-                    Get started
+                    Open the dashboard
                   </Link>
                   <button
                     type="button"
@@ -127,38 +116,29 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-            </div>
+            </GlassPanel>
           </section>
 
-          <section className="mx-auto max-w-6xl px-0 sm:px-0 mt-10 sm:mt-12 lg:mt-16">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6 sm:p-8">
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-white">How this demo works</h2>
-                <p className="text-sm text-zinc-400">
-                  Three quick steps to see how MoneyMap treats a messy month.
-                </p>
-              </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section className="mt-2 sm:mt-0">
+            <GlassPanel variant="hero" className="space-y-6 sm:p-8">
+              <SectionHeader
+                label="How this demo works"
+                title="Three quick steps to see a messy month cleaned up."
+                caption="All of it stays fake, but the flow mirrors how MoneyMap would treat a real statement."
+              />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stepCards.map((card, idx) => (
-                  <div
+                  <GlassPanel
                     key={card.title}
-                    tabIndex={0}
-                    className="group relative rounded-xl border border-zinc-800 bg-zinc-900/80 p-4 transition-transform transition-shadow duration-200 hover:-translate-y-1 hover:border-zinc-600 hover:bg-zinc-900 hover:shadow-lg focus:-translate-y-1 focus:border-zinc-600 focus:bg-zinc-900 focus:shadow-lg focus:outline-none"
+                    className="group relative h-full transition duration-200 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:border-white/22"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                      Step {idx + 1}
-                    </div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Step {idx + 1}</div>
                     <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
-                    <p className="mt-1 text-sm text-zinc-400">{card.defaultCopy}</p>
-                    <div className="pointer-events-none absolute left-0 right-0 top-full origin-top translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-3 group-hover:opacity-100 group-focus:translate-y-3 group-focus:opacity-100">
-                      <div className="rounded-xl border border-zinc-700 bg-zinc-900/90 p-3 shadow-lg">
-                        <p className="text-sm text-zinc-200">{card.stepCopy}</p>
-                      </div>
-                    </div>
-                  </div>
+                    <p className="mt-2 text-sm text-zinc-300">{card.stepCopy}</p>
+                  </GlassPanel>
                 ))}
               </div>
-            </div>
+            </GlassPanel>
           </section>
         </div>
 

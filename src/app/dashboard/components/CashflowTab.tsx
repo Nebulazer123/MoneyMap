@@ -1,7 +1,9 @@
 import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
+import type { TabId } from "../../../lib/dashboard/config";
 import InfoTip from "./InfoTip";
+import { SectionHeader } from "./SectionHeader";
 
 type CashflowRow = {
   date: string;
@@ -30,6 +32,7 @@ type Props = {
   setExpandedCashflowMonths: React.Dispatch<React.SetStateAction<Set<number>>>;
   expandedCashflowDates: Record<string, boolean>;
   setExpandedCashflowDates: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  flowStep: "idle" | "statement" | "analyzing" | "results" | TabId;
 };
 
 export function CashflowTab({
@@ -45,12 +48,11 @@ export function CashflowTab({
   setExpandedCashflowDates,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-white">Daily cash flow</h2>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader title="Cashflow" caption="Income and spending over the month." />
         <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
       </div>
-      <p className="mt-1 text-sm text-zinc-400">Daily inflow and outflow for this period.</p>
       {showGroupedCashflow ? (
         <div className="mt-4 space-y-3">
           {cashflowMonths.map((month) => {
@@ -66,7 +68,10 @@ export function CashflowTab({
                 return next;
               });
             return (
-              <div key={month.key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
+              <div
+                key={month.key}
+                className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 transition transform hover:-translate-y-0.5 hover:border-zinc-700 focus-within:ring-2 focus-within:ring-emerald-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900"
+              >
                 <div
                   role="button"
                   tabIndex={0}

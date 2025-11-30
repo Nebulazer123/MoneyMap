@@ -29,6 +29,7 @@ import { CashflowTab } from "./components/CashflowTab";
 import { StatementPanel } from "./components/StatementPanel";
 import { ReviewTab } from "./components/ReviewTab";
 import { DuplicateOverlay } from "./components/DuplicateOverlay";
+import { GlassPanel } from "./components/GlassPanel";
 export default function DemoPage() {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview";
@@ -333,118 +334,120 @@ export default function DemoPage() {
         totalOutflowStatement={totalOutflowStatement}
         netStatement={netStatement}
       />
-      {showResults && (
-        <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
-      )}
+      <GlassPanel variant="hero" className="space-y-6 sm:space-y-8 animate-fade-rise">
+        {showResults && (
+          <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+        )}
 
-      {showResults && activeTab === "overview" && (
-        <OverviewTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          groupedSpendingData={groupedSpendingData}
-          activeGroupId={activeSpendingGroupId}
-          onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
-          categoryBreakdown={categoryBreakdown}
-          overviewTransactions={overviewTransactions}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "overview" && (
+          <OverviewTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            groupedSpendingData={groupedSpendingData}
+            activeGroupId={activeSpendingGroupId}
+            onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
+            categoryBreakdown={categoryBreakdown}
+            overviewTransactions={overviewTransactions}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "recurring" && (
-        <RecurringTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          recurringRows={recurringRows}
-          duplicateDecisions={duplicateDecisions}
-          activeDuplicateIds={activeDuplicateIds}
-          duplicateMetaById={duplicateMetaById}
-          handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-          handleConfirmDuplicate={handleConfirmDuplicate}
-          handleDismissDuplicate={handleDismissDuplicate}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "recurring" && (
+          <RecurringTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            recurringRows={recurringRows}
+            duplicateDecisions={duplicateDecisions}
+            activeDuplicateIds={activeDuplicateIds}
+            duplicateMetaById={duplicateMetaById}
+            handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
+            handleConfirmDuplicate={handleConfirmDuplicate}
+            handleDismissDuplicate={handleDismissDuplicate}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "fees" && (
-        <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
-      )}
+        {showResults && activeTab === "fees" && (
+          <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
+        )}
 
-      {showResults && activeTab === "cashflow" && (
-        <CashflowTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          statementTransactions={statementTransactions}
-          cashflowMonths={cashflowMonths}
-          expandedCashflowMonths={expandedCashflowMonths}
-          setExpandedCashflowMonths={setExpandedCashflowMonths}
-          expandedCashflowDates={expandedCashflowDates}
-          setExpandedCashflowDates={setExpandedCashflowDates}
-          cashFlowRows={cashFlowRows}
-          internalTransfersTotal={internalTransfersTotal}
-          showGroupedCashflow={showGroupedCashflow}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "cashflow" && (
+          <CashflowTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            statementTransactions={statementTransactions}
+            cashflowMonths={cashflowMonths}
+            expandedCashflowMonths={expandedCashflowMonths}
+            setExpandedCashflowMonths={setExpandedCashflowMonths}
+            expandedCashflowDates={expandedCashflowDates}
+            setExpandedCashflowDates={setExpandedCashflowDates}
+            cashFlowRows={cashFlowRows}
+            internalTransfersTotal={internalTransfersTotal}
+            showGroupedCashflow={showGroupedCashflow}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "review" && (
-        <ReviewTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          summaryStats={summaryStatsForReview}
-          feeRows={feeRows}
-          topSpendingCategories={topSpendingCategories}
-          duplicateClusters={duplicateClusters}
-          subscriptionRows={subscriptionRows}
-          leftAfterBills={leftAfterBills}
-          budgetGuidance={budgetGuidance}
-          transportPercent={transportPercent}
-          transportGuideline={transportGuideline}
-          internetPercent={internetPercent}
-          internetGuideline={internetGuideline}
-          essentialsPercent={essentialsPercent}
-          otherPercent={otherPercent}
-          netThisMonth={netThisMonth}
-          totalIncome={totalIncome}
-          duplicateMetaById={duplicateMetaById}
-          duplicateDecisions={duplicateDecisions}
-          activeDuplicateIds={activeDuplicateIds}
-          handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-          transferAccounts={transferAccounts}
-          ownership={ownership}
-          ownershipModes={ownershipModes}
-          handleOwnershipModeChange={handleOwnershipModeChange}
-          editingAccountId={editingAccountId}
-          editingAccountName={editingAccountName}
-          editingAccountType={editingAccountType}
-          setEditingAccountName={setEditingAccountName}
-          setEditingAccountType={setEditingAccountType}
-          startEditingAccount={startEditingAccount}
-          handleSaveEditedAccount={handleSaveEditedAccount}
-          handleDeleteAccount={handleDeleteAccount}
-          resetEditingAccount={resetEditingAccount}
-          accountTypeOptions={accountTypeOptions}
-          isAddingAccount={isAddingAccount}
-          setIsAddingAccount={setIsAddingAccount}
-          addAccountName={addAccountName}
-          setAddAccountName={setAddAccountName}
-          addAccountType={addAccountType}
-          setAddAccountType={setAddAccountType}
-          addBaseTransactionId={addBaseTransactionId}
-          setAddBaseTransactionId={setAddBaseTransactionId}
-          transferTransactions={transferTransactions}
-          suggestedAccountTransactions={suggestedAccountTransactions}
-          selectedAccountTxIds={selectedAccountTxIds}
-          setSelectedAccountTxIds={setSelectedAccountTxIds}
-          handleSelectBaseTransaction={handleSelectBaseTransaction}
-          handleToggleAccountTransaction={handleToggleAccountTransaction}
-          handleSaveNewAccount={handleSaveNewAccount}
-          detectedAccountCandidates={detectedAccountCandidates}
-          candidateDrafts={candidateDrafts}
-          handleUpdateCandidateDraft={handleUpdateCandidateDraft}
-          handleSaveDetectedAccount={handleSaveDetectedAccount}
-          handleCancelCandidate={handleCancelCandidate}
-        />
-      )}
+        {showResults && activeTab === "review" && (
+          <ReviewTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            summaryStats={summaryStatsForReview}
+            feeRows={feeRows}
+            topSpendingCategories={topSpendingCategories}
+            duplicateClusters={duplicateClusters}
+            subscriptionRows={subscriptionRows}
+            leftAfterBills={leftAfterBills}
+            budgetGuidance={budgetGuidance}
+            transportPercent={transportPercent}
+            transportGuideline={transportGuideline}
+            internetPercent={internetPercent}
+            internetGuideline={internetGuideline}
+            essentialsPercent={essentialsPercent}
+            otherPercent={otherPercent}
+            netThisMonth={netThisMonth}
+            totalIncome={totalIncome}
+            duplicateMetaById={duplicateMetaById}
+            duplicateDecisions={duplicateDecisions}
+            activeDuplicateIds={activeDuplicateIds}
+            handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
+            transferAccounts={transferAccounts}
+            ownership={ownership}
+            ownershipModes={ownershipModes}
+            handleOwnershipModeChange={handleOwnershipModeChange}
+            editingAccountId={editingAccountId}
+            editingAccountName={editingAccountName}
+            editingAccountType={editingAccountType}
+            setEditingAccountName={setEditingAccountName}
+            setEditingAccountType={setEditingAccountType}
+            startEditingAccount={startEditingAccount}
+            handleSaveEditedAccount={handleSaveEditedAccount}
+            handleDeleteAccount={handleDeleteAccount}
+            resetEditingAccount={resetEditingAccount}
+            accountTypeOptions={accountTypeOptions}
+            isAddingAccount={isAddingAccount}
+            setIsAddingAccount={setIsAddingAccount}
+            addAccountName={addAccountName}
+            setAddAccountName={setAddAccountName}
+            addAccountType={addAccountType}
+            setAddAccountType={setAddAccountType}
+            addBaseTransactionId={addBaseTransactionId}
+            setAddBaseTransactionId={setAddBaseTransactionId}
+            transferTransactions={transferTransactions}
+            suggestedAccountTransactions={suggestedAccountTransactions}
+            selectedAccountTxIds={selectedAccountTxIds}
+            setSelectedAccountTxIds={setSelectedAccountTxIds}
+            handleSelectBaseTransaction={handleSelectBaseTransaction}
+            handleToggleAccountTransaction={handleToggleAccountTransaction}
+            handleSaveNewAccount={handleSaveNewAccount}
+            detectedAccountCandidates={detectedAccountCandidates}
+            candidateDrafts={candidateDrafts}
+            handleUpdateCandidateDraft={handleUpdateCandidateDraft}
+            handleSaveDetectedAccount={handleSaveDetectedAccount}
+            handleCancelCandidate={handleCancelCandidate}
+          />
+        )}
+      </GlassPanel>
 
       {showDuplicateOverlay && (
         <DuplicateOverlay
