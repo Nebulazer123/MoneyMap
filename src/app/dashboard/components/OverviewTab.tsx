@@ -102,9 +102,12 @@ export function OverviewTab({
       : null;
 
   return (
-    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8">
-      <h2 className="text-lg font-semibold text-white text-center">Overview</h2>
-      <p className="mt-2 text-center text-sm text-zinc-400">Where your money went this month.</p>
+    <div className="space-y-6">
+      <SectionHeader
+        title="Where your money went this month"
+        description="Spending breakdown by category"
+      />
+      <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8">
       {showChart && (
         <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6" tabIndex={-1}>
           <div className="flex items-center justify-between">
@@ -250,6 +253,7 @@ export function OverviewTab({
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
