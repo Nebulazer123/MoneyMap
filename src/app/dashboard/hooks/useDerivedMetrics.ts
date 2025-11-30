@@ -139,7 +139,7 @@ export function useDerivedMetrics({
     [ownership, ownershipModes, statementTransactions],
   );
 
-  getSubscriptionTransactions(statementTransactions, ownership, ownershipModes);
+  const subscriptionRows = getSubscriptionTransactions(statementTransactions, ownership, ownershipModes);
   const feeRows = getFeeTransactions(statementTransactions, ownership, ownershipModes);
   const totalFees = getTotalFees(statementTransactions, ownership, ownershipModes);
 
@@ -170,6 +170,31 @@ export function useDerivedMetrics({
     () => new Map(categoryBreakdown.map((item) => [item.category, item.amount])),
     [categoryBreakdown],
   );
+
+  // Essentials vs everything else
+  const essentialsBuckets = ["Rent", "Groceries", "Bills & services", "Insurance", "Loans", "Education", "Health", "Transport"];
+
+  const essentialsTotal = essentialsBuckets.reduce(
+    (sum, cat) => sum + (categoryAmountMap.get(cat) ?? 0),
+    0,
+  );
+
+  const leftAfterBills = totalIncome - essentialsTotal;
+
+  const transportSpend = categoryAmountMap.get("Transport") ?? 0;
+  const internetSpend = categoryAmountMap.get("Bills & services") ?? 0;
+
+  const transportPercent = totalIncome > 0 ? (transportSpend / totalIncome) * 100 : 0;
+  const internetPercent = totalIncome > 0 ? (internetSpend / totalIncome) * 100 : 0;
+
+  const essentialsPercent = (() => {
+    const totalEssentials = essentialsTotal;
+    const totalOther = Math.max(totalSpending - essentialsTotal, 0);
+    const denom = totalEssentials + totalOther;
+    return denom > 0 ? Math.round((totalEssentials / denom) * 100) : 0;
+  })();
+
+  const otherPercent = Math.max(0, 100 - essentialsPercent);
 
   const summaryStats = getSummaryStats(statementTransactions, ownership, ownershipModes);
 
@@ -314,5 +339,11 @@ export function useDerivedMetrics({
     topSpendingCategories,
     groupedSpendingData,
     resolvedActiveSpendingGroup,
+    subscriptionRows,
+    leftAfterBills,
+    transportPercent,
+    internetPercent,
+    essentialsPercent,
+    otherPercent,
   };
 }

@@ -29,6 +29,7 @@ import { RecurringTab } from "./components/RecurringTab";
 import { FeesTab } from "./components/FeesTab";
 import { CashflowTab } from "./components/CashflowTab";
 import { StatementPanel } from "./components/StatementPanel";
+import { ReviewTab } from "./components/ReviewTab";
 
 export default function DemoPage() {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
@@ -93,7 +94,37 @@ export default function DemoPage() {
     resetTab,
   });
 
-  const { ownership, ownershipModes, resetAccounts } = useOwnershipAccounts({
+  const {
+    transferAccounts,
+    ownership,
+    ownershipModes,
+    handleOwnershipModeChange,
+    isAddingAccount,
+    setIsAddingAccount,
+    addAccountName,
+    setAddAccountName,
+    addAccountType,
+    setAddAccountType,
+    addBaseTransactionId,
+    setAddBaseTransactionId,
+    selectedAccountTxIds,
+    setSelectedAccountTxIds,
+    editingAccountId,
+    editingAccountName,
+    editingAccountType,
+    setEditingAccountType,
+    setEditingAccountName,
+    startEditingAccount,
+    resetEditingAccount,
+    handleSaveEditedAccount,
+    handleDeleteAccount,
+    handleSelectBaseTransaction,
+    handleToggleAccountTransaction,
+    handleSaveNewAccount,
+    suggestedAccountTransactions,
+    transferTransactions,
+    resetAccounts,
+  } = useOwnershipAccounts({
     fullStatementTransactions,
     statementTransactions,
     setFullStatementTransactions,
@@ -140,25 +171,32 @@ export default function DemoPage() {
     totalFees,
     recurringRows,
     categoryBreakdown,
-    summaryStats,
     budgetGuidance,
     topSpendingCategories,
     groupedSpendingData,
     resolvedActiveSpendingGroup,
+    subscriptionRows,
+    leftAfterBills,
+    transportPercent,
+    internetPercent,
+    essentialsPercent,
+    otherPercent,
   } = useDerivedMetrics({
     statementTransactions,
     ownership,
     ownershipModes,
   });
-  const summaryItems =
-    Array.isArray(summaryStats)
-      ? summaryStats
-      : summaryStats
-        ? Object.entries(summaryStats).map(([label, value]) => ({
-            label,
-            value: typeof value === "number" ? value : Number(value ?? 0),
-          }))
-        : [];
+  const summaryStatsForReview = useMemo(
+    () => ({
+      totalIncome,
+      totalSpending,
+      net: netThisMonth,
+      subscriptionCount: subscriptionRows.length,
+      totalSubscriptions,
+      totalFees,
+    }),
+    [totalIncome, totalSpending, netThisMonth, subscriptionRows.length, totalSubscriptions, totalFees],
+  );
 
   const {
     expandedMonths,
@@ -335,39 +373,58 @@ export default function DemoPage() {
       )}
 
       {activeTab === "review" && (
-        <div className="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-          <h2 className="text-lg font-semibold text-white">Review</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {summaryItems.map((item) => (
-              <div key={item.label} className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-3">
-                <p className="text-sm text-zinc-400">{item.label}</p>
-                <p className="mt-1 text-xl font-semibold text-white">{currency.format(item.value)}</p>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-200">
-            <p className="font-semibold text-white">Guidance</p>
-            <ul className="mt-2 space-y-1 text-zinc-400 text-sm">
-              <li>Transport guideline: {transportGuideline}</li>
-              <li>Internet guideline: {internetGuideline}</li>
-              <li>Account types: {accountTypeOptions.join(", ")}</li>
-              <li>Top categories: {topSpendingCategories.map((c) => c.category).join(", ")}</li>
-            </ul>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-200">
-            <p className="font-semibold text-white">Budget guidance</p>
-            <ul className="mt-2 space-y-1 text-sm text-zinc-400">
-              {budgetGuidance.map((item) => (
-                <li key={item.category} className="flex items-center justify-between gap-3">
-                  <span>{item.name ?? item.category}</span>
-                  <span className={item.differenceDirection === "over" ? "text-amber-200" : "text-emerald-200"}>
-                    {currency.format(item.recommendedAmount)} recommended
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        <ReviewTab
+          currency={currency}
+          dateFormatter={dateFormatter}
+          summaryStats={summaryStatsForReview}
+          feeRows={feeRows}
+          topSpendingCategories={topSpendingCategories}
+          internalTransfersTotal={internalTransfersTotal}
+          duplicateClusters={duplicateClusters}
+          leftAfterBills={leftAfterBills}
+          budgetGuidance={budgetGuidance}
+          transportPercent={transportPercent}
+          transportGuideline={transportGuideline}
+          internetPercent={internetPercent}
+          internetGuideline={internetGuideline}
+          essentialsPercent={essentialsPercent}
+          otherPercent={otherPercent}
+          netThisMonth={netThisMonth}
+          totalIncome={totalIncome}
+          duplicateMetaById={duplicateMetaById}
+          duplicateDecisions={duplicateDecisions}
+          activeDuplicateIds={activeDuplicateIds}
+          handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
+          transferAccounts={transferAccounts}
+          ownership={ownership}
+          ownershipModes={ownershipModes}
+          handleOwnershipModeChange={handleOwnershipModeChange}
+          editingAccountId={editingAccountId}
+          editingAccountName={editingAccountName}
+          editingAccountType={editingAccountType}
+          setEditingAccountName={setEditingAccountName}
+          setEditingAccountType={setEditingAccountType}
+          startEditingAccount={startEditingAccount}
+          handleSaveEditedAccount={handleSaveEditedAccount}
+          handleDeleteAccount={handleDeleteAccount}
+          resetEditingAccount={resetEditingAccount}
+          accountTypeOptions={accountTypeOptions}
+          isAddingAccount={isAddingAccount}
+          setIsAddingAccount={setIsAddingAccount}
+          addAccountName={addAccountName}
+          setAddAccountName={setAddAccountName}
+          addAccountType={addAccountType}
+          setAddAccountType={setAddAccountType}
+          addBaseTransactionId={addBaseTransactionId}
+          setAddBaseTransactionId={setAddBaseTransactionId}
+          transferTransactions={transferTransactions}
+          suggestedAccountTransactions={suggestedAccountTransactions}
+          selectedAccountTxIds={selectedAccountTxIds}
+          setSelectedAccountTxIds={setSelectedAccountTxIds}
+          handleSelectBaseTransaction={handleSelectBaseTransaction}
+          handleToggleAccountTransaction={handleToggleAccountTransaction}
+          handleSaveNewAccount={handleSaveNewAccount}
+        />
       )}
 
       {showDuplicateOverlay && (
