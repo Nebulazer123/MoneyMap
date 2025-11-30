@@ -14,12 +14,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gradient-to-br from-zinc-950 via-slate-900 to-black text-zinc-100 antialiased">
+      <body className="min-h-screen bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 text-zinc-100 antialiased">
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-slate-950 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-700 via-slate-600 to-slate-800" />
           <div
             className="absolute inset-0 blur-[180px] opacity-60"
             style={{
