@@ -205,7 +205,7 @@ export function useDerivedMetrics({
           differenceDirection: delta > 0 ? ("over" as const) : ("under" as const),
         };
       })
-      .filter((item): item is ReturnType<typeof baseBudgetGuidance[number]> => Boolean(item));
+      .filter((item): item is typeof baseBudgetGuidance[number] => Boolean(item));
     const nonBills = baseBudgetGuidance
       .filter((item) => item.category !== "Bills & services")
       .map((item) => {
