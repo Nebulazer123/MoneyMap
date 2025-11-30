@@ -34,5 +34,6 @@
 - Limit tooltips to three short lines; prefer calm, direct sentences over legal copy.
 
 ## How to use Codex on this repo
+- Codex must read `docs/moneymap_master_map.md` first before the other docs.
 - Read `docs/moneymap_overview.md` and `docs/moneymap_dev_notes.md` before coding.
 - Keep changes small; validate with `npm run lint` and manual testing of `/`, `/dashboard`, and `/about`.
