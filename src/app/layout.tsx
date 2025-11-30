@@ -14,17 +14,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#020617] text-zinc-100 antialiased">
+      <body className="min-h-screen bg-[#0f0f1e] text-zinc-100 antialiased">
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950" />
+          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-purple-950/20 to-black" />
           <div
-            className="absolute inset-0 blur-[180px] opacity-60"
+            className="absolute inset-0 blur-[180px] opacity-50"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.18), transparent 60%), radial-gradient(circle at 50% 110%, rgba(6, 182, 212, 0.16), transparent 60%)",
+                "radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.12), transparent 60%), radial-gradient(circle at 50% 110%, rgba(6, 182, 212, 0.10), transparent 60%), radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.08), transparent 50%)",
               backgroundRepeat: "no-repeat",
             }}
           />
