@@ -1534,7 +1534,7 @@ const applyProfileToTransaction = (t: Transaction, profile: HouseholdProfile): T
       : `${shop} purchase`;
   }
 
-  if (tx.category === "Transfer" && tx.kind !== "transferInternal") {
+  if (tx.category === "Transfer") {
     tx.source = primaryLabel;
   }
 

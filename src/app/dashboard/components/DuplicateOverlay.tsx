@@ -10,7 +10,7 @@ type Props = {
   handleCloseDuplicateOverlay: () => void;
   handleConfirmDuplicate: (id: string) => void;
   handleDismissDuplicate: (id: string) => void;
-  duplicateOverlayRef: React.RefObject<HTMLDivElement>;
+  duplicateOverlayRef: React.RefObject<HTMLDivElement | null>;
   currency: Intl.NumberFormat;
   dateFormatter: Intl.DateTimeFormat;
 };
@@ -83,7 +83,11 @@ export function DuplicateOverlay({
                               {currency.format(tx.amount)}
                             </span>
                             <div className="flex justify-end gap-2">
-                              {decision !== "dismissed" ? (
+                              {decision === "confirmed" ? (
+                                <span className="text-[10px] text-amber-200">Marked</span>
+                              ) : decision === "dismissed" ? (
+                                <span className="text-[10px] text-zinc-500">Dismissed</span>
+                              ) : (
                                 <>
                                   <button
                                     type="button"
@@ -100,10 +104,6 @@ export function DuplicateOverlay({
                                     Dismiss
                                   </button>
                                 </>
-                              ) : decision === "confirmed" ? (
-                                <span className="text-[10px] text-amber-200">Marked</span>
-                              ) : (
-                                <span className="text-[10px] text-zinc-500">Dismissed</span>
                               )}
                             </div>
                           </div>
