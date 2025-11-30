@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 
 import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
 import { GlassPanel } from "./GlassPanel";
@@ -62,11 +62,11 @@ export function DuplicateOverlay({
                   >
                     <span>{cluster.label}</span>
                     <span className="text-xs text-zinc-400">
-                      {suspiciousCount} suspicious • {currency.format(cluster.suspiciousTotal)}
+                      {suspiciousCount} suspicious · {currency.format(cluster.suspiciousTotal)}
                     </span>
                   </button>
                   {isExpanded && (
-                    <div className="divide-y divide-white/8 text-xs text-zinc-200">
+                    <div className="divide-y divide-zinc-800 text-xs text-zinc-200">
                       {cluster.suspiciousTransactions.map(({ tx, reason }) => {
                         const decision = duplicateDecisions[tx.id];
                         return (
