@@ -50,6 +50,7 @@ export function DuplicateOverlay({
           ) : (
             duplicateClusters.map((cluster) => {
               const isExpanded = expandedDuplicateClusters.has(cluster.key);
+              const suspiciousCount = cluster.suspiciousTransactions.length;
               return (
                 <div key={cluster.key} className="rounded-xl border border-zinc-800 bg-zinc-900/70">
                   <button
@@ -59,20 +60,21 @@ export function DuplicateOverlay({
                   >
                     <span>{cluster.label}</span>
                     <span className="text-xs text-zinc-400">
-                      {cluster.suspiciousTransactions.length} suspicious · {currency.format(cluster.suspiciousTotal)}
+                      {suspiciousCount} suspicious · {currency.format(cluster.suspiciousTotal)}
                     </span>
                   </button>
                   {isExpanded && (
                     <div className="divide-y divide-zinc-800 text-xs text-zinc-200">
-                      {cluster.allTransactions.map((tx) => {
+                      {cluster.suspiciousTransactions.map(({ tx, reason }) => {
                         const decision = duplicateDecisions[tx.id];
-                        const isFlagged = cluster.flaggedIds.has(tx.id);
                         return (
-                          <div key={tx.id} className="grid grid-cols-5 items-center px-4 py-2">
+                          <div key={tx.id} className="grid grid-cols-6 items-center px-4 py-2">
                             <span className="text-zinc-400">{dateFormatter.format(new Date(tx.date))}</span>
                             <span className="truncate pr-2" title={tx.description}>
                               {tx.description}
                             </span>
+                            <span className="text-zinc-400">{tx.category}</span>
+                            <span className="text-amber-200">{reason}</span>
                             <span
                               className={`text-right font-semibold ${
                                 tx.amount > 0 ? "text-emerald-400" : tx.amount < 0 ? "text-red-300" : "text-zinc-200"
@@ -80,9 +82,8 @@ export function DuplicateOverlay({
                             >
                               {currency.format(tx.amount)}
                             </span>
-                            <span className="text-right text-zinc-400">{tx.category}</span>
                             <div className="flex justify-end gap-2">
-                              {isFlagged && decision !== "dismissed" ? (
+                              {decision !== "dismissed" ? (
                                 <>
                                   <button
                                     type="button"
@@ -99,12 +100,10 @@ export function DuplicateOverlay({
                                     Dismiss
                                   </button>
                                 </>
-                              ) : decision === "dismissed" ? (
-                                <span className="text-[10px] text-zinc-500">Dismissed</span>
                               ) : decision === "confirmed" ? (
                                 <span className="text-[10px] text-amber-200">Marked</span>
                               ) : (
-                                <span className="text-[10px] text-zinc-500">Normal</span>
+                                <span className="text-[10px] text-zinc-500">Dismissed</span>
                               )}
                             </div>
                           </div>
