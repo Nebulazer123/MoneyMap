@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isInternalTransfer, type OwnershipMode } from "../../lib/fakeData";
 import {
   accountTypeOptions,
   categoryOptions,
@@ -13,8 +12,6 @@ import {
   type OverviewGroupKey,
   type TabId,
 } from "../../lib/dashboard/config";
-import { getDisplayCategory, getTransactionDisplayCategory } from "../../lib/dashboard/categories";
-import type { OverviewGroupKey, TabId } from "../../lib/dashboard/config";
 import { useDuplicates } from "./hooks/useDuplicates";
 import { useExpansionState } from "./hooks/useExpansionState";
 import { useDateRange } from "./hooks/useDateRange";
@@ -124,6 +121,11 @@ export default function DemoPage() {
     suggestedAccountTransactions,
     transferTransactions,
     resetAccounts,
+    detectedAccountCandidates,
+    candidateDrafts,
+    handleUpdateCandidateDraft,
+    handleSaveDetectedAccount,
+    handleCancelCandidate,
   } = useOwnershipAccounts({
     fullStatementTransactions,
     statementTransactions,
@@ -331,133 +333,6 @@ export default function DemoPage() {
         totalOutflowStatement={totalOutflowStatement}
         netStatement={netStatement}
       />
-      {flowStep === "results" && hasResults && (
-        <div
-          className="space-y-4"
-          onTouchStart={handleSwipeStart}
-          onTouchMove={handleSwipeMove}
-          onTouchEnd={handleSwipeEnd}
-        >
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleRestartAll}
-              className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-            >
-              Start over
-            </button>
-          </div>
-          <SummaryCards
-            cards={summaryCards}
-            onSelect={(tab) => {
-              setActiveTab(tab);
-              if (typeof window !== "undefined") {
-                window.localStorage.setItem(STORAGE_TAB_KEY, tab);
-              }
-            }}
-          />
-          <div className="space-y-4">
-            <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
-            {activeTab === "overview" && (
-              <OverviewTab
-                currency={currency}
-                dateFormatter={dateFormatter}
-                groupedSpendingData={groupedSpendingData}
-                activeSpendingGroupId={activeSpendingGroupId}
-                onSelectSpendingGroup={handleSelectSpendingGroup}
-                categoryBreakdown={categoryBreakdown}
-                activeOverviewCategory={activeOverviewCategory}
-                onSelectOverviewCategory={setActiveOverviewCategory}
-                overviewTransactions={overviewTransactions}
-                flowStep={flowStep}
-              />
-            )}
-            {activeTab === "recurring" && (
-              <RecurringTab
-                currency={currency}
-                dateFormatter={dateFormatter}
-                recurringRows={recurringRows}
-                duplicateDecisions={duplicateDecisions}
-                activeDuplicateIds={activeDuplicateIds}
-                duplicateMetaById={duplicateMetaById}
-                handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-                handleConfirmDuplicate={handleConfirmDuplicate}
-                handleDismissDuplicate={handleDismissDuplicate}
-                flowStep={flowStep}
-              />
-            )}
-            {activeTab === "fees" && (
-              <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
-            )}
-            {activeTab === "cashflow" && (
-              <CashflowTab
-                currency={currency}
-                dateFormatter={dateFormatter}
-                statementTransactions={statementTransactions}
-                cashFlowRows={cashFlowRows}
-                cashflowMonths={cashflowMonths}
-                showGroupedCashflow={showGroupedCashflow}
-                expandedCashflowMonths={expandedCashflowMonths}
-                setExpandedCashflowMonths={setExpandedCashflowMonths}
-                expandedCashflowDates={expandedCashflowDates}
-                setExpandedCashflowDates={setExpandedCashflowDates}
-              />
-            )}
-            {activeTab === "review" && (
-      <ReviewTab
-        currency={currency}
-        dateFormatter={dateFormatter}
-        summaryStats={summaryStats}
-        feeRows={feeRows}
-                topSpendingCategories={topSpendingCategories.map((item) => ({ category: getDisplayCategory(item.category), amount: item.amount }))}
-                internalTransfersTotal={internalTransfersTotal}
-                duplicateClusters={duplicateClusters}
-                leftAfterBills={leftAfterBills}
-                budgetGuidance={budgetGuidance}
-                transportPercent={transportPercent}
-                transportGuideline={transportGuideline}
-                internetPercent={internetPercent}
-                internetGuideline={internetGuideline}
-                essentialsPercent={essentialsPercent}
-                otherPercent={otherPercent}
-                netThisMonth={netThisMonth}
-                totalIncome={totalIncome}
-                handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-                transferAccounts={transferAccounts}
-                ownership={ownership}
-                ownershipModes={ownershipModes}
-                handleOwnershipModeChange={handleOwnershipModeChange}
-                editingAccountId={editingAccountId}
-                editingAccountName={editingAccountName}
-                editingAccountType={editingAccountType}
-                setEditingAccountName={setEditingAccountName}
-                setEditingAccountType={setEditingAccountType}
-                startEditingAccount={startEditingAccount}
-                handleSaveEditedAccount={handleSaveEditedAccount}
-                handleDeleteAccount={handleDeleteAccount}
-                resetEditingAccount={resetEditingAccount}
-                accountTypeOptions={accountTypeOptions}
-                isAddingAccount={isAddingAccount}
-                setIsAddingAccount={(next) => setIsAddingAccount(next)}
-                addAccountName={addAccountName}
-                setAddAccountName={setAddAccountName}
-                addAccountType={addAccountType}
-                setAddAccountType={setAddAccountType}
-                addBaseTransactionId={addBaseTransactionId}
-                setAddBaseTransactionId={setAddBaseTransactionId}
-                transferTransactions={transferTransactions}
-                suggestedAccountTransactions={suggestedAccountTransactions}
-                selectedAccountTxIds={selectedAccountTxIds}
-                setSelectedAccountTxIds={setSelectedAccountTxIds}
-                handleSelectBaseTransaction={handleSelectBaseTransaction}
-                handleToggleAccountTransaction={handleToggleAccountTransaction}
-                handleSaveNewAccount={handleSaveNewAccount}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
       {showResults && (
         <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
       )}
@@ -563,6 +438,11 @@ export default function DemoPage() {
           handleSelectBaseTransaction={handleSelectBaseTransaction}
           handleToggleAccountTransaction={handleToggleAccountTransaction}
           handleSaveNewAccount={handleSaveNewAccount}
+          detectedAccountCandidates={detectedAccountCandidates}
+          candidateDrafts={candidateDrafts}
+          handleUpdateCandidateDraft={handleUpdateCandidateDraft}
+          handleSaveDetectedAccount={handleSaveDetectedAccount}
+          handleCancelCandidate={handleCancelCandidate}
         />
       )}
 

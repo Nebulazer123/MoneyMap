@@ -68,6 +68,53 @@ const getAccountTypeLabel = (account: TransferAccount) =>
   accountTypeLabels[account.id] ??
   (account.label.toLowerCase().includes("credit") ? "Credit card" : "Other");
 
+type CandidateAccount = {
+  key: string;
+  label: string;
+  ending?: string;
+  accountType: string;
+  transactions: { tx: Transaction; side: "source" | "target" }[];
+  count: number;
+};
+
+type CandidateDraft = {
+  name: string;
+  accountType: string;
+  mode: OwnershipMode;
+  expanded: boolean;
+};
+
+const candidateKey = (label: string, ending?: string | null) =>
+  `${label.toLowerCase().trim()}::${ending ?? ""}`;
+
+const extractLabelAndLast4 = (raw: string) => {
+  const last4Match = raw.match(/ending\s*([0-9]{4})|\b([0-9]{4})\b/i);
+  const last4 = last4Match ? last4Match[1] ?? last4Match[2] : null;
+  const cleaned = raw.replace(/ending\s*[0-9]{4}/gi, "").replace(/\b[0-9]{4}\b/g, "").trim();
+  const label = titleCase(cleaned || raw);
+  return { label, last4: last4 ?? undefined };
+};
+
+const parseTransferSides = (description: string) => {
+  const match = description.match(/from\s+(.*?)\s+(?:to|->)\s+(.*)/i);
+  if (match) {
+    const fromRaw = match[1]?.trim() ?? "";
+    const toRaw = match[2]?.trim() ?? "";
+    const from = extractLabelAndLast4(fromRaw);
+    const to = extractLabelAndLast4(toRaw);
+    return [
+      { ...from, side: "source" as const },
+      { ...to, side: "target" as const },
+    ];
+  }
+  const parsed = parseInstitutionAndLast4(description);
+  if (parsed.institution) {
+    const { label, last4 } = extractLabelAndLast4(parsed.institution);
+    return [{ label, last4, side: "source" as const }];
+  }
+  return [];
+};
+
 export function useOwnershipAccounts({
   fullStatementTransactions,
   statementTransactions,
@@ -197,6 +244,8 @@ export function useOwnershipAccounts({
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountName, setEditingAccountName] = useState("");
   const [editingAccountType, setEditingAccountType] = useState(accountTypeOptions[0]);
+  const [claimedCandidateKeys, setClaimedCandidateKeys] = useState<Set<string>>(new Set());
+  const [candidateDrafts, setCandidateDrafts] = useState<Record<string, CandidateDraft>>({});
 
   useEffect(() => {
     setOwnership(deriveOwnershipFromModes(ownershipModes));
@@ -252,6 +301,69 @@ export function useOwnershipAccounts({
     () => statementTransactions.filter((t) => t.kind.startsWith("transfer")),
     [statementTransactions],
   );
+
+  const transferAccountIds = useMemo(() => new Set(transferAccounts.map((acc) => acc.id)), [transferAccounts]);
+
+  const existingAccountKeys = useMemo(() => {
+    const keys = new Set<string>();
+    transferAccounts.forEach((acc) => {
+      keys.add(candidateKey(acc.label, acc.ending));
+    });
+    return keys;
+  }, [transferAccounts]);
+
+  const availableTransferTransactions = useMemo(
+    () =>
+      transferTransactions.filter(
+        (t) =>
+          !(
+            (t.sourceKey && transferAccountIds.has(t.sourceKey)) ||
+            (t.targetKey && transferAccountIds.has(t.targetKey))
+          ),
+      ),
+    [transferAccountIds, transferTransactions],
+  );
+
+  const detectedAccountCandidates: CandidateAccount[] = useMemo(() => {
+    const candidates = new Map<string, CandidateAccount>();
+    transferTransactions.forEach((tx) => {
+      const sides = parseTransferSides(tx.description);
+      sides.forEach((side) => {
+        if (side.side === "source" && tx.sourceKey && transferAccountIds.has(tx.sourceKey)) return;
+        if (side.side === "target" && tx.targetKey && transferAccountIds.has(tx.targetKey)) return;
+        const baseLabel = side.label || tx.source || tx.target || "Account";
+        const key = candidateKey(baseLabel, side.last4);
+        if (existingAccountKeys.has(key) || claimedCandidateKeys.has(key)) return;
+        const accountType = inferAccountTypeFromLabel(baseLabel);
+        const existing = candidates.get(key) ?? {
+          key,
+          label: baseLabel,
+          ending: side.last4,
+          accountType,
+          transactions: [],
+          count: 0,
+        };
+        existing.transactions.push({ tx, side: side.side });
+        existing.count += 1;
+        candidates.set(key, existing);
+      });
+    });
+    return Array.from(candidates.values()).sort((a, b) => b.count - a.count);
+  }, [claimedCandidateKeys, existingAccountKeys, transferTransactions]);
+
+  useEffect(() => {
+    setCandidateDrafts((prev) => {
+      const next = { ...prev };
+      detectedAccountCandidates.forEach((cand) => {
+        if (next[cand.key]) return;
+        const name = cand.ending ? `${titleCase(cand.label)} ending ${cand.ending}` : titleCase(cand.label);
+        const accountType = cand.accountType ?? inferAccountTypeFromLabel(cand.label);
+        const mode: OwnershipMode = /credit|loan|debt/i.test(accountType) ? "payment" : "spending";
+        next[cand.key] = { name, accountType, mode, expanded: false };
+      });
+      return next;
+    });
+  }, [detectedAccountCandidates]);
 
   useEffect(() => {
     if (isAddingAccount && !addBaseTransactionId && transferTransactions.length > 0) {
@@ -452,6 +564,63 @@ export function useOwnershipAccounts({
     setSelectedAccountTxIds(new Set());
   };
 
+  const handleUpdateCandidateDraft = (key: string, draft: Partial<CandidateDraft>) => {
+    setCandidateDrafts((prev) => ({ ...prev, [key]: { ...prev[key], ...draft } }));
+  };
+
+  const handleSaveDetectedAccount = (candidate: CandidateAccount) => {
+    const draft = candidateDrafts[candidate.key];
+    const name = draft?.name.trim() || candidate.label;
+    const accountType = draft?.accountType ?? candidate.accountType;
+    const mode = draft?.mode ?? defaultModeForAccountType(accountType);
+    const newId = `detected_${Date.now()}`;
+    const newAccount: TransferAccount = {
+      id: newId,
+      label: name,
+      ownedByDefault: true,
+      accountType,
+      ending: candidate.ending,
+    };
+    setCustomAccounts((prev) => [...prev, newAccount]);
+    setOwnershipModes((prev) => {
+      const next = { ...prev, [newId]: mode };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_OWNERSHIP_MODES_KEY, JSON.stringify(next));
+      }
+      setOwnership(deriveOwnershipFromModes(next));
+      return next;
+    });
+    const displayLabel = candidate.ending ? `${name} ending ${candidate.ending}` : name;
+    setFullStatementTransactions((prev) => {
+      const updated = prev.map((tx) => {
+        const match = candidate.transactions.find((item) => item.tx.id === tx.id);
+        if (!match) return tx;
+        if (match.side === "source") {
+          return { ...tx, sourceKey: newId, source: tx.source ?? displayLabel };
+        }
+        return { ...tx, targetKey: newId, target: tx.target ?? displayLabel };
+      });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_STATEMENT_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    });
+    setClaimedCandidateKeys((prev) => new Set(prev).add(candidate.key));
+    setCandidateDrafts((prev) => {
+      const next = { ...prev };
+      delete next[candidate.key];
+      return next;
+    });
+  };
+
+  const handleCancelCandidate = (key: string) => {
+    setCandidateDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const resetAccounts = () => {
     setCustomAccounts([]);
     setAccountOverrides({});
@@ -506,7 +675,12 @@ export function useOwnershipAccounts({
     handleToggleAccountTransaction,
     handleSaveNewAccount,
     suggestedAccountTransactions,
-    transferTransactions,
+    transferTransactions: availableTransferTransactions,
     resetAccounts,
+    detectedAccountCandidates,
+    candidateDrafts,
+    handleUpdateCandidateDraft,
+    handleSaveDetectedAccount,
+    handleCancelCandidate,
   };
 }

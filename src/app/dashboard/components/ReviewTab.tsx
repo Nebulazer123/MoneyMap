@@ -69,6 +69,25 @@ type Props = {
   handleSelectBaseTransaction: (id: string) => void;
   handleToggleAccountTransaction: (id: string) => void;
   handleSaveNewAccount: () => void;
+  detectedAccountCandidates: {
+    key: string;
+    label: string;
+    ending?: string;
+    accountType: string;
+    transactions: { tx: Transaction; side: "source" | "target" }[];
+    count: number;
+  }[];
+  candidateDrafts: Record<string, { name: string; accountType: string; mode: OwnershipMode; expanded: boolean }>;
+  handleUpdateCandidateDraft: (key: string, draft: Partial<{ name: string; accountType: string; mode: OwnershipMode; expanded: boolean }>) => void;
+  handleSaveDetectedAccount: (candidate: {
+    key: string;
+    label: string;
+    ending?: string;
+    accountType: string;
+    transactions: { tx: Transaction; side: "source" | "target" }[];
+    count: number;
+  }) => void;
+  handleCancelCandidate: (key: string) => void;
 };
 
 export function ReviewTab({
@@ -119,6 +138,11 @@ export function ReviewTab({
   handleSelectBaseTransaction,
   handleToggleAccountTransaction,
   handleSaveNewAccount,
+  detectedAccountCandidates,
+  candidateDrafts,
+  handleUpdateCandidateDraft,
+  handleSaveDetectedAccount,
+  handleCancelCandidate,
 }: Props) {
   const [isSubscriptionsOverlayOpen, setIsSubscriptionsOverlayOpen] = useState(false);
   const hasSubscriptions = subscriptionRows.length > 0;
@@ -307,6 +331,128 @@ export function ReviewTab({
             </div>
             <p className="text-xs text-zinc-400">These settings only change how totals are counted here.</p>
           </div>
+          {detectedAccountCandidates.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">We detected accounts from transfers in this statement.</h4>
+                  <p className="text-[11px] text-zinc-400">Review them below to keep transfers categorized once.</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {detectedAccountCandidates.map((cand) => {
+                  const draft = candidateDrafts[cand.key] ?? {
+                    name: cand.label,
+                    accountType: cand.accountType,
+                    mode: "spending" as OwnershipMode,
+                    expanded: false,
+                  };
+                  const mode = draft.mode;
+                  return (
+                    <div key={cand.key} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-white">{draft.name}</p>
+                          <p className="text-[11px] text-zinc-400">{cand.count} transfer{cand.count === 1 ? "" : "s"} matched</p>
+                        </div>
+                        <div className="flex gap-2 text-[11px]">
+                          <button
+                            type="button"
+                            className="rounded-full border border-zinc-700 px-2 py-1 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+                            onClick={() => handleSaveDetectedAccount(cand)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-zinc-700 px-2 py-1 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+                            onClick={() => handleCancelCandidate(cand.key)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <label className="text-xs text-zinc-400">
+                          Account name
+                          <input
+                            type="text"
+                            value={draft.name}
+                            onChange={(e) => handleUpdateCandidateDraft(cand.key, { name: e.target.value })}
+                            className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                          />
+                        </label>
+                        <label className="text-xs text-zinc-400">
+                          Account type
+                          <select
+                            className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                            value={draft.accountType}
+                            onChange={(e) => handleUpdateCandidateDraft(cand.key, { accountType: e.target.value })}
+                          >
+                            {accountTypeOptions.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          aria-pressed={mode === "spending"}
+                          onClick={() => handleUpdateCandidateDraft(cand.key, { mode: "spending" })}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${mode === "spending" ? "border-emerald-400 bg-emerald-900/40 text-emerald-100" : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"}`}
+                        >
+                          Personal money
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={mode === "payment"}
+                          onClick={() => handleUpdateCandidateDraft(cand.key, { mode: "payment" })}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${mode === "payment" ? "border-amber-300 bg-amber-900/40 text-amber-100" : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"}`}
+                        >
+                          Bills and debt
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={mode === "notMine"}
+                          onClick={() => handleUpdateCandidateDraft(cand.key, { mode: "notMine" })}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${mode === "notMine" ? "border-rose-300 bg-rose-900/30 text-rose-100" : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"}`}
+                        >
+                          Not mine
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="mt-3 flex items-center gap-2 text-xs text-zinc-400 transition hover:text-zinc-200"
+                        onClick={() => handleUpdateCandidateDraft(cand.key, { expanded: !draft.expanded })}
+                      >
+                        <span className={`transition-transform ${draft.expanded ? "rotate-90" : ""}`} aria-hidden="true">
+                          &gt;
+                        </span>
+                        View matched transfers
+                      </button>
+                      {draft.expanded && (
+                        <div className="mt-2 space-y-2 rounded-md border border-zinc-800 bg-zinc-900/70 p-3 text-xs text-zinc-200">
+                          {cand.transactions.map(({ tx }) => (
+                            <div key={tx.id} className="flex items-center justify-between gap-2">
+                              <span className="truncate pr-2" title={tx.description}>
+                                {dateFormatter.format(new Date(tx.date))} • {tx.description}
+                              </span>
+                              <span className={`font-semibold ${tx.amount >= 0 ? "text-emerald-300" : "text-zinc-200"}`}>
+                                {currency.format(tx.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             {transferAccounts.map((acc) => {
               const displayLabel = acc.ending ? `${acc.label} ending ${acc.ending}` : acc.label;
