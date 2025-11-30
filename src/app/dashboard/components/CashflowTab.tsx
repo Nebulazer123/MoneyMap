@@ -1,7 +1,10 @@
-import React from "react";
+﻿import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
+import type { TabId } from "../../../lib/dashboard/config";
 import InfoTip from "./InfoTip";
+import { SectionHeader } from "./SectionHeader";
+import { GlassPanel } from "./GlassPanel";
 
 type CashflowRow = {
   date: string;
@@ -30,6 +33,7 @@ type Props = {
   setExpandedCashflowMonths: React.Dispatch<React.SetStateAction<Set<number>>>;
   expandedCashflowDates: Record<string, boolean>;
   setExpandedCashflowDates: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  flowStep: "idle" | "statement" | "analyzing" | "results" | TabId;
 };
 
 export function CashflowTab({
@@ -45,12 +49,11 @@ export function CashflowTab({
   setExpandedCashflowDates,
 }: Props) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-zinc-200 sm:px-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-white">Daily cash flow</h2>
+    <GlassPanel variant="card" className="px-4 py-6 text-zinc-200 sm:px-6 animate-fade-rise backdrop-blur-xl sm:backdrop-blur-2xl">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader title="Cashflow" caption="Income and spending over the month." />
         <InfoTip label={"Shows daily money in and out.\nInternal transfers between your own accounts are filtered out."} />
       </div>
-      <p className="mt-1 text-sm text-zinc-400">Daily inflow and outflow for this period.</p>
       {showGroupedCashflow ? (
         <div className="mt-4 space-y-3">
           {cashflowMonths.map((month) => {
@@ -65,8 +68,13 @@ export function CashflowTab({
                 }
                 return next;
               });
+
             return (
-              <div key={month.key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
+              <GlassPanel
+                key={month.key}
+                variant="card"
+                className="overflow-hidden p-0 transition transform hover:-translate-y-0.5 hover:ring-white/14 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-within:ring-2 focus-within:ring-purple-300/60 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900 backdrop-blur-xl sm:backdrop-blur-2xl"
+              >
                 <div
                   role="button"
                   tabIndex={0}
@@ -93,8 +101,8 @@ export function CashflowTab({
                     type="button"
                     aria-label="Toggle daily rows for this month"
                     aria-expanded={isExpanded}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.stopPropagation();
                       toggle();
                     }}
                     className="text-zinc-400 transition hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
@@ -107,7 +115,7 @@ export function CashflowTab({
                 {isExpanded && (
                   <div className="overflow-x-auto border-t border-zinc-800">
                     <div className="min-w-[520px]">
-                      <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+                      <div className="grid grid-cols-4 bg-gradient-to-r from-purple-500/10 to-transparent px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.1em] text-purple-200 sm:px-4 sm:text-sm border-b border-purple-500/20">
                         <span>Date</span>
                         <span className="text-right">Inflow</span>
                         <span className="text-right">Outflow</span>
@@ -117,6 +125,7 @@ export function CashflowTab({
                         {month.rows.map((row) => {
                           const isDayExpanded = expandedCashflowDates[row.date];
                           const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+
                           return (
                             <div key={row.date} className="text-xs sm:text-sm">
                               <button
@@ -136,20 +145,20 @@ export function CashflowTab({
                                     }));
                                   }
                                 }}
-                                className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
+                                className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition duration-200 hover:bg-zinc-800/60 sm:px-4"
                               >
                                 <span className="text-zinc-300">{dateFormatter.format(new Date(row.date))}</span>
-                                <span className="text-right font-medium">{currency.format(row.totalInflowForThatDate)}</span>
-                                <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
-                                <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
+                                <span className="text-right font-medium text-emerald-400">{currency.format(row.totalInflowForThatDate)}</span>
+                                <span className="text-right font-medium text-rose-400">{currency.format(row.totalOutflowForThatDate)}</span>
+                                <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                   <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
-                                    {isDayExpanded ? "▾" : "▸"}
+                                    {isDayExpanded ? "v" : ">"}
                                   </span>
                                   {currency.format(row.netForThatDate)}
                                 </span>
                               </button>
                               {isDayExpanded && (
-                                <div className="border-t border-zinc-800 bg-zinc-900/70 px-4 py-3 text-zinc-200">
+                                <div className="border-t border-white/10 bg-zinc-950/70 px-4 py-3 text-zinc-200">
                                   {dayTransactions.length === 0 ? (
                                     <p className="text-[11px] text-zinc-400">No transactions for this day.</p>
                                   ) : (
@@ -175,14 +184,14 @@ export function CashflowTab({
                     </div>
                   </div>
                 )}
-              </div>
+              </GlassPanel>
             );
           })}
         </div>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
           <div className="min-w-[520px]">
-            <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
+            <div className="grid grid-cols-4 bg-gradient-to-r from-purple-500/10 to-transparent px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.1em] text-purple-200 sm:px-4 sm:text-sm border-b border-purple-500/20">
               <span>Date</span>
               <span className="text-right">Inflow</span>
               <span className="text-right">Outflow</span>
@@ -192,6 +201,7 @@ export function CashflowTab({
               {cashFlowRows.map((row) => {
                 const isDayExpanded = expandedCashflowDates[row.date];
                 const dayTransactions = statementTransactions.filter((tx) => tx.date === row.date);
+
                 return (
                   <div key={row.date} className="text-xs sm:text-sm">
                     <button
@@ -211,14 +221,14 @@ export function CashflowTab({
                           }));
                         }
                       }}
-                      className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition hover:bg-zinc-900 sm:px-4"
+                      className="grid w-full grid-cols-4 items-center px-3 py-3 text-left text-zinc-200 transition duration-200 hover:bg-zinc-800/60 sm:px-4"
                     >
                       <span className="text-zinc-300">{dateFormatter.format(new Date(row.date))}</span>
-                      <span className="text-right font-medium">{currency.format(row.totalInflowForThatDate)}</span>
-                      <span className="text-right font-medium text-zinc-300">{currency.format(row.totalOutflowForThatDate)}</span>
-                      <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-red-300"}`}>
+                      <span className="text-right font-medium text-emerald-400">{currency.format(row.totalInflowForThatDate)}</span>
+                      <span className="text-right font-medium text-rose-400">{currency.format(row.totalOutflowForThatDate)}</span>
+                      <span className={`flex items-center justify-end gap-2 text-right font-semibold ${row.netForThatDate >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         <span aria-hidden="true" className={`text-zinc-400 transition-transform ${isDayExpanded ? "rotate-90" : ""}`}>
-                          {isDayExpanded ? "▾" : "▸"}
+                          {isDayExpanded ? "v" : ">"}
                         </span>
                         {currency.format(row.netForThatDate)}
                       </span>
@@ -250,6 +260,6 @@ export function CashflowTab({
           </div>
         </div>
       )}
-    </div>
+    </GlassPanel>
   );
 }

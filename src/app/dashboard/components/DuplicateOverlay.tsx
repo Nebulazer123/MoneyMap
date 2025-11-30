@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
+import { GlassPanel } from "./GlassPanel";
 
 type Props = {
   duplicateClusters: DuplicateClusterView[];
@@ -29,16 +30,17 @@ export function DuplicateOverlay({
 }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-3 py-6">
-      <div
+      <GlassPanel
+        variant="hero"
         ref={duplicateOverlayRef}
         tabIndex={-1}
-        className="w-full max-w-5xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
+        className="w-full max-w-5xl p-0 overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl ring-white/12 shadow-2xl outline-none"
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-4 sm:px-5">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-5">
           <h3 className="text-lg font-semibold text-white">Possible duplicate charges</h3>
           <button
             type="button"
-            className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+            className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             onClick={handleCloseDuplicateOverlay}
           >
             Close
@@ -52,11 +54,11 @@ export function DuplicateOverlay({
               const isExpanded = expandedDuplicateClusters.has(cluster.key);
               const suspiciousCount = cluster.suspiciousTransactions.length;
               return (
-                <div key={cluster.key} className="rounded-xl border border-zinc-800 bg-zinc-900/70">
+                <GlassPanel key={cluster.key} variant="card" className="p-0 backdrop-blur-xl">
                   <button
                     type="button"
                     onClick={() => toggleDuplicateCluster(cluster.key)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition hover:bg-zinc-800/60"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                   >
                     <span>{cluster.label}</span>
                     <span className="text-xs text-zinc-400">
@@ -87,14 +89,14 @@ export function DuplicateOverlay({
                                 <>
                                   <button
                                     type="button"
-                                    className="rounded-full border border-amber-300/60 px-2 py-[3px] text-[10px] font-semibold text-amber-100"
+                                    className="rounded-full border border-amber-300/60 px-2 py-[3px] text-[10px] font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-900/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                                     onClick={() => handleConfirmDuplicate(tx.id)}
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     type="button"
-                                    className="rounded-full border border-zinc-700 px-2 py-[3px] text-[10px] font-semibold text-zinc-200"
+                                    className="rounded-full border border-zinc-700 px-2 py-[3px] text-[10px] font-semibold text-zinc-200 transition hover:border-zinc-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                                     onClick={() => handleDismissDuplicate(tx.id)}
                                   >
                                     Dismiss
@@ -111,12 +113,16 @@ export function DuplicateOverlay({
                       })}
                     </div>
                   )}
-                </div>
+                </GlassPanel>
               );
             })
           )}
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 }
+
+
+
+

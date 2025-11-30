@@ -4,6 +4,8 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
 import { getCategoriesForGroup, getTransactionDisplayCategory } from "../../../lib/dashboard/categories";
 import type { Transaction } from "../../../lib/fakeData";
+import { SectionHeader } from "./SectionHeader";
+import { GlassPanel } from "./GlassPanel";
 
 export type SpendingGroup = {
   id: OverviewGroupKey;
@@ -101,11 +103,14 @@ export function OverviewTab({
       : null;
 
   return (
-    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-zinc-300 sm:px-6 sm:py-8">
-      <h2 className="text-lg font-semibold text-white text-center">Overview</h2>
-      <p className="mt-2 text-center text-sm text-zinc-400">Where your money went this month.</p>
+    <GlassPanel variant="card" className="px-4 py-6 text-zinc-300 sm:px-6 sm:py-8 animate-fade-rise">
+      <SectionHeader title="Overview" caption="Where your money went this month." className="text-center" />
       {showChart && (
-        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 sm:px-6" tabIndex={-1}>
+        <GlassPanel
+          variant="card"
+          className="mt-6 px-4 py-5 text-zinc-200 sm:px-6 backdrop-blur-xl sm:backdrop-blur-2xl"
+          tabIndex={-1}
+        >
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Spending by group</h3>
           </div>
@@ -147,10 +152,10 @@ export function OverviewTab({
                       onSelectGroup(item.id);
                     }
                   }}
-                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
                     isActive
                       ? "border-zinc-500 bg-zinc-800"
-                      : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
+                      : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
                   }`}
                 >
                   <div className="flex items-center gap-3 text-zinc-200">
@@ -190,18 +195,24 @@ export function OverviewTab({
               )}
             </div>
           )}
-        </div>
+        </GlassPanel>
       )}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {detailCards.map((card) => (
-          <button
+          <GlassPanel
             key={card.label}
-            type="button"
+            variant="card"
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectGroup(card.groupId)}
-            className={`w-full rounded-lg border px-4 py-3 text-left transition ${
-              activeGroupId === card.groupId
-                ? "border-zinc-600 bg-zinc-800"
-                : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelectGroup(card.groupId);
+              }
+            }}
+            className={`w-full px-4 py-3 text-left transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+              activeGroupId === card.groupId ? "ring-purple-300/30" : "hover:ring-white/14"
             }`}
           >
             <p className="flex items-center gap-2 text-sm text-zinc-400">
@@ -209,10 +220,10 @@ export function OverviewTab({
               <span>{card.label}</span>
             </p>
             <p className="mt-1 text-lg font-semibold text-white">{currency.format(card.amount)}</p>
-          </button>
+          </GlassPanel>
         ))}
       </div>
-      <div className="mt-6 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4">
+      <div className="mt-6 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white">
             Transactions for {tableGroupMeta ? tableGroupMeta.label : "this category"}
@@ -250,6 +261,6 @@ export function OverviewTab({
           </div>
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

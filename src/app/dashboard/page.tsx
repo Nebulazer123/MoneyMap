@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   accountTypeOptions,
   categoryOptions,
@@ -20,7 +21,6 @@ import { useStatementFlow } from "./hooks/useStatementFlow";
 import { useGestureTabs } from "./hooks/useGestureTabs";
 import { currency, dateFormatter } from "./utils/format";
 import { useOwnershipAccounts } from "./hooks/useOwnershipAccounts";
-import { SummaryCards } from "./components/SummaryCards";
 import { TabsBar } from "./components/TabsBar";
 import { OverviewTab } from "./components/OverviewTab";
 import { RecurringTab } from "./components/RecurringTab";
@@ -29,7 +29,12 @@ import { CashflowTab } from "./components/CashflowTab";
 import { StatementPanel } from "./components/StatementPanel";
 import { ReviewTab } from "./components/ReviewTab";
 import { DuplicateOverlay } from "./components/DuplicateOverlay";
+import { GlassPanel } from "./components/GlassPanel";
+import { SectionHeader } from "./components/SectionHeader";
 export default function DemoPage() {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [flashContent, setFlashContent] = useState(false);
+  const [liveMsg, setLiveMsg] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
@@ -220,14 +225,114 @@ export default function DemoPage() {
     setExpandedCashflowDates,
   } = useExpansionState({ showGroupedTable, monthsSignature, cashflowMonths });
 
-  const summaryCards = useMemo(
-    () => [
-      { label: "Net this month", value: currency.format(netThisMonth), to: "review" as TabId },
-      { label: "Total income", value: currency.format(totalIncome), to: "cashflow" as TabId },
-      { label: "Total spending", value: currency.format(totalSpending), to: "overview" as TabId },
-      { label: "Total subscriptions", value: currency.format(totalSubscriptions), to: "recurring" as TabId },
-    ],
-    [netThisMonth, totalIncome, totalSpending, totalSubscriptions],
+  const showResults = flowStep === "results";
+  const hasResults = showResults && statementTransactions.length > 0;
+
+  const startStepCards = [
+    {
+      title: "Drop in a messy month",
+      stepCopy: "Paychecks, bills, and swipes. Drop in the chaos.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+    },
+    {
+      title: "Let MoneyMap sort the clutter",
+      stepCopy: "Claim your accounts so transfers stop double counting.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Spot subscriptions and fees",
+      stepCopy: "See recurring charges and junk fees at a glance.",
+      icon: (
+        <svg className="h-8 w-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+    },
+  ];
+
+  const summaryTiles = useMemo(
+    () => {
+      const placeholderValue = "—";
+      const placeholderSubtext = "Run the analysis to see totals";
+      const formatValue = (amount: number) => (hasResults ? currency.format(amount) : placeholderValue);
+      const formatSubtext = (copy: string) => (hasResults ? copy : placeholderSubtext);
+      return [
+        {
+          label: "Income this period",
+          value: formatValue(totalIncome),
+          subtext: formatSubtext("Money in after taxes"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          ),
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
+          targetTab: "overview" as TabId,
+        },
+        {
+          label: "Spending this period",
+          value: formatValue(totalSpending),
+          subtext: formatSubtext("Out the door on everything"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          ),
+          color: "text-rose-400",
+          borderColor: "border-l-rose-500/40",
+          targetTab: "overview" as TabId,
+        },
+        {
+          label: "Net cash flow",
+          value: formatValue(netThisMonth),
+          subtext: formatSubtext("What is left after the dust settles"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+          ),
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
+          targetTab: "cashflow" as TabId,
+        },
+        {
+          label: "Subscriptions and bills",
+          value: formatValue(totalSubscriptions),
+          subtext: formatSubtext("Auto charges that hit every month"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ),
+          color: "text-purple-400",
+          borderColor: "border-l-purple-500/40",
+          targetTab: "recurring" as TabId,
+        },
+        {
+          label: "Fees and charges",
+          value: formatValue(totalFees),
+          subtext: formatSubtext("Bank and card fees for this range"),
+          icon: (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ),
+          color: "text-amber-400",
+          borderColor: "border-l-amber-500/40",
+          targetTab: "fees" as TabId,
+        },
+      ];
+    },
+    [hasResults, netThisMonth, totalFees, totalIncome, totalSpending, totalSubscriptions],
   );
 
   const handleUpdateTransactionCategory = useCallback(
@@ -251,8 +356,6 @@ export default function DemoPage() {
   const overviewTransactions = activeSpendingGroupId
     ? groupedTransactionsByGroup.get(activeSpendingGroupId) ?? []
     : [];
-  const showResults = flowStep === "results";
-  const hasResults = showResults && statementTransactions.length > 0;
 
   const { totalInflowStatement, totalOutflowStatement, netStatement } = useMemo(() => {
     const totals = statementTransactions.reduce(
@@ -273,6 +376,19 @@ export default function DemoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_TAB_KEY, activeTab);
+    const tabLabel =
+      activeTab === "overview"
+        ? "Overview"
+        : activeTab === "recurring"
+        ? "Subscriptions"
+        : activeTab === "fees"
+        ? "Fees"
+        : activeTab === "cashflow"
+        ? "Cash flow"
+        : activeTab === "review"
+        ? "Review"
+        : activeTab;
+    setLiveMsg(`Active tab: ${tabLabel}`);
   }, [activeTab]);
 
   return (
@@ -287,6 +403,69 @@ export default function DemoPage() {
         <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
       </header>
 
+      {!hasResults && (
+        <GlassPanel variant="hero" tone="vivid" className="space-y-6 sm:space-y-8 animate-fade-rise">
+          <SectionHeader
+            label="Phase one demo"
+            title="Start your demo analysis"
+            caption="Runs locally on synthetic statements. No credentials or uploads."
+            accentColor="purple"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleStart}
+              className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300/60"
+            >
+              Generate sample statement
+            </button>
+            <button
+              type="button"
+              onClick={handleRestartAll}
+              className="inline-flex items-center justify-center rounded-full border border-purple-400/60 px-6 py-3 text-sm font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-500/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.35)]"
+            >
+              Restart demo
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-6 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              Learn how it works
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {startStepCards.map((card, idx) => (
+              <GlassPanel
+                key={card.title}
+                variant="card"
+                className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)]"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div
+                  className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none"
+                  tabIndex={0}
+                  aria-label={`${card.title}. ${card.stepCopy}`}
+                  aria-describedby={`dash-step-desc-${idx}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+                      {card.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 mb-1">Step {idx + 1}</div>
+                      <p className="text-base font-semibold text-white sm:text-lg">{card.title}</p>
+                    </div>
+                  </div>
+                  <div id={`dash-step-desc-${idx}`} className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
+                    <p className="text-sm text-zinc-300 leading-relaxed">{card.stepCopy}</p>
+                  </div>
+                </div>
+              </GlassPanel>
+            ))}
+          </div>
+        </GlassPanel>
+      )}
+
       <StatementPanel
         flowStep={flowStep}
         showStatement={showStatement}
@@ -299,6 +478,7 @@ export default function DemoPage() {
         onStart={handleStart}
         onRegenerate={handleRegenerate}
         onAnalyze={handleAnalyze}
+        onRestart={handleRestartAll}
         onToggleEditing={() => handleToggleEditing()}
         onToggleShowStatement={() => setShowStatement((prev) => !prev)}
         setSelectedMonthFrom={(value) => {
@@ -334,117 +514,172 @@ export default function DemoPage() {
         netStatement={netStatement}
       />
       {showResults && (
-        <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-4 animate-fade-rise">
+          {summaryTiles.map((tile) => (
+            <GlassPanel
+              key={tile.label}
+              variant="card"
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${tile.label} in ${tile.targetTab} tab`}
+              onClick={() => {
+                setActiveTab(tile.targetTab);
+                const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                contentRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                if (!reduce) {
+                  setFlashContent(true);
+                  window.setTimeout(() => setFlashContent(false), 1200);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setActiveTab(tile.targetTab);
+                  const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                  contentRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                  if (!reduce) {
+                    setFlashContent(true);
+                    window.setTimeout(() => setFlashContent(false), 1200);
+                  }
+                }
+              }}
+              className={`h-full transform transition border-l-4 ${tile.borderColor} hover:-translate-y-0.5 hover:border-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900`}
+            >
+              <div className="flex h-full flex-col gap-3">
+                <div className="flex items-start justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-purple-100/70">{tile.label}</p>
+                  <div className={`flex-shrink-0 transition-transform duration-300 ${tile.color}`}>
+                    {tile.icon}
+                  </div>
+                </div>
+                <div>
+                  <p className={`text-xl font-semibold sm:text-2xl ${tile.color}`}>{tile.value}</p>
+                  <p className="text-[11px] text-zinc-400 mt-1">{tile.subtext}</p>
+                </div>
+              </div>
+            </GlassPanel>
+          ))}
+        </div>
       )}
+      <GlassPanel
+        variant="hero"
+        ref={contentRef}
+        className={`space-y-6 sm:space-y-8 animate-fade-rise ${flashContent ? "ring-2 ring-purple-300/50" : ""}`}
+      >
+        <div aria-live="polite" role="status" className="sr-only">{liveMsg}</div>
+        {showResults && (
+          <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
+        )}
 
-      {showResults && activeTab === "overview" && (
-        <OverviewTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          groupedSpendingData={groupedSpendingData}
-          activeGroupId={activeSpendingGroupId}
-          onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
-          categoryBreakdown={categoryBreakdown}
-          overviewTransactions={overviewTransactions}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "overview" && (
+          <OverviewTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            groupedSpendingData={groupedSpendingData}
+            activeGroupId={activeSpendingGroupId}
+            onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
+            categoryBreakdown={categoryBreakdown}
+            overviewTransactions={overviewTransactions}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "recurring" && (
-        <RecurringTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          recurringRows={recurringRows}
-          duplicateDecisions={duplicateDecisions}
-          activeDuplicateIds={activeDuplicateIds}
-          duplicateMetaById={duplicateMetaById}
-          handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-          handleConfirmDuplicate={handleConfirmDuplicate}
-          handleDismissDuplicate={handleDismissDuplicate}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "recurring" && (
+          <RecurringTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            recurringRows={recurringRows}
+            duplicateDecisions={duplicateDecisions}
+            activeDuplicateIds={activeDuplicateIds}
+            duplicateMetaById={duplicateMetaById}
+            handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
+            handleConfirmDuplicate={handleConfirmDuplicate}
+            handleDismissDuplicate={handleDismissDuplicate}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "fees" && (
-        <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
-      )}
+        {showResults && activeTab === "fees" && (
+          <FeesTab currency={currency} dateFormatter={dateFormatter} feeRows={feeRows} totalFees={totalFees} />
+        )}
 
-      {showResults && activeTab === "cashflow" && (
-        <CashflowTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          statementTransactions={statementTransactions}
-          cashflowMonths={cashflowMonths}
-          expandedCashflowMonths={expandedCashflowMonths}
-          setExpandedCashflowMonths={setExpandedCashflowMonths}
-          expandedCashflowDates={expandedCashflowDates}
-          setExpandedCashflowDates={setExpandedCashflowDates}
-          cashFlowRows={cashFlowRows}
-          internalTransfersTotal={internalTransfersTotal}
-          showGroupedCashflow={showGroupedCashflow}
-          flowStep={flowStep}
-        />
-      )}
+        {showResults && activeTab === "cashflow" && (
+          <CashflowTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            statementTransactions={statementTransactions}
+            cashflowMonths={cashflowMonths}
+            expandedCashflowMonths={expandedCashflowMonths}
+            setExpandedCashflowMonths={setExpandedCashflowMonths}
+            expandedCashflowDates={expandedCashflowDates}
+            setExpandedCashflowDates={setExpandedCashflowDates}
+            cashFlowRows={cashFlowRows}
+            internalTransfersTotal={internalTransfersTotal}
+            showGroupedCashflow={showGroupedCashflow}
+            flowStep={flowStep}
+          />
+        )}
 
-      {showResults && activeTab === "review" && (
-        <ReviewTab
-          currency={currency}
-          dateFormatter={dateFormatter}
-          summaryStats={summaryStatsForReview}
-          feeRows={feeRows}
-          topSpendingCategories={topSpendingCategories}
-          duplicateClusters={duplicateClusters}
-          subscriptionRows={subscriptionRows}
-          leftAfterBills={leftAfterBills}
-          budgetGuidance={budgetGuidance}
-          transportPercent={transportPercent}
-          transportGuideline={transportGuideline}
-          internetPercent={internetPercent}
-          internetGuideline={internetGuideline}
-          essentialsPercent={essentialsPercent}
-          otherPercent={otherPercent}
-          netThisMonth={netThisMonth}
-          totalIncome={totalIncome}
-          duplicateMetaById={duplicateMetaById}
-          duplicateDecisions={duplicateDecisions}
-          activeDuplicateIds={activeDuplicateIds}
-          handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
-          transferAccounts={transferAccounts}
-          ownership={ownership}
-          ownershipModes={ownershipModes}
-          handleOwnershipModeChange={handleOwnershipModeChange}
-          editingAccountId={editingAccountId}
-          editingAccountName={editingAccountName}
-          editingAccountType={editingAccountType}
-          setEditingAccountName={setEditingAccountName}
-          setEditingAccountType={setEditingAccountType}
-          startEditingAccount={startEditingAccount}
-          handleSaveEditedAccount={handleSaveEditedAccount}
-          handleDeleteAccount={handleDeleteAccount}
-          resetEditingAccount={resetEditingAccount}
-          accountTypeOptions={accountTypeOptions}
-          isAddingAccount={isAddingAccount}
-          setIsAddingAccount={setIsAddingAccount}
-          addAccountName={addAccountName}
-          setAddAccountName={setAddAccountName}
-          addAccountType={addAccountType}
-          setAddAccountType={setAddAccountType}
-          addBaseTransactionId={addBaseTransactionId}
-          setAddBaseTransactionId={setAddBaseTransactionId}
-          transferTransactions={transferTransactions}
-          suggestedAccountTransactions={suggestedAccountTransactions}
-          selectedAccountTxIds={selectedAccountTxIds}
-          setSelectedAccountTxIds={setSelectedAccountTxIds}
-          handleSelectBaseTransaction={handleSelectBaseTransaction}
-          handleToggleAccountTransaction={handleToggleAccountTransaction}
-          handleSaveNewAccount={handleSaveNewAccount}
-          detectedAccountCandidates={detectedAccountCandidates}
-          candidateDrafts={candidateDrafts}
-          handleUpdateCandidateDraft={handleUpdateCandidateDraft}
-          handleSaveDetectedAccount={handleSaveDetectedAccount}
-          handleCancelCandidate={handleCancelCandidate}
-        />
-      )}
+        {showResults && activeTab === "review" && (
+          <ReviewTab
+            currency={currency}
+            dateFormatter={dateFormatter}
+            summaryStats={summaryStatsForReview}
+            feeRows={feeRows}
+            topSpendingCategories={topSpendingCategories}
+            duplicateClusters={duplicateClusters}
+            subscriptionRows={subscriptionRows}
+            leftAfterBills={leftAfterBills}
+            budgetGuidance={budgetGuidance}
+            transportPercent={transportPercent}
+            transportGuideline={transportGuideline}
+            internetPercent={internetPercent}
+            internetGuideline={internetGuideline}
+            essentialsPercent={essentialsPercent}
+            otherPercent={otherPercent}
+            netThisMonth={netThisMonth}
+            totalIncome={totalIncome}
+            duplicateMetaById={duplicateMetaById}
+            duplicateDecisions={duplicateDecisions}
+            activeDuplicateIds={activeDuplicateIds}
+            handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
+            transferAccounts={transferAccounts}
+            ownership={ownership}
+            ownershipModes={ownershipModes}
+            handleOwnershipModeChange={handleOwnershipModeChange}
+            editingAccountId={editingAccountId}
+            editingAccountName={editingAccountName}
+            editingAccountType={editingAccountType}
+            setEditingAccountName={setEditingAccountName}
+            setEditingAccountType={setEditingAccountType}
+            startEditingAccount={startEditingAccount}
+            handleSaveEditedAccount={handleSaveEditedAccount}
+            handleDeleteAccount={handleDeleteAccount}
+            resetEditingAccount={resetEditingAccount}
+            accountTypeOptions={accountTypeOptions}
+            isAddingAccount={isAddingAccount}
+            setIsAddingAccount={setIsAddingAccount}
+            addAccountName={addAccountName}
+            setAddAccountName={setAddAccountName}
+            addAccountType={addAccountType}
+            setAddAccountType={setAddAccountType}
+            addBaseTransactionId={addBaseTransactionId}
+            setAddBaseTransactionId={setAddBaseTransactionId}
+            transferTransactions={transferTransactions}
+            suggestedAccountTransactions={suggestedAccountTransactions}
+            selectedAccountTxIds={selectedAccountTxIds}
+            setSelectedAccountTxIds={setSelectedAccountTxIds}
+            handleSelectBaseTransaction={handleSelectBaseTransaction}
+            handleToggleAccountTransaction={handleToggleAccountTransaction}
+            handleSaveNewAccount={handleSaveNewAccount}
+            detectedAccountCandidates={detectedAccountCandidates}
+            candidateDrafts={candidateDrafts}
+            handleUpdateCandidateDraft={handleUpdateCandidateDraft}
+            handleSaveDetectedAccount={handleSaveDetectedAccount}
+            handleCancelCandidate={handleCancelCandidate}
+          />
+        )}
+      </GlassPanel>
 
       {showDuplicateOverlay && (
         <DuplicateOverlay

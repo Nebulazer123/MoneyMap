@@ -4,6 +4,8 @@ import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
 import type { Transaction, TransferAccount, OwnershipMode } from "../../../lib/fakeData";
 import InfoTip from "./InfoTip";
 import { SubscriptionsOverlay } from "./SubscriptionsOverlay";
+import { SectionHeader } from "./SectionHeader";
+import { GlassPanel } from "./GlassPanel";
 
 export type BudgetItem = {
   category: string;
@@ -148,17 +150,18 @@ export function ReviewTab({
   const hasSubscriptions = subscriptionRows.length > 0;
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-white">Review</h2>
-        <div className="mt-1 flex items-center justify-center gap-2 text-sm text-zinc-400">
-          <p className="text-sm text-zinc-400">Snapshot for this period across your accounts.</p>
-          <InfoTip label={"Snapshot of this month.\nHighlights key spending patterns and fees.\nRuns on sample data."} />
-        </div>
+    <div className="space-y-4 animate-fade-rise">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader title="Review" caption="Big picture summary for this sample month." />
+        <InfoTip label={"Snapshot of this month.\nHighlights key spending patterns and fees.\nRuns on sample data."} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
-          <p className="text-sm font-semibold text-white">Snapshot</p>
+        <GlassPanel
+          variant="card"
+          className="px-4 py-5 text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-white/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
+          <p className="text-sm font-semibold text-white">My Accounts</p>
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-zinc-400">Income</span>
@@ -170,16 +173,24 @@ export function ReviewTab({
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-400">Net</span>
-              <span className={`font-semibold ${summaryStats.net >= 0 ? "text-emerald-400" : "text-red-300"}`}>
+              <span className={`font-semibold ${summaryStats.net >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {currency.format(summaryStats.net)}
               </span>
             </div>
           </div>
-        </div>
-        <button
-          type="button"
+        </GlassPanel>
+        <GlassPanel
+          variant="card"
+          role="button"
+          tabIndex={0}
           onClick={() => setIsSubscriptionsOverlayOpen(true)}
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setIsSubscriptionsOverlayOpen(true);
+            }
+          }}
+          className="px-4 py-5 text-left text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-purple-300/40 hover:shadow-lg hover:shadow-purple-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           <p className="text-sm font-semibold text-white">Subscriptions</p>
           <div className="mt-3 space-y-1 text-sm">
@@ -195,9 +206,13 @@ export function ReviewTab({
               <p className="text-[11px] text-zinc-500">No subscriptions detected this period.</p>
             )}
           </div>
-        </button>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
-          <p className="text-sm font-semibold text-white">Fees</p>
+        </GlassPanel>
+        <GlassPanel
+          variant="card"
+          className="px-4 py-5 text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-white/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
+          <p className="text-sm font-semibold text-white">Budget Guidance</p>
           <div className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-zinc-400">Total fees</span>
@@ -210,9 +225,13 @@ export function ReviewTab({
               </div>
             )}
           </div>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
-          <p className="text-sm font-semibold text-white">Top spending categories</p>
+        </GlassPanel>
+        <GlassPanel
+          variant="card"
+          className="px-4 py-5 text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-white/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
+          <p className="text-sm font-semibold text-white">Duplicate Detection</p>
           <div className="mt-3 space-y-2 text-sm">
             {topSpendingCategories.map((item) => (
               <div key={item.category} className="flex justify-between">
@@ -221,20 +240,32 @@ export function ReviewTab({
               </div>
             ))}
           </div>
-        </div>
+        </GlassPanel>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <GlassPanel
+          variant="card"
+          className="px-4 py-5 text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-white/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Internal transfers this period</p>
           <p className="mt-2 text-xl font-semibold text-white">
             {currency.format(summaryStats.internalTransfersTotal)}
           </p>
           <p className="mt-1 text-xs text-zinc-400">Money moved between your own accounts. Ignored for income and spending.</p>
-        </div>
-        <button
-          type="button"
+        </GlassPanel>
+        <GlassPanel
+          variant="card"
+          role="button"
+          tabIndex={0}
           onClick={(e) => handleOpenDuplicateOverlay(e.currentTarget)}
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleOpenDuplicateOverlay(event.currentTarget as HTMLElement);
+            }
+          }}
+          className="px-4 py-5 text-left text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-amber-300/50 hover:shadow-lg hover:shadow-amber-400/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-amber-300">⚠️</span>
@@ -246,14 +277,18 @@ export function ReviewTab({
               : `${duplicateClusters.length} merchant${duplicateClusters.length === 1 ? "" : "s"} with possible duplicates`}
           </p>
           <p className="mt-1 text-xs text-zinc-400">Review potential duplicate charges and confirm or dismiss them.</p>
-        </button>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        </GlassPanel>
+        <GlassPanel
+          variant="card"
+          className="px-4 py-5 text-zinc-200 shadow-sm transition transform hover:-translate-y-0.5 hover:ring-white/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+          tabIndex={0}
+        >
           <p className="text-sm font-semibold text-white">Money left after bills</p>
           <p className="mt-2 text-xl font-semibold text-white">{currency.format(leftAfterBills)}</p>
           <p className="mt-1 text-xs text-zinc-400">Approximate money left after rent, utilities, groceries, and basic fees.</p>
-        </div>
+        </GlassPanel>
       </div>
-      <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+      <GlassPanel variant="card" className="space-y-3 px-4 py-5 text-zinc-200 shadow-sm">
         <div className="flex flex-col items-center justify-center gap-1 text-center">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-white">Budget guidance</h3>
@@ -271,9 +306,9 @@ export function ReviewTab({
               item.differenceDirection === "over"
                 ? `Over by ${currency.format(item.differenceAmount)} compared to this guideline.`
                 : `Under by ${currency.format(item.differenceAmount)} compared to this guideline.`;
-            const diffClass = item.differenceDirection === "over" ? "text-rose-300 font-semibold" : "text-emerald-300 font-semibold";
+            const diffClass = item.differenceDirection === "over" ? "text-rose-300 font-semibold" : "text-purple-300 font-semibold";
             return (
-              <div key={item.category} className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200">
+              <GlassPanel key={item.category} variant="card" className="px-4 py-3 text-sm text-zinc-200">
                 <div className="flex justify-between">
                   <span className="font-medium text-white">{item.category}</span>
                   <span className="text-zinc-400">{currency.format(item.actualAmount)}</span>
@@ -282,23 +317,23 @@ export function ReviewTab({
                   {item.category} is about {actualPercent.toFixed(1)}% of this month’s income. A common target is about {targetPercent.toFixed(1)}% (about {currency.format(item.recommendedAmount)} for your income).
                 </p>
                 <p className={`mt-1 text-xs ${diffClass}`}>{diffText}</p>
-              </div>
+              </GlassPanel>
             );
           })}
         </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-300">
+        <GlassPanel variant="card" className="px-4 py-3 text-xs text-zinc-300">
           <p className="font-semibold text-white">Bill check</p>
           <p className="mt-1">Car and transport are about {transportPercent.toFixed(1)}% of your income this month. A common target is roughly up to {transportGuideline}%.</p>
           <p className="mt-1">Internet or home connection is about {internetPercent.toFixed(1)}% of your income this month. Around {internetGuideline}% is a typical range.</p>
-        </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-4 text-xs text-zinc-300">
+        </GlassPanel>
+        <GlassPanel variant="card" className="px-4 py-4 text-xs text-zinc-300">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-white">Needs vs wants</p>
             <InfoTip label={"Needs: rent, utilities, groceries, basic fees.\nWants: dining out, shopping, extras."} />
           </div>
           <div className="mt-2 h-3 w-full overflow-hidden rounded-full border border-zinc-800 bg-zinc-900">
             <div className="flex h-full w-full">
-              <div className="h-full bg-emerald-500/70" style={{ width: `${essentialsPercent}%` }} />
+              <div className="h-full bg-purple-500/70" style={{ width: `${essentialsPercent}%` }} />
               <div className="h-full bg-zinc-600/60" style={{ width: `${otherPercent}%` }} />
             </div>
           </div>
@@ -318,12 +353,12 @@ export function ReviewTab({
               <p className="font-semibold text-white">Overspent by {currency.format(Math.abs(netThisMonth))} this month</p>
             )}
           </div>
-        </div>
-      </div>
+        </GlassPanel>
+      </GlassPanel>
       {transferAccounts.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4 text-center text-sm text-zinc-400">No transfer accounts detected in this statement.</div>
+        <GlassPanel variant="card" className="px-4 py-4 text-center text-sm text-zinc-400">No transfer accounts detected in this statement.</GlassPanel>
       ) : (
-        <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
+        <GlassPanel variant="card" className="space-y-3 px-4 py-5 text-zinc-200 shadow-sm">
           <div className="space-y-1 text-center">
             <div className="flex items-center justify-center gap-2">
               <h3 className="text-base font-semibold text-white">Your accounts</h3>
@@ -332,7 +367,7 @@ export function ReviewTab({
             <p className="text-xs text-zinc-400">These settings only change how totals are counted here.</p>
           </div>
           {detectedAccountCandidates.length > 0 && (
-            <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
+            <GlassPanel variant="card" className="space-y-2 p-3 backdrop-blur-xl sm:backdrop-blur-2xl">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-semibold text-white">We detected accounts from transfers in this statement.</h4>
@@ -349,7 +384,7 @@ export function ReviewTab({
                   };
                   const mode = draft.mode;
                   return (
-                    <div key={cand.key} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                    <GlassPanel key={cand.key} variant="card" className="p-3 backdrop-blur-xl sm:backdrop-blur-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-white">{draft.name}</p>
@@ -440,18 +475,18 @@ export function ReviewTab({
                               <span className="truncate pr-2" title={tx.description}>
                                 {dateFormatter.format(new Date(tx.date))} • {tx.description}
                               </span>
-                              <span className={`font-semibold ${tx.amount >= 0 ? "text-emerald-300" : "text-zinc-200"}`}>
+                              <span className={`font-semibold ${tx.amount >= 0 ? "text-purple-300" : "text-zinc-200"}`}>
                                 {currency.format(tx.amount)}
                               </span>
                             </div>
                           ))}
                         </div>
                       )}
-                    </div>
+                    </GlassPanel>
                   );
                 })}
               </div>
-            </div>
+            </GlassPanel>
           )}
           <div className="space-y-2">
             {transferAccounts.map((acc) => {
@@ -459,7 +494,7 @@ export function ReviewTab({
               const mode = ownershipModes[acc.id] ?? (ownership[acc.id] ? ("spending" as OwnershipMode) : "notMine");
               const isEditingAccount = editingAccountId === acc.id;
               return (
-                <div key={acc.id} className="group flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200">
+                <GlassPanel key={acc.id} variant="card" className="group flex flex-col gap-3 px-4 py-3 text-sm text-zinc-200">
                   <div className="grid gap-2 sm:grid-cols-[120px,1fr] sm:items-center">
                     <div className="flex items-center">
                       {isEditingAccount ? (
@@ -492,7 +527,7 @@ export function ReviewTab({
                           <button
                             type="button"
                             onClick={() => handleSaveEditedAccount(acc)}
-                            className="rounded-full border border-emerald-400 bg-emerald-900/40 px-3 py-1 text-[11px] font-semibold text-emerald-100 transition hover:border-emerald-300 hover:bg-emerald-900"
+                            className="rounded-full border border-purple-400 bg-purple-900/40 px-3 py-1 text-[11px] font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-900"
                           >
                             Save
                           </button>
@@ -554,10 +589,10 @@ export function ReviewTab({
                       Not mine
                     </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                  </GlassPanel>
+                );
+              })}
+            </div>
           <div className="pt-2">
             <button
               type="button"
@@ -568,7 +603,7 @@ export function ReviewTab({
             </button>
           </div>
           {isAddingAccount && (
-            <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-4 text-left text-sm text-zinc-200">
+            <GlassPanel variant="card" className="space-y-3 px-4 py-4 text-left text-sm text-zinc-200">
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -585,7 +620,7 @@ export function ReviewTab({
                 <button
                   type="button"
                   onClick={handleSaveNewAccount}
-                  className="rounded-full border border-emerald-400 bg-emerald-900/50 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:border-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-purple-400 bg-purple-900/50 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!addAccountName.trim() || selectedAccountTxIds.size === 0}
                 >
                   Save account
@@ -654,7 +689,7 @@ export function ReviewTab({
                     </label>
                   ))
                 )}
-                {selectedAccountTxIds.size > 0 && <p className="text-[11px] text-emerald-200">{selectedAccountTxIds.size} transaction{selectedAccountTxIds.size > 1 ? "s" : ""} selected</p>}
+                {selectedAccountTxIds.size > 0 && <p className="text-[11px] text-purple-200">{selectedAccountTxIds.size} transaction{selectedAccountTxIds.size > 1 ? "s" : ""} selected</p>}
               </div>
               <div className="flex justify-end gap-2">
                 <button
@@ -672,15 +707,15 @@ export function ReviewTab({
                 <button
                   type="button"
                   onClick={handleSaveNewAccount}
-                  className="rounded-full border border-emerald-400 bg-emerald-900/50 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:border-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-purple-400 bg-purple-900/50 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!addAccountName.trim() || selectedAccountTxIds.size === 0}
                 >
                   Save account
                 </button>
               </div>
-            </div>
+            </GlassPanel>
           )}
-        </div>
+        </GlassPanel>
       )}
       {isSubscriptionsOverlayOpen && (
         <SubscriptionsOverlay
@@ -693,3 +728,4 @@ export function ReviewTab({
     </div>
   );
 }
+
