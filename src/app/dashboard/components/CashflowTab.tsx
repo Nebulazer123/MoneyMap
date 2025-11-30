@@ -2,6 +2,7 @@ import React from "react";
 
 import type { Transaction } from "../../../lib/fakeData";
 import InfoTip from "./InfoTip";
+import { SectionHeader } from "./SectionHeader";
 
 type CashflowRow = {
   date: string;
