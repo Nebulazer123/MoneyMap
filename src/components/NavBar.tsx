@@ -21,7 +21,7 @@ export default function NavBar() {
 
   return (
     <header className="w-full border-b border-zinc-800 bg-zinc-900/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-6 sm:py-4 lg:px-8">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-6 sm:py-4 lg:px-10">
         <Link href="/" className="flex items-center gap-3 font-semibold whitespace-nowrap">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-zinc-800 text-xs tracking-wide sm:text-sm">
             MM

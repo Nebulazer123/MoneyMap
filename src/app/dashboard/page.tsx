@@ -21,74 +21,38 @@ import {
   TransferAccount,
   isInternalTransfer,
   isRealSpending,
-  analyzeDuplicateCharges,
-  DuplicateCluster,
   parseInstitutionAndLast4,
-  categoryEmojis as categoryEmojiMap,
 } from "../../lib/fakeData";
-type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
-const tabs: { id: TabId; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "recurring", label: "Recurring charges" },
-  { id: "fees", label: "Fees" },
-  { id: "cashflow", label: "Daily cash flow" },
-  { id: "review", label: "Review" },
-];
-const STORAGE_TAB_KEY = "moneymap_active_tab";
-const STORAGE_FLOW_KEY = "moneymap_dashboard_flow";
-const STORAGE_STATEMENT_KEY = "moneymap_dashboard_statement";
-const STORAGE_MONTH_FROM_KEY = "moneymap_month_from";
-const STORAGE_YEAR_FROM_KEY = "moneymap_year_from";
-const STORAGE_MONTH_TO_KEY = "moneymap_month_to";
-const STORAGE_YEAR_TO_KEY = "moneymap_year_to";
-const STORAGE_DUPLICATE_DECISIONS_KEY = "moneymap_duplicate_decisions";
-const LEGACY_STORAGE_MONTH_KEY = "moneymap_month";
-const LEGACY_STORAGE_YEAR_KEY = "moneymap_year";
-const STORAGE_OWNERSHIP_MODES_KEY = "moneymap_ownership_modes";
-const STORAGE_CUSTOM_ACCOUNTS_KEY = "moneymap_custom_accounts";
-const STORAGE_ACCOUNT_OVERRIDES_KEY = "moneymap_account_overrides";
-const STORAGE_HIDDEN_ACCOUNTS_KEY = "moneymap_hidden_accounts";
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const categoryOptions = [
-  "Income",
-  "Rent",
-  "Groceries",
-  "Dining",
-  "Subscriptions",
-  "Utilities",
-  "Transport",
-  "Fees",
-  "Other",
-];
-const categoryEmojis = {
-  ...categoryEmojiMap,
-  "Bills & services": "??",
-  Insurance: "???",
-  Loans: "??",
-  Education: "??",
-};
-const displayCategoryLabels: Record<string, string> = {
-  Transport: "Auto",
-  "Bills & services": "Bills & services",
-  Insurance: "Insurance",
-  Loans: "Loans",
-  Education: "Education",
-};
-const accountTypeLabels: Record<string, string> = {
-  navy_checking: "Checking",
-  cash_app: "Wallet",
-  visa_debit: "Debit card",
-};
-const accountTypeOptions = [
-  "Checking",
-  "Savings",
-  "Debit card",
-  "Credit card",
-  "Loan",
-  "Mortgage",
-  "Wallet",
-  "Other",
-];
+import {
+  accountTypeLabels,
+  accountTypeOptions,
+  categoryEmojis,
+  categoryOptions,
+  internetGuideline,
+  LEGACY_STORAGE_MONTH_KEY,
+  LEGACY_STORAGE_YEAR_KEY,
+  months,
+  overviewGroupMeta,
+  STORAGE_ACCOUNT_OVERRIDES_KEY,
+  STORAGE_CUSTOM_ACCOUNTS_KEY,
+  STORAGE_DUPLICATE_DECISIONS_KEY,
+  STORAGE_FLOW_KEY,
+  STORAGE_HIDDEN_ACCOUNTS_KEY,
+  STORAGE_MONTH_FROM_KEY,
+  STORAGE_MONTH_TO_KEY,
+  STORAGE_OWNERSHIP_MODES_KEY,
+  STORAGE_STATEMENT_KEY,
+  STORAGE_TAB_KEY,
+  STORAGE_YEAR_FROM_KEY,
+  STORAGE_YEAR_TO_KEY,
+  tabs,
+  transportGuideline,
+} from "../../lib/dashboard/config";
+import { descriptionKey, getDisplayCategory, getTransactionDisplayCategory, titleCase } from "../../lib/dashboard/categories";
+import { buildDuplicateClusters, type DuplicateClusterView } from "../../lib/dashboard/duplicates";
+import type { OverviewGroupKey, TabId } from "../../lib/dashboard/config";
+import AddTransactionRow from "./components/AddTransactionRow";
+import InfoTip from "./components/InfoTip";
 const createDefaultOwnershipModes = (accounts: TransferAccount[]) => {
   try {
     if (typeof window !== "undefined") {
@@ -115,19 +79,6 @@ const getAccountTypeLabel = (account: TransferAccount) =>
   account.accountType ??
   accountTypeLabels[account.id] ??
   (account.label.toLowerCase().includes("credit") ? "Credit card" : "Other");
-const descriptionKey = (description: string) =>
-  description
-    .toLowerCase()
-    .split(/\s+/)
-    .slice(0, 3)
-    .join(" ")
-    .trim();
-const titleCase = (value: string) =>
-  value
-    .split(" ")
-    .map((part) => (part ? `${part[0].toUpperCase()}${part.slice(1)}` : ""))
-    .join(" ")
-    .trim();
 const loadCustomAccounts = (): TransferAccount[] => {
   try {
     if (typeof window !== "undefined") {
@@ -144,192 +95,6 @@ const loadCustomAccounts = (): TransferAccount[] => {
   }
   return [];
 };
-const classifyBillsCategory = (description: string): "Insurance" | "Loans" | "Education" | "Bills & services" => {
-  const lower = description.toLowerCase();
-  if (/tuition|college|university|school|education|bursar/.test(lower)) return "Education";
-  if (/loan|lender|servicer|finance|mortgage|car payment|auto payment|repayment/.test(lower)) return "Loans";
-  if (/insurance|premium/.test(lower)) return "Insurance";
-  return "Bills & services";
-};
-const getTransactionDisplayCategory = (tx: Transaction): string => {
-  if (tx.category === "Bills & services" || tx.category === "Bills") {
-    return classifyBillsCategory(tx.description);
-  }
-  return tx.category;
-};
-type AddTransactionRowProps = {
-  rangeStartMonth: number;
-  rangeStartYear: number;
-  rangeEndMonth: number;
-  rangeEndYear: number;
-  onAdd: (details: {
-    date: string;
-    description: string;
-    category: string;
-    amount: string;
-  }) => boolean;
-};
-function AddTransactionRow({
-  rangeStartMonth,
-  rangeStartYear,
-  rangeEndMonth,
-  rangeEndYear,
-  onAdd,
-}: AddTransactionRowProps) {
-  const [date, setDate] = useState(
-    `${rangeStartYear}-${String(rangeStartMonth + 1).padStart(2, "0")}-01`,
-  );
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Groceries");
-  const [amount, setAmount] = useState<string>("-25.00");
-  useEffect(() => {
-    setDate(`${rangeStartYear}-${String(rangeStartMonth + 1).padStart(2, "0")}-01`);
-  }, [rangeStartMonth, rangeStartYear]);
-  const minDate = `${rangeStartYear}-${String(rangeStartMonth + 1).padStart(2, "0")}-01`;
-  const maxDay = new Date(Date.UTC(rangeEndYear, rangeEndMonth + 1, 0)).getUTCDate();
-  const maxDate = `${rangeEndYear}-${String(rangeEndMonth + 1).padStart(2, "0")}-${String(maxDay).padStart(2, "0")}`;
-  const handleAdd = () => {
-    const success = onAdd({
-      date,
-      description,
-      category,
-      amount,
-    });
-    if (success) {
-      setDescription("");
-      setAmount("-25.00");
-    }
-  };
-  return (
-    <div className="grid grid-cols-4 items-center gap-2 text-xs text-zinc-200 sm:text-sm">
-      <input
-        type="date"
-        className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white outline-none"
-        value={date}
-        min={minDate}
-        max={maxDate}
-        onChange={(e) => setDate(e.target.value)}
-      />
-      <input
-        type="text"
-        className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white outline-none"
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <select
-        className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white outline-none"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-      >
-        {categoryOptions.map((cat) => (
-          <option key={cat} value={cat}>
-            {cat}
-          </option>
-        ))}
-      </select>
-      <div className="flex items-center justify-end gap-2">
-        <input
-          type="number"
-          step="0.01"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-right text-xs text-white outline-none"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="rounded-full border border-zinc-700 px-2 py-1 text-[11px] font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-}
-type OverviewGroupKey =
-  | "rentUtilities"
-  | "groceriesDining"
-  | "transport"
-  | "subscriptions"
-  | "insurance"
-  | "loans"
-  | "education"
-  | "otherFees";
-type DuplicateClusterView = DuplicateCluster & {
-  suspiciousTransactions: Transaction[];
-  suspiciousTotal: number;
-  allTransactions: Transaction[];
-  flaggedIds: Set<string>;
-};
-const overviewGroupMeta: Record<
-  OverviewGroupKey,
-  { label: string; categories: string[]; color: string; emoji: string }
-> = {
-  rentUtilities: {
-    label: "Rent and utilities",
-    categories: ["Rent", "Utilities", "Bills & services", "Bills"],
-    color: "#f97316",
-    emoji: categoryEmojis.Rent,
-  },
-  groceriesDining: {
-    label: "Groceries and dining",
-    categories: ["Groceries", "Dining"],
-    color: "#22d3ee",
-    emoji: categoryEmojis.Groceries,
-  },
-  transport: {
-    label: "Transport",
-    categories: ["Transport"],
-    color: "#0ea5e9",
-    emoji: categoryEmojis.Transport,
-  },
-  subscriptions: {
-    label: "Subscriptions",
-    categories: ["Subscriptions"],
-    color: "#c084fc",
-    emoji: categoryEmojis.Subscriptions,
-  },
-  insurance: {
-    label: "Insurance",
-    categories: ["Insurance"],
-    color: "#22c55e",
-    emoji: categoryEmojis.Insurance,
-  },
-  loans: {
-    label: "Loans",
-    categories: ["Loans"],
-    color: "#f43f5e",
-    emoji: categoryEmojis.Loans,
-  },
-  education: {
-    label: "Education",
-    categories: ["Education"],
-    color: "#3b82f6",
-    emoji: categoryEmojis.Education,
-  },
-  otherFees: {
-    label: "Other including fees",
-    categories: ["Fees", "Other"],
-    color: "#fbbf24",
-    emoji: categoryEmojis.Other,
-  },
-};
-function InfoTip({ label }: { label: string }) {
-  return (
-    <div className="group relative inline-flex">
-      <button
-        type="button"
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-600 text-xs text-zinc-300 transition hover:border-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
-      >
-        i
-      </button>
-      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs leading-relaxed text-zinc-100 shadow-lg whitespace-pre-line group-hover:block group-focus-within:block">
-        {label}
-      </span>
-    </div>
-  );
-}
 export default function DemoPage() {
   const [flowStep, setFlowStep] = useState<"idle" | "statement" | "analyzing" | "results">("idle");
   const [fullStatementTransactions, setFullStatementTransactions] = useState<Transaction[]>([]);
@@ -706,6 +471,14 @@ export default function DemoPage() {
   const totalSpending = getTotalSpending(statementTransactions, ownership, ownershipModes);
   const netThisMonth = getNetThisMonth(statementTransactions, ownership, ownershipModes);
   const totalSubscriptions = getTotalSubscriptions(statementTransactions, ownership, ownershipModes);
+  const internalTransfersTotal = useMemo(
+    () =>
+      statementTransactions.reduce((sum, tx) => {
+        if (!isInternalTransfer(tx, ownership, ownershipModes)) return sum;
+        return sum + Math.abs(tx.amount);
+      }, 0),
+    [ownership, ownershipModes, statementTransactions],
+  );
   const subscriptionRows = getSubscriptionTransactions(
     statementTransactions,
     ownership,
@@ -724,71 +497,10 @@ export default function DemoPage() {
     );
     return isSubscription || isBillCategory || isPaymentDescription;
   });
-  const duplicateAnalysis = useMemo(
-    () => analyzeDuplicateCharges(fullStatementTransactions),
-    [fullStatementTransactions],
+  const duplicateClusters: DuplicateClusterView[] = useMemo(
+    () => buildDuplicateClusters(fullStatementTransactions, duplicateDecisions),
+    [duplicateDecisions, fullStatementTransactions],
   );
-  const duplicateClusters: DuplicateClusterView[] = useMemo(() => {
-    const modeAmount = (amounts: number[]) => {
-      const counts = new Map<number, number>();
-      amounts.forEach((amt) => counts.set(amt, (counts.get(amt) ?? 0) + 1));
-      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-      return sorted[0]?.[0] ?? 0;
-    };
-    const medianIntervalDays = (txs: Transaction[]) => {
-      const intervals: number[] = [];
-      for (let i = 1; i < txs.length; i += 1) {
-        const prev = new Date(txs[i - 1].date).getTime();
-        const curr = new Date(txs[i].date).getTime();
-        intervals.push(Math.abs(curr - prev) / (1000 * 60 * 60 * 24));
-      }
-      if (intervals.length === 0) return 0;
-      const sorted = intervals.sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-    };
-    return duplicateAnalysis.clusters.map((cluster) => {
-      const allTransactions = cluster.transactions
-        .map((tx) => fullStatementTransactions.find((fullTx) => fullTx.id === tx.id) ?? tx)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const baseline = modeAmount(allTransactions.map((tx) => Math.abs(tx.amount)));
-      const medianInterval = medianIntervalDays(allTransactions);
-      const flaggedIds = new Set<string>();
-      const amountTolerance = baseline > 0 ? baseline * 0.2 : 0;
-      allTransactions.forEach((tx, idx) => {
-        const amountDiff = Math.abs(Math.abs(tx.amount) - baseline);
-        const isAmountOutlier = baseline > 0 && amountDiff > amountTolerance;
-        const prev = allTransactions[idx - 1];
-        const isFast =
-          !!prev &&
-          medianInterval > 0 &&
-          Math.abs(new Date(tx.date).getTime() - new Date(prev.date).getTime()) /
-            (1000 * 60 * 60 * 24) <
-            medianInterval * 0.6;
-        if (isAmountOutlier || isFast) {
-          flaggedIds.add(tx.id);
-        }
-      });
-      const suspiciousTransactions = allTransactions
-        .filter((tx) => flaggedIds.has(tx.id))
-        .filter((tx) => duplicateDecisions[tx.id] !== "dismissed");
-      const suspiciousTotal = suspiciousTransactions.reduce(
-        (sum, tx) => sum + Math.abs(tx.amount),
-        0,
-      );
-      const lastNormalChargeDate =
-        allTransactions.length > 0 ? allTransactions[allTransactions.length - 1].date : null;
-      return {
-        ...cluster,
-        suspiciousTransactions,
-        suspiciousTotal,
-        allTransactions,
-        flaggedIds,
-        lastNormalDate: lastNormalChargeDate,
-        lastNormalChargeDate,
-      };
-    });
-  }, [duplicateAnalysis, duplicateDecisions, fullStatementTransactions]);
   const activeDuplicateIds = useMemo(
     () =>
       new Set(duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((tx) => tx.id))),
@@ -906,8 +618,6 @@ export default function DemoPage() {
     .reduce((sum, row) => sum + Math.abs(row.amount), 0);
   const internetPercent =
     totalIncome > 0 ? (internetRecurringSpend / totalIncome) * 100 : 0;
-  const transportGuideline = 15;
-  const internetGuideline = 5;
   const essentialsTotal = categoryBreakdown
     .filter((item) => ["Rent", "Utilities", "Groceries", "Fees"].includes(item.category))
     .reduce((sum, item) => sum + Math.abs(item.amount), 0);
@@ -1172,12 +882,14 @@ export default function DemoPage() {
     setExpandedDuplicateClusters(new Set());
   }, [showDuplicateOverlay, duplicateClusters]);
   useEffect(() => {
+    if (cashflowMonths.length === 0) return;
+    const latestKey = cashflowMonths[cashflowMonths.length - 1]?.key;
     if (cashflowMonths.length === 1) {
-      setExpandedCashflowMonths(new Set([cashflowMonths[0].key]));
+      setExpandedCashflowMonths(new Set([latestKey]));
       return;
     }
     if (cashflowMonths.length > 1 && expandedCashflowMonths.size === 0) {
-      setExpandedCashflowMonths(new Set([cashflowMonths[0].key]));
+      setExpandedCashflowMonths(new Set([latestKey]));
     }
   }, [cashflowMonths, expandedCashflowMonths.size]);
   const resetTab = useCallback(() => {
@@ -1504,8 +1216,6 @@ export default function DemoPage() {
     });
     resetEditingAccount();
   };
-  const getDisplayCategory = (category: string) =>
-    displayCategoryLabels[category] ?? category;
   const handleSwipeStart = (event: React.TouchEvent) => {
     const touch = event.touches[0];
     swipeStateRef.current = { startX: touch.clientX, startY: touch.clientY, triggered: false };
@@ -1631,90 +1341,90 @@ export default function DemoPage() {
                 </p>
               )}
               <div className="mt-2 flex flex-col gap-3 text-xs text-zinc-300 sm:gap-4 md:flex-row md:items-start md:gap-6">
-                <div className="flex w-full flex-col gap-2 sm:gap-3 md:w-auto">
+                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                     From
                   </span>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <label className="text-zinc-400" htmlFor="month-from-select">
-                      Month
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                    <label className="flex flex-col gap-1 text-zinc-400" htmlFor="month-from-select">
+                      <span>Month</span>
+                      <select
+                        id="month-from-select"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        value={selectedMonthFrom}
+                        onChange={(e) => {
+                          hasTouchedRangeRef.current = true;
+                          setSelectedMonthFrom(Number(e.target.value));
+                        }}
+                      >
+                        {months.map((m, idx) => (
+                          <option key={m} value={idx}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <select
-                      id="month-from-select"
-                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                      value={selectedMonthFrom}
-                      onChange={(e) => {
-                        hasTouchedRangeRef.current = true;
-                        setSelectedMonthFrom(Number(e.target.value));
-                      }}
-                    >
-                      {months.map((m, idx) => (
-                        <option key={m} value={idx}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="text-zinc-400" htmlFor="year-from-select">
-                      Year
+                    <label className="flex flex-col gap-1 text-zinc-400" htmlFor="year-from-select">
+                      <span>Year</span>
+                      <select
+                        id="year-from-select"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        value={selectedYearFrom}
+                        onChange={(e) => {
+                          hasTouchedRangeRef.current = true;
+                          setSelectedYearFrom(Number(e.target.value));
+                        }}
+                      >
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <select
-                      id="year-from-select"
-                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                      value={selectedYearFrom}
-                      onChange={(e) => {
-                        hasTouchedRangeRef.current = true;
-                        setSelectedYearFrom(Number(e.target.value));
-                      }}
-                    >
-                      {yearOptions.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:gap-3 md:w-auto">
+                <div className="flex w-full flex-col gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3 sm:gap-3 md:w-auto">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                     To
                   </span>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <label className="text-zinc-400" htmlFor="month-to-select">
-                      Month
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                    <label className="flex flex-col gap-1 text-zinc-400" htmlFor="month-to-select">
+                      <span>Month</span>
+                      <select
+                        id="month-to-select"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        value={selectedMonthTo}
+                        onChange={(e) => {
+                          hasTouchedRangeRef.current = true;
+                          setSelectedMonthTo(Number(e.target.value));
+                        }}
+                      >
+                        {months.map((m, idx) => (
+                          <option key={m} value={idx}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <select
-                      id="month-to-select"
-                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                      value={selectedMonthTo}
-                      onChange={(e) => {
-                        hasTouchedRangeRef.current = true;
-                        setSelectedMonthTo(Number(e.target.value));
-                      }}
-                    >
-                      {months.map((m, idx) => (
-                        <option key={m} value={idx}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="text-zinc-400" htmlFor="year-to-select">
-                      Year
+                    <label className="flex flex-col gap-1 text-zinc-400" htmlFor="year-to-select">
+                      <span>Year</span>
+                      <select
+                        id="year-to-select"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
+                        value={selectedYearTo}
+                        onChange={(e) => {
+                          hasTouchedRangeRef.current = true;
+                          setSelectedYearTo(Number(e.target.value));
+                        }}
+                      >
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <select
-                      id="year-to-select"
-                      className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white"
-                      value={selectedYearTo}
-                      onChange={(e) => {
-                        hasTouchedRangeRef.current = true;
-                        setSelectedYearTo(Number(e.target.value));
-                      }}
-                    >
-                      {yearOptions.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>
@@ -2056,11 +1766,12 @@ export default function DemoPage() {
             ))}
           </div>
           <div className="space-y-4">
-            <div className="relative">
+            <div className="relative pt-2">
+              <div className="absolute inset-x-0 top-0 h-px bg-zinc-800" />
               <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zinc-900 to-transparent sm:hidden" />
               <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zinc-900 to-transparent sm:hidden" />
               <div className="flex items-center gap-2">
-                <div className="flex w-full snap-x snap-mandatory items-center gap-2 overflow-x-auto px-1 pb-1 sm:justify-center">
+                <div className="flex w-full snap-x snap-mandatory items-center gap-3 overflow-x-auto px-2 pb-2 sm:justify-center">
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
@@ -2068,10 +1779,10 @@ export default function DemoPage() {
                       onClick={() => {
                         setActiveTab(tab.id);
                       }}
-                      className={`snap-start rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                      className={`snap-start rounded-full border px-5 py-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
                         activeTab === tab.id
-                          ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
-                          : "border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800"
+                          ? "border-zinc-500 bg-zinc-800 text-white shadow-sm"
+                          : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800"
                       }`}
                     >
                       {tab.label}
@@ -2083,7 +1794,7 @@ export default function DemoPage() {
                   className="hidden sm:inline-flex items-center justify-center rounded-full border border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800"
                   onClick={() => handleToggleEditing()}
                 >
-                  {isEditing ? "Done editing" : "Edit transactions"}
+                  {isEditing ? "Done editing" : "Edit statement transactions"}
                 </button>
               </div>
               <button
@@ -2091,7 +1802,7 @@ export default function DemoPage() {
                 className="mt-2 inline-flex items-center justify-center rounded-full border border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 sm:hidden"
                 onClick={() => handleToggleEditing()}
               >
-                {isEditing ? "Done editing" : "Edit transactions"}
+                {isEditing ? "Done editing" : "Edit statement transactions"}
               </button>
             </div>
             {activeTab === "overview" && (
@@ -2786,7 +2497,7 @@ export default function DemoPage() {
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-5 shadow-sm">
                     <p className="text-sm font-semibold text-white">Internal transfers this period</p>
                     <p className="mt-2 text-xl font-semibold text-white">
-                      {currency.format(summaryStats.totalInternalTransfers)}
+                      {currency.format(internalTransfersTotal)}
                     </p>
                     <p className="mt-1 text-xs text-zinc-400">
                       Money moved between your own accounts. Ignored for income and spending.
@@ -3333,8 +3044,15 @@ export default function DemoPage() {
                                     >
                                       {currency.format(tx.amount)}
                                     </span>
-                                    <span className="text-right text-zinc-400">
-                                      {tx.category}
+                                    <span className="flex items-center justify-end gap-2 text-right text-zinc-400">
+                                      <span>{tx.category}</span>
+                                      <span
+                                        className={`rounded-full px-2 py-[2px] text-[10px] font-semibold ${
+                                          isFlagged ? "border border-amber-300/60 bg-amber-900/40 text-amber-100" : "border border-zinc-700 bg-zinc-800 text-zinc-300"
+                                        }`}
+                                      >
+                                        {isFlagged ? "Suspicious" : "Normal"}
+                                      </span>
                                     </span>
                                     <div className="flex justify-end gap-2 text-[11px] text-zinc-400">
                                       {showActions ? (
@@ -3384,12 +3102,3 @@ export default function DemoPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

@@ -84,45 +84,48 @@ export default function Home() {
       />
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-20 sm:px-6 lg:px-8">
-          <section className="relative overflow-hidden rounded-3xl border border-zinc-800/80 bg-gradient-to-br from-zinc-950 via-zinc-950 to-black px-6 py-12 shadow-[0_25px_80px_rgba(0,0,0,0.45)] ring-1 ring-white/5 sm:px-10 sm:py-16">
+          <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-950 via-[#0b1220] to-black px-6 py-12 shadow-[0_25px_80px_rgba(0,0,0,0.45)] ring-1 ring-white/10 sm:px-10 sm:py-16">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-75 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.08),transparent_38%),radial-gradient(circle_at_82%_12%,rgba(59,130,246,0.1),transparent_34%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.08),transparent_45%)]"
+              className="pointer-events-none absolute inset-0 opacity-80 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.08),transparent_38%),radial-gradient(circle_at_82%_12%,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.1),transparent_45%)]"
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_26%),linear-gradient(300deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_30%)] opacity-60"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0)_28%),linear-gradient(300deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_32%)] opacity-70"
             />
+            <div className="pointer-events-none absolute inset-8 rounded-2xl border border-white/5 bg-gradient-to-b from-white/5 via-white/0 to-transparent" />
             <div className="hero-wave" />
             <div className="hero-wave-fade" />
-            <div className="relative z-10 max-w-3xl space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Phase one demo
-              </p>
-              <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">MoneyMap</h1>
-              <p className="max-w-3xl text-lg text-zinc-200">
-                Stress test your spending without sharing real data.
-              </p>
-              <p className="max-w-3xl text-sm text-zinc-400">
-                This demo runs on fake data only. It never connects to real banks or stores real statements.
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
-                >
-                  Get started
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLearnMoreOpen(true);
-                    setActiveSlide(0);
-                  }}
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-5 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-                >
-                  How it works
-                </button>
+            <div className="relative z-10 max-w-3xl rounded-2xl border border-white/5 bg-black/30 p-6 backdrop-blur-sm sm:p-8">
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                  Phase one demo
+                </p>
+                <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">MoneyMap</h1>
+                <p className="max-w-3xl text-lg text-zinc-200">
+                  Stress test your spending without sharing real data.
+                </p>
+                <p className="max-w-3xl text-sm text-zinc-400">
+                  This demo runs on fake data only. It never connects to real banks or stores real statements.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
+                  >
+                    Get started
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLearnMoreOpen(true);
+                      setActiveSlide(0);
+                    }}
+                    className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-5 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+                  >
+                    How it works
+                  </button>
+                </div>
               </div>
             </div>
           </section>
