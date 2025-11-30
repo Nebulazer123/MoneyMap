@@ -30,9 +30,11 @@ import { StatementPanel } from "./components/StatementPanel";
 import { ReviewTab } from "./components/ReviewTab";
 import { DuplicateOverlay } from "./components/DuplicateOverlay";
 import { GlassPanel } from "./components/GlassPanel";
+import { SectionHeader } from "./components/SectionHeader";
 export default function DemoPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   const [flashContent, setFlashContent] = useState(false);
+  const [liveMsg, setLiveMsg] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
@@ -374,6 +376,19 @@ export default function DemoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_TAB_KEY, activeTab);
+    const tabLabel =
+      activeTab === "overview"
+        ? "Overview"
+        : activeTab === "recurring"
+        ? "Subscriptions"
+        : activeTab === "fees"
+        ? "Fees"
+        : activeTab === "cashflow"
+        ? "Cash flow"
+        : activeTab === "review"
+        ? "Review"
+        : activeTab;
+    setLiveMsg(`Active tab: ${tabLabel}`);
   }, [activeTab]);
 
   return (
@@ -389,7 +404,7 @@ export default function DemoPage() {
       </header>
 
       {!hasResults && (
-        <GlassPanel variant="hero" className="space-y-6 sm:space-y-8 animate-fade-rise">
+        <GlassPanel variant="hero" tone="vivid" className="space-y-6 sm:space-y-8 animate-fade-rise">
           <SectionHeader
             label="Phase one demo"
             title="Start your demo analysis"
@@ -426,7 +441,12 @@ export default function DemoPage() {
                 className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)]"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <div className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none" tabIndex={0}>
+                <div
+                  className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none"
+                  tabIndex={0}
+                  aria-label={`${card.title}. ${card.stepCopy}`}
+                  aria-describedby={`dash-step-desc-${idx}`}
+                >
                   <div className="flex items-start gap-3">
                     <div className="mt-1 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
                       {card.icon}
@@ -436,7 +456,7 @@ export default function DemoPage() {
                       <p className="text-base font-semibold text-white sm:text-lg">{card.title}</p>
                     </div>
                   </div>
-                  <div className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
+                  <div id={`dash-step-desc-${idx}`} className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
                     <p className="text-sm text-zinc-300 leading-relaxed">{card.stepCopy}</p>
                   </div>
                 </div>
@@ -458,6 +478,7 @@ export default function DemoPage() {
         onStart={handleStart}
         onRegenerate={handleRegenerate}
         onAnalyze={handleAnalyze}
+        onRestart={handleRestartAll}
         onToggleEditing={() => handleToggleEditing()}
         onToggleShowStatement={() => setShowStatement((prev) => !prev)}
         setSelectedMonthFrom={(value) => {
@@ -500,11 +521,27 @@ export default function DemoPage() {
               variant="card"
               role="button"
               tabIndex={0}
+              aria-label={`Open ${tile.label} in ${tile.targetTab} tab`}
               onClick={() => {
                 setActiveTab(tile.targetTab);
-                contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                setFlashContent(true);
-                window.setTimeout(() => setFlashContent(false), 1200);
+                const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                contentRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                if (!reduce) {
+                  setFlashContent(true);
+                  window.setTimeout(() => setFlashContent(false), 1200);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setActiveTab(tile.targetTab);
+                  const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                  contentRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                  if (!reduce) {
+                    setFlashContent(true);
+                    window.setTimeout(() => setFlashContent(false), 1200);
+                  }
+                }
               }}
               className={`h-full transform transition border-l-4 ${tile.borderColor} hover:-translate-y-0.5 hover:border-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] focus-visible:-translate-y-0.5 focus-visible:border-white/30 focus-visible:ring-2 focus-visible:ring-purple-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900`}
             >
@@ -529,6 +566,7 @@ export default function DemoPage() {
         ref={contentRef}
         className={`space-y-6 sm:space-y-8 animate-fade-rise ${flashContent ? "ring-2 ring-purple-300/50" : ""}`}
       >
+        <div aria-live="polite" role="status" className="sr-only">{liveMsg}</div>
         {showResults && (
           <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
         )}

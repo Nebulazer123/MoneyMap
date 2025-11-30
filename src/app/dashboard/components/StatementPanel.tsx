@@ -19,6 +19,7 @@ type Props = {
   onStart: () => void;
   onRegenerate: () => void;
   onAnalyze: () => void;
+  onRestart?: () => void;
   onToggleEditing: () => void;
   onToggleShowStatement: () => void;
   setSelectedMonthFrom: (value: number) => void;
@@ -54,6 +55,7 @@ export function StatementPanel({
   onStart,
   onRegenerate,
   onAnalyze,
+  onRestart,
   onToggleEditing,
   onToggleShowStatement,
   setSelectedMonthFrom,
@@ -79,18 +81,26 @@ export function StatementPanel({
   return (
     <>
       {flowStep === "idle" && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-5 py-8 text-center text-zinc-200">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-6 py-8 text-center text-zinc-200 sm:px-8">
           <h2 className="text-xl font-semibold text-white">Start your demo analysis</h2>
-          <p className="mt-2 text-sm text-zinc-400">MoneyMap will generate a randomized demo statement and analyze it locally.</p>
-          <div className="mt-4 flex justify-center">
+          <p className="mt-2 text-sm text-zinc-400">Runs locally on synthetic statements. No credentials or uploads.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             <button
               type="button"
               onClick={onStart}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200"
+              className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300/60"
             >
               Generate sample statement
             </button>
+            <button
+              type="button"
+              onClick={onRestart}
+              className="inline-flex items-center justify-center rounded-full border border-purple-400/60 px-7 py-3 text-sm font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-500/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300/60"
+            >
+              Restart demo
+            </button>
           </div>
+          <p className="mt-3 text-xs text-zinc-500">Data stays in your browser. It never asks for real logins.</p>
         </div>
       )}
 

@@ -137,4 +137,7 @@ body::before {
   .animate-fade-rise {
     animation: none;
   }
+  .hero-wave {
+    animation: none;
+  }
 }

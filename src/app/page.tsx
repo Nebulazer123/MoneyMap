@@ -144,7 +144,7 @@ export default function Home() {
       <div className="relative text-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-16 px-4 pb-24 pt-24 sm:px-8 lg:px-10">
           <section className="relative">
-            <GlassPanel variant="hero" className="relative overflow-hidden sm:px-10 sm:py-14">
+            <GlassPanel variant="hero" tone="vivid" className="relative overflow-hidden sm:px-10 sm:py-14">
               <div className="relative z-10 max-w-3xl space-y-4">
                 <span className="inline-flex items-center rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-purple-200">
                   Phase one demo
@@ -197,7 +197,12 @@ export default function Home() {
                     className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)] animate-fade-rise"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
-                    <div className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none" tabIndex={0}>
+                    <div
+                      className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none"
+                      tabIndex={0}
+                      aria-label={`${card.title}. ${card.stepCopy}`}
+                      aria-describedby={`home-step-desc-${idx}`}
+                    >
                       <div className="flex items-start gap-3">
                         <div className="mt-1 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
                           {card.icon}
@@ -207,7 +212,7 @@ export default function Home() {
                           <p className="text-base font-semibold text-white sm:text-lg">{card.title}</p>
                         </div>
                       </div>
-                      <div className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
+                      <div id={`home-step-desc-${idx}`} className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
                         <p className="text-sm text-zinc-300 leading-relaxed">{card.stepCopy}</p>
                       </div>
                     </div>
