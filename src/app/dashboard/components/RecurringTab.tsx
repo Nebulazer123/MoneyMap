@@ -9,7 +9,10 @@ type Props = {
   recurringRows: Transaction[];
   duplicateDecisions: Record<string, "confirmed" | "dismissed">;
   activeDuplicateIds: Set<string>;
-  duplicateMetaById: Map<string, { clusterKey: string; label: string; category: string; lastNormalDate: string | null }>;
+  duplicateMetaById: Map<
+    string,
+    { clusterKey: string; label: string; category: string; lastNormalDate: string | null; reason: string | null }
+  >;
   handleOpenDuplicateOverlay: (trigger?: HTMLElement | null) => void;
   handleConfirmDuplicate: (id: string) => void;
   handleDismissDuplicate: (id: string) => void;
@@ -63,7 +66,6 @@ export function RecurringTab({
               const isDuplicate = activeDuplicateIds.has(row.id);
               const isSuspicious = isDuplicate && duplicateDecision !== "dismissed";
               const meta = duplicateMetaById.get(row.id);
-              const lastCharged = meta?.lastNormalDate ?? row.date;
               return (
                 <div key={row.id} className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm">
                   <div className="flex flex-col gap-1">
@@ -93,8 +95,8 @@ export function RecurringTab({
                         </div>
                       )}
                     </span>
-                    {isSuspicious && (
-                      <p className="text-[11px] text-zinc-500">Last charged on {dateFormatter.format(new Date(lastCharged))}</p>
+                    {isSuspicious && meta?.reason && (
+                      <p className="text-[11px] text-amber-100">{meta.reason}</p>
                     )}
                   </div>
                   <span className="text-zinc-400">{displayCategory}</span>

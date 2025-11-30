@@ -24,7 +24,6 @@ export function useDuplicates(transactions: Transaction[]) {
   const duplicateOverlayTriggerRef = useRef<HTMLElement | null>(null);
   const duplicateOverlayRef = useRef<HTMLDivElement | null>(null);
   const [expandedDuplicateClusters, setExpandedDuplicateClusters] = useState<Set<string>>(new Set());
-  const lastResetSignatureRef = useRef<string | null>(null);
 
   const duplicateClusters: DuplicateClusterView[] = useMemo(
     () => buildDuplicateClusters(transactions, duplicateDecisions),
@@ -34,7 +33,7 @@ export function useDuplicates(transactions: Transaction[]) {
   const activeDuplicateIds = useMemo(
     () =>
       new Set(
-        duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((tx) => tx.id)),
+        duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((entry) => entry.tx.id)),
       ),
     [duplicateClusters],
   );
@@ -42,7 +41,7 @@ export function useDuplicates(transactions: Transaction[]) {
   const duplicateMetaById = useMemo(() => {
     const map = new Map<
       string,
-      { clusterKey: string; label: string; category: string; lastNormalDate: string | null }
+      { clusterKey: string; label: string; category: string; lastNormalDate: string | null; reason: string | null }
     >();
     duplicateClusters.forEach((cluster) => {
       const lastCharged = cluster.lastNormalChargeDate ?? cluster.lastNormalDate;
@@ -52,6 +51,7 @@ export function useDuplicates(transactions: Transaction[]) {
           label: cluster.label,
           category: cluster.category,
           lastNormalDate: lastCharged,
+          reason: cluster.reasonById.get(tx.id) ?? null,
         });
       });
     });
@@ -119,13 +119,9 @@ export function useDuplicates(transactions: Transaction[]) {
   }, [showDuplicateOverlay]);
 
   useEffect(() => {
-    if (!showDuplicateOverlay) {
-      lastResetSignatureRef.current = null;
-      return;
-    }
+    if (!showDuplicateOverlay) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedDuplicateClusters(new Set());
-    lastResetSignatureRef.current = "open";
   }, [showDuplicateOverlay]);
 
   const handleDuplicateDecision = (txId: string, decision: "confirmed" | "dismissed") => {
