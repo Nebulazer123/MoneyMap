@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 import { months } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
@@ -99,6 +100,12 @@ export function StatementPanel({
             >
               Restart demo
             </button>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-7 py-3 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              Learn how it works
+            </Link>
           </div>
           <p className="mt-3 text-xs text-zinc-500">Data stays in your browser. It never asks for real logins.</p>
         </div>

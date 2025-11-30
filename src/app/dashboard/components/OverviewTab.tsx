@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
@@ -62,6 +62,17 @@ export function OverviewTab({
 }: OverviewTabProps) {
   const activeGroupDetails = groupedSpendingData.find((group) => group.id === activeGroupId) ?? null;
   const showChart = flowStep === "results" && groupedSpendingData.length > 0;
+  const [chartInteractive, setChartInteractive] = useState(false);
+  useEffect(() => {
+    // Disable interactions while (re)animating; enable after animation completes.
+    if (!showChart) {
+      setChartInteractive(false);
+      return;
+    }
+    setChartInteractive(false);
+    const t = setTimeout(() => setChartInteractive(true), 900); // match animationDuration + buffer
+    return () => clearTimeout(t);
+  }, [showChart, groupedSpendingData]);
   const tableGroupMeta = activeGroupId ? overviewGroupMeta[activeGroupId] : null;
   const groupCategoryAmountMap = useMemo(() => {
     const map = new Map<OverviewGroupKey, Map<string, number>>();
@@ -114,7 +125,7 @@ export function OverviewTab({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Spending by group</h3>
           </div>
-          <div className="mt-4 h-80 w-full">
+          <div className="mt-4 h-80 w-full" style={{ pointerEvents: chartInteractive ? "auto" : "none" }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -128,8 +139,15 @@ export function OverviewTab({
                   strokeWidth={0}
                   isAnimationActive
                   animationDuration={800}
-                  onClick={(entry) => onSelectGroup(getGroupIdFromEntry(entry))}
-                  onMouseEnter={(entry) => onSelectGroup(getGroupIdFromEntry(entry))}
+                  onAnimationEnd={() => setChartInteractive(true)}
+                  onClick={(entry) => {
+                    if (!chartInteractive) return;
+                    onSelectGroup(getGroupIdFromEntry(entry));
+                  }}
+                  onMouseEnter={(entry) => {
+                    if (!chartInteractive) return;
+                    onSelectGroup(getGroupIdFromEntry(entry));
+                  }}
                 >
                   {groupedSpendingData.map((item) => (
                     <Cell key={item.id} fill={item.color} cursor="pointer" />

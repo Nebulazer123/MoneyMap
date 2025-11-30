@@ -5,9 +5,9 @@ export type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
 
 export const tabs: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "recurring", label: "Recurring charges" },
+  { id: "recurring", label: "Recurring" },
   { id: "fees", label: "Fees" },
-  { id: "cashflow", label: "Daily cash flow" },
+  { id: "cashflow", label: "Cash flow" },
   { id: "review", label: "Review" },
 ];
 

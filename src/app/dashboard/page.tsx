@@ -411,20 +411,13 @@ export default function DemoPage() {
             caption="Runs locally on synthetic statements. No credentials or uploads."
             accentColor="purple"
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               type="button"
               onClick={handleStart}
               className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300/60"
             >
               Generate sample statement
-            </button>
-            <button
-              type="button"
-              onClick={handleRestartAll}
-              className="inline-flex items-center justify-center rounded-full border border-purple-400/60 px-6 py-3 text-sm font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-500/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.35)]"
-            >
-              Restart demo
             </button>
             <Link
               href="/"
@@ -433,16 +426,16 @@ export default function DemoPage() {
               Learn how it works
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {startStepCards.map((card, idx) => (
               <GlassPanel
                 key={card.title}
                 variant="card"
-                className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)]"
+                className="group relative flex h-auto flex-col overflow-hidden backdrop-blur-xl sm:backdrop-blur-2xl transition duration-200 hover:-translate-y-1 hover:ring-white/18 hover:shadow-[0_25px_70px_rgba(0,0,0,0.35)] focus-within:-translate-y-1 focus-within:ring-purple-200/40 focus-within:ring-2 focus-within:shadow-[0_25px_70px_rgba(0,0,0,0.35)] p-4"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
                 <div
-                  className="flex flex-col gap-4 p-5 outline-none focus-visible:outline-none"
+                  className="flex flex-col gap-3 outline-none focus-visible:outline-none"
                   tabIndex={0}
                   aria-label={`${card.title}. ${card.stepCopy}`}
                   aria-describedby={`dash-step-desc-${idx}`}
@@ -456,7 +449,7 @@ export default function DemoPage() {
                       <p className="text-base font-semibold text-white sm:text-lg">{card.title}</p>
                     </div>
                   </div>
-                  <div id={`dash-step-desc-${idx}`} className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-32 group-hover:opacity-100 group-focus-within:max-h-32 group-focus-within:opacity-100">
+                  <div id={`dash-step-desc-${idx}`} className="max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:max-h-24 group-hover:opacity-100 group-focus-within:max-h-24 group-focus-within:opacity-100">
                     <p className="text-sm text-zinc-300 leading-relaxed">{card.stepCopy}</p>
                   </div>
                 </div>
@@ -466,6 +459,7 @@ export default function DemoPage() {
         </GlassPanel>
       )}
 
+      {flowStep !== "idle" && (
       <StatementPanel
         flowStep={flowStep}
         showStatement={showStatement}
@@ -512,7 +506,7 @@ export default function DemoPage() {
         totalInflowStatement={totalInflowStatement}
         totalOutflowStatement={totalOutflowStatement}
         netStatement={netStatement}
-      />
+      />)}
       {showResults && (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-4 animate-fade-rise">
           {summaryTiles.map((tile) => (
@@ -561,6 +555,7 @@ export default function DemoPage() {
           ))}
         </div>
       )}
+      {showResults && (
       <GlassPanel
         variant="hero"
         ref={contentRef}
@@ -679,7 +674,7 @@ export default function DemoPage() {
             handleCancelCandidate={handleCancelCandidate}
           />
         )}
-      </GlassPanel>
+      </GlassPanel>)}
 
       {showDuplicateOverlay && (
         <DuplicateOverlay
@@ -697,13 +692,6 @@ export default function DemoPage() {
       )}
 
       <div className="flex flex-wrap gap-2 text-xs text-zinc-400">
-        <button
-          type="button"
-          onClick={handleRestartAll}
-          className="rounded-full border border-zinc-700 px-3 py-2 font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-        >
-          Restart demo
-        </button>
         <span className="text-zinc-500">
           Data generated locally. Internal transfers excluded from spending total: {currency.format(internalTransfersTotal)}
         </span>

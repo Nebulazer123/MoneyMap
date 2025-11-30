@@ -306,7 +306,7 @@ export function ReviewTab({
               item.differenceDirection === "over"
                 ? `Over by ${currency.format(item.differenceAmount)} compared to this guideline.`
                 : `Under by ${currency.format(item.differenceAmount)} compared to this guideline.`;
-            const diffClass = item.differenceDirection === "over" ? "text-rose-300 font-semibold" : "text-purple-300 font-semibold";
+            const diffClass = item.differenceDirection === "over" ? "text-rose-300 font-semibold" : "text-emerald-300 font-semibold";
             return (
               <GlassPanel key={item.category} variant="card" className="px-4 py-3 text-sm text-zinc-200">
                 <div className="flex justify-between">
