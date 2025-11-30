@@ -41,6 +41,7 @@ export function OverviewTab({
   overviewTransactions,
   flowStep,
 }: OverviewTabProps) {
+  const categoryEmojiLookup = categoryEmojis as Record<string, string>;
   const activeGroupDetails = groupedSpendingData.find((group) => group.id === activeSpendingGroupId) ?? null;
   const showChart = flowStep === "results" && groupedSpendingData.length > 0;
 
@@ -155,7 +156,7 @@ export function OverviewTab({
             }`}
           >
             <p className="flex items-center gap-2 text-sm text-zinc-400">
-              <span aria-hidden="true">{categoryEmojis[item.category] ?? ""}</span>
+              <span aria-hidden="true">{categoryEmojiLookup[item.category] ?? ""}</span>
               <span>{getDisplayCategory(item.category)}</span>
             </p>
             <p className="mt-1 text-lg font-semibold text-white">{currency.format(item.amount)}</p>

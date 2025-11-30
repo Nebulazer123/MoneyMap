@@ -56,7 +56,7 @@ type Props = {
   resetEditingAccount: () => void;
   accountTypeOptions: string[];
   isAddingAccount: boolean;
-  setIsAddingAccount: (next: boolean) => void;
+  setIsAddingAccount: React.Dispatch<React.SetStateAction<boolean>>;
   addAccountName: string;
   setAddAccountName: (name: string) => void;
   addAccountType: string;

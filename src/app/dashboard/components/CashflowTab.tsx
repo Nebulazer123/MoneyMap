@@ -27,7 +27,7 @@ type Props = {
   cashflowMonths: CashflowMonth[];
   showGroupedCashflow: boolean;
   expandedCashflowMonths: Set<number>;
-  setExpandedCashflowMonths: (next: Set<number>) => void;
+  setExpandedCashflowMonths: React.Dispatch<React.SetStateAction<Set<number>>>;
   expandedCashflowDates: Record<string, boolean>;
   setExpandedCashflowDates: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 };
@@ -56,7 +56,7 @@ export function CashflowTab({
           {cashflowMonths.map((month) => {
             const isExpanded = expandedCashflowMonths.has(month.key);
             const toggle = () =>
-              setExpandedCashflowMonths((prev) => {
+              setExpandedCashflowMonths((prev: Set<number>) => {
                 const next = new Set(prev);
                 if (next.has(month.key)) {
                   next.delete(month.key);
