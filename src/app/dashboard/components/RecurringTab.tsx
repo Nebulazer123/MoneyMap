@@ -9,7 +9,10 @@ type Props = {
   recurringRows: Transaction[];
   duplicateDecisions: Record<string, "confirmed" | "dismissed">;
   activeDuplicateIds: Set<string>;
-  duplicateMetaById: Map<string, { clusterKey: string; label: string; category: string; lastNormalDate: string | null }>;
+  duplicateMetaById: Map<
+    string,
+    { clusterKey: string; label: string; category: string; lastNormalDate: string | null; reason: string | null }
+  >;
   handleOpenDuplicateOverlay: (trigger?: HTMLElement | null) => void;
   handleConfirmDuplicate: (id: string) => void;
   handleDismissDuplicate: (id: string) => void;

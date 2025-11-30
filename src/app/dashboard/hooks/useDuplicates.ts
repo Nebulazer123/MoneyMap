@@ -34,7 +34,7 @@ export function useDuplicates(transactions: Transaction[]) {
   const activeDuplicateIds = useMemo(
     () =>
       new Set(
-        duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((tx) => tx.id)),
+        duplicateClusters.flatMap((cluster) => cluster.suspiciousTransactions.map((entry) => entry.tx.id)),
       ),
     [duplicateClusters],
   );
@@ -42,7 +42,7 @@ export function useDuplicates(transactions: Transaction[]) {
   const duplicateMetaById = useMemo(() => {
     const map = new Map<
       string,
-      { clusterKey: string; label: string; category: string; lastNormalDate: string | null }
+      { clusterKey: string; label: string; category: string; lastNormalDate: string | null; reason: string | null }
     >();
     duplicateClusters.forEach((cluster) => {
       const lastCharged = cluster.lastNormalChargeDate ?? cluster.lastNormalDate;
@@ -52,6 +52,7 @@ export function useDuplicates(transactions: Transaction[]) {
           label: cluster.label,
           category: cluster.category,
           lastNormalDate: lastCharged,
+          reason: cluster.reasonById.get(tx.id) ?? null,
         });
       });
     });
