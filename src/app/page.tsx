@@ -13,21 +13,21 @@ export default function Home() {
 
   const stepCards = [
     {
-      title: "Have a messy statement?",
-      defaultCopy: "Start with a month of paychecks, bills, and everyday spending.",
-      stepCopy: "Drop in paychecks, bills, and small purchases you want to make sense of.",
+      title: "Drop your messy month",
+      defaultCopy: "Start with a month of paychecks, bills, and everyday noise.",
+      stepCopy: "Bring any statement that feels too cluttered to look at. We'll make sense of it.",
     },
     {
-      title: "Run the clutter through MoneyMap",
-      defaultCopy: "Tell MoneyMap which accounts are yours so transfers stop bloating spending.",
+      title: "Mark which accounts are yours",
+      defaultCopy: "Tell MoneyMap which accounts are yours so internal transfers don't inflate the total.",
       stepCopy:
-        "We group regular charges, match your accounts, and turn the noise into a simple ledger.",
+        "Flag your accounts and internal transfers disappear from the spending total so the real number stays honest.",
     },
     {
-      title: "See subscriptions and fees clearly",
-      defaultCopy: "Call out recurring charges, streaming, and the fees that pile up.",
+      title: "Spot subscriptions and fees",
+      defaultCopy: "See recurring charges and the fees that pile up every month.",
       stepCopy:
-        "We surface subscriptions, bank fees, and other recurring charges so they are easy to spot.",
+        "We surface subscriptions, bank fees, and other recurring leaks so you know what's draining your month.",
     },
   ];
 
