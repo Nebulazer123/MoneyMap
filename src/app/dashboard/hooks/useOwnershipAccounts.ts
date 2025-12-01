@@ -24,7 +24,6 @@ const loadCustomAccounts = (): TransferAccount[] => {
       }
     }
   } catch {
-    // ignore bad data
   }
   return [];
 };
@@ -41,7 +40,6 @@ const createDefaultOwnershipModes = (accounts: TransferAccount[]) => {
       }
     }
   } catch {
-    // ignore bad data
   }
   return Object.fromEntries(
     accounts.map((acc) => [acc.id, acc.ownedByDefault ? ("spending" as OwnershipMode) : "notMine"]),
@@ -67,6 +65,26 @@ const getAccountTypeLabel = (account: TransferAccount) =>
   account.accountType ??
   accountTypeLabels[account.id] ??
   (account.label.toLowerCase().includes("credit") ? "Credit card" : "Other");
+
+// Account type labels used when editing accounts. Mapped from broader internal/raw types.
+type AccountTypeLabel = "Checking" | "Savings" | "Credit card" | "Wallet" | "Loan" | "Other";
+
+const toAccountTypeLabel = (raw: string): AccountTypeLabel => {
+  switch (raw) {
+    case "Checking":
+    case "Savings":
+    case "Credit card":
+    case "Wallet":
+    case "Loan":
+      return raw;
+    case "Mortgage":
+      return "Loan"; // normalize mortgage under loan
+    case "Debit card":
+      return "Credit card"; // treat debit cards as credit card type for editing purposes
+    default:
+      return "Other";
+  }
+};
 
 type CandidateAccount = {
   key: string;
@@ -177,7 +195,6 @@ export function useOwnershipAccounts({
         if (parsed && typeof parsed === "object") return parsed;
       }
     } catch {
-      // ignore
     }
     return {};
   });
@@ -190,7 +207,6 @@ export function useOwnershipAccounts({
         if (Array.isArray(parsed)) return new Set(parsed);
       }
     } catch {
-      // ignore
     }
     return new Set();
   });
@@ -243,7 +259,7 @@ export function useOwnershipAccounts({
   const [selectedAccountTxIds, setSelectedAccountTxIds] = useState<Set<string>>(new Set());
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountName, setEditingAccountName] = useState("");
-  const [editingAccountType, setEditingAccountType] = useState(accountTypeOptions[0]);
+  const [editingAccountType, setEditingAccountType] = useState<AccountTypeLabel>("Checking");
   const [claimedCandidateKeys, setClaimedCandidateKeys] = useState<Set<string>>(new Set());
   const [candidateDrafts, setCandidateDrafts] = useState<Record<string, CandidateDraft>>({});
 
@@ -349,7 +365,7 @@ export function useOwnershipAccounts({
       });
     });
     return Array.from(candidates.values()).sort((a, b) => b.count - a.count);
-  }, [claimedCandidateKeys, existingAccountKeys, transferTransactions]);
+  }, [claimedCandidateKeys, existingAccountKeys, transferAccountIds, transferTransactions]);
 
   useEffect(() => {
     setCandidateDrafts((prev) => {
@@ -452,13 +468,14 @@ export function useOwnershipAccounts({
   const startEditingAccount = (acc: TransferAccount) => {
     setEditingAccountId(acc.id);
     setEditingAccountName(acc.label);
-    setEditingAccountType(acc.accountType ?? getAccountTypeLabel(acc));
+    const rawType = acc.accountType ?? getAccountTypeLabel(acc);
+    setEditingAccountType(toAccountTypeLabel(rawType));
   };
 
   const resetEditingAccount = () => {
     setEditingAccountId(null);
     setEditingAccountName("");
-    setEditingAccountType(accountTypeOptions[0]);
+    setEditingAccountType("Checking");
   };
 
   const handleSaveEditedAccount = (acc: TransferAccount) => {

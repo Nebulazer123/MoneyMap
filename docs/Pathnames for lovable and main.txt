@@ -1,0 +1,66 @@
+Pathnames for lovable and main
+This text file path is: C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\docs\Pathnames for lovable and main.txt
+
+Moneymap paths: 
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\RecurringTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\OverviewTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\ReviewTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\CashflowTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\SectionHeader.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\FeesTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\SubscriptionsOverlay.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\SummaryCards.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\components\TabsBar.tsx
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useDateRange.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useDerivedMetrics.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useDuplicates.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useExpansionState.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useGestureTabs.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useOwnershipAccounts.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\hooks\useStatementFlow.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\utils\format.ts
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\utils\types.ts
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\dashboard\page.tsx
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\layout.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\app\page.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\components
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\lib\dashboard
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\lib\fakeData.ts
+
+Fake Data file - C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\lib\fakeData.ts
+Secondary for categories - C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\src\lib\dashboard\config.ts
+
+LovablePaths: 
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\hooks\useDashboard.ts
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\components\dashboard\OverviewTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\components\dashboard\RecurringTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\components\dashboard\ReviewTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\components\dashboard\CashflowTab.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\components\dashboard\FeesTab.tsx
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\App.tsx
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\pages\About.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\pages\Dashboard.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\pages\Index.tsx
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\pages\NotFound.tsx
+
+fake data file - C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\lib\syntheticData.ts
+secondary for categories - C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap-lovable-excample\moneymap-lovable-main\src\lib\types.ts
+
+
+
+
+
+
+
+
+
