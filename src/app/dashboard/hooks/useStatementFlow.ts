@@ -10,66 +10,15 @@ import {
   STORAGE_YEAR_FROM_KEY,
   STORAGE_YEAR_TO_KEY,
 } from "../../../lib/dashboard/config";
+import { isSubscriptionCategory } from "../../../lib/categoryRules";
 import { generateSampleStatement, type Transaction } from "../../../lib/fakeData";
 
 type FlowStep = "idle" | "statement" | "analyzing" | "results";
-
-const DEMO_STATEMENT_STORAGE_KEY = "moneymap_demo_statement_v1";
-
-type StoredStatementPayload = {
-  transactions: Transaction[];
-  range: { fromMonth: number; fromYear: number; toMonth: number; toYear: number };
-  flowStep: FlowStep;
-};
 
 const parseNumber = (value: string | null) => {
   if (value === null) return null;
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
-};
-
-const isValidRange = (range: StoredStatementPayload["range"]) =>
-  range &&
-  [range.fromMonth, range.fromYear, range.toMonth, range.toYear].every(
-    (value) => typeof value === "number" && !Number.isNaN(value),
-  );
-
-const normalizeFlowStep = (flow: FlowStep): FlowStep => (flow === "results" ? "results" : "statement");
-
-const readStoredDemoStatement = (): StoredStatementPayload | null => {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(DEMO_STATEMENT_STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as StoredStatementPayload;
-    if (!parsed || !Array.isArray(parsed.transactions) || parsed.transactions.length === 0) return null;
-    if (!isValidRange(parsed.range)) return null;
-    return {
-      transactions: parsed.transactions,
-      range: parsed.range,
-      flowStep: normalizeFlowStep(parsed.flowStep),
-    };
-  } catch {
-    return null;
-  }
-};
-
-const writeStoredDemoStatement = (payload: StoredStatementPayload) => {
-  if (typeof window === "undefined") return;
-  if (!Array.isArray(payload.transactions) || payload.transactions.length === 0) return;
-  const flow = normalizeFlowStep(payload.flowStep);
-  const data: StoredStatementPayload = { ...payload, flowStep: flow };
-  try {
-    window.localStorage.setItem(DEMO_STATEMENT_STORAGE_KEY, JSON.stringify(data));
-    window.localStorage.setItem(STORAGE_FLOW_KEY, flow);
-    window.localStorage.setItem(STORAGE_STATEMENT_KEY, JSON.stringify(payload.transactions));
-    window.localStorage.setItem(STORAGE_MONTH_FROM_KEY, String(payload.range.fromMonth));
-    window.localStorage.setItem(STORAGE_YEAR_FROM_KEY, String(payload.range.fromYear));
-    window.localStorage.setItem(STORAGE_MONTH_TO_KEY, String(payload.range.toMonth));
-    window.localStorage.setItem(STORAGE_YEAR_TO_KEY, String(payload.range.toYear));
-  } catch {
-    // ignore storage failures
-  }
 };
 
 type UseStatementFlowParams = {
@@ -287,7 +236,7 @@ export function useStatementFlow({
     const kind: Transaction["kind"] =
       details.category === "Income"
         ? "income"
-        : details.category === "Subscriptions"
+        : isSubscriptionCategory(details.category)
           ? "subscription"
           : details.category === "Fees"
             ? "fee"

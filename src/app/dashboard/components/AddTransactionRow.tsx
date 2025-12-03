@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { categoryOptions } from "../../../lib/dashboard/config";
+import { CATEGORY_NAMES } from "../../../lib/categoryRules";
 
 export type AddTransactionRowProps = {
   rangeStartMonth: number;
@@ -25,7 +25,7 @@ export default function AddTransactionRow({
     `${rangeStartYear}-${String(rangeStartMonth + 1).padStart(2, "0")}-01`,
   );
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Groceries");
+  const [category, setCategory] = useState<string>(CATEGORY_NAMES[1]);
   const [amount, setAmount] = useState<string>("-25.00");
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function AddTransactionRow({
         value={category}
         onChange={(e) => setCategory(e.target.value)}
       >
-        {categoryOptions.map((cat) => (
+        {CATEGORY_NAMES.map((cat) => (
           <option key={cat} value={cat}>
             {cat}
           </option>

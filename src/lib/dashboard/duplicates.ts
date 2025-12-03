@@ -1,5 +1,5 @@
 import type { Transaction } from "../fakeData";
-import { isSubscriptionCategory, matchesKnownMerchant } from "../categoryRules";
+import { isSubscriptionCategory, matchesKnownMerchant, isBillLikeCategory, isBillishDescription } from "../categoryRules";
 
 export type SuspiciousEntry = { tx: Transaction; reason: string };
 
@@ -28,10 +28,19 @@ const monthKey = (date: string) => {
   return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
 };
 
+const isRecurringCandidate = (t: Transaction): boolean => {
+  if (t.kind?.startsWith("transfer")) return false;
+  const isSubscription = t.kind === "subscription" || isSubscriptionCategory(t.category);
+  const isBillCategory = isBillLikeCategory(t.category);
+  const isPaymentDescription = isBillishDescription(t.description);
+  return isSubscription || isBillCategory || isPaymentDescription;
+};
+
 const isStreamingMerchant = (tx: Transaction) =>
   isSubscriptionCategory(tx.category) || matchesKnownMerchant(`${tx.description} ${tx.target ?? ""}`, "Subscriptions");
 
 const isPhoneMerchant = (tx: Transaction) =>
+  matchesKnownMerchant(`${tx.description} ${tx.target ?? ""}`, "Subscriptions") &&
   /wireless|mobile|cell|phone/i.test(`${tx.description} ${tx.target ?? ""}`);
 
 export const buildDuplicateClusters = (
@@ -40,7 +49,9 @@ export const buildDuplicateClusters = (
 ): DuplicateClusterView[] => {
   const groups = new Map<string, Transaction[]>();
   transactions.forEach((tx) => {
-    const key = tx.description || tx.target || tx.source || "Merchant";
+    if (!isRecurringCandidate(tx)) return;
+    const merchantKey = tx.description || tx.target || tx.source || "Merchant";
+    const key = `${merchantKey}::${tx.category}`;
     const list = groups.get(key) ?? [];
     list.push(tx);
     groups.set(key, list);
@@ -52,6 +63,8 @@ export const buildDuplicateClusters = (
     const sorted = [...list].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
+    if (sorted.length === 0) return;
+    
     const baseline = median(sorted.map((tx) => Math.abs(tx.amount)));
     const flaggedIds = new Set<string>();
     const reasonById = new Map<string, string>();
@@ -63,14 +76,13 @@ export const buildDuplicateClusters = (
       byMonth.set(m, arr);
     });
 
-    const streaming = isStreamingMerchant(sorted[0]!);
-    const phone = isPhoneMerchant(sorted[0]!);
+    const streaming = isStreamingMerchant(sorted[0]);
+    const phone = isPhoneMerchant(sorted[0]);
 
     const closeToBaseline = (amt: number, tolerance: number) =>
       baseline > 0 && Math.abs(amt - baseline) / baseline <= tolerance;
 
     byMonth.forEach((monthTxs) => {
-      const amounts = monthTxs.map((tx) => Math.abs(tx.amount));
       const multipleCharges = monthTxs.length > 1;
 
       monthTxs.forEach((tx) => {

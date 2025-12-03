@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import type { DuplicateClusterView } from "../../../lib/dashboard/duplicates";
-import type { Transaction, TransferAccount, OwnershipMode } from "../../../lib/fakeData";
+import type { Transaction, OwnershipMode } from "../../../lib/fakeData";
+import type { TransferAccount } from "../hooks/useOwnershipAccounts";
 import InfoTip from "./InfoTip";
 import { SubscriptionsOverlay } from "./SubscriptionsOverlay";
 import { SectionHeader } from "./SectionHeader";
@@ -65,6 +66,9 @@ type Props = {
   addBaseTransactionId: string;
   setAddBaseTransactionId: (id: string) => void;
   transferTransactions: Transaction[];
+  unassignedTransferTransactions: Transaction[];
+  assignedTransactionIds: Set<string>;
+  attachTransactionsToAccount: (accountId: string, txIds: string[]) => void;
   suggestedAccountTransactions: Transaction[];
   selectedAccountTxIds: Set<string>;
   setSelectedAccountTxIds: (next: Set<string>) => void;
@@ -133,7 +137,8 @@ export function ReviewTab({
   setAddAccountType,
   addBaseTransactionId,
   setAddBaseTransactionId,
-  transferTransactions,
+  unassignedTransferTransactions,
+  attachTransactionsToAccount,
   suggestedAccountTransactions,
   selectedAccountTxIds,
   setSelectedAccountTxIds,
@@ -147,7 +152,94 @@ export function ReviewTab({
   handleCancelCandidate,
 }: Props) {
   const [isSubscriptionsOverlayOpen, setIsSubscriptionsOverlayOpen] = useState(false);
+  const [selectedExistingAccountId, setSelectedExistingAccountId] = useState<string>("");
   const hasSubscriptions = subscriptionRows.length > 0;
+  
+  // Normalize transfer description to extract counterparty name
+  const normalizeCounterpartyName = (description: string): string => {
+    // Strip "Transfer to/from" prefix
+    const cleaned = description.replace(/^transfer\s+(to|from)\s+/i, "").trim();
+    return cleaned;
+  };
+  
+  // Sort unassigned transactions by counterparty name, then by date
+  const sortedUnassignedTransactions = useMemo(() => {
+    return [...unassignedTransferTransactions].sort((a, b) => {
+      const nameA = normalizeCounterpartyName(a.description).toLowerCase();
+      const nameB = normalizeCounterpartyName(b.description).toLowerCase();
+      
+      if (nameA !== nameB) {
+        return nameA.localeCompare(nameB);
+      }
+      
+      // Same counterparty, sort by date
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+  }, [unassignedTransferTransactions]);
+  
+  // Check if creating a new account would duplicate an existing one
+  const wouldCreateDuplicate = (accountName: string): TransferAccount | null => {
+    const normalizedInput = accountName.toLowerCase().trim();
+    
+    for (const acc of transferAccounts) {
+      const normalizedExisting = acc.label.toLowerCase().trim();
+      if (normalizedExisting === normalizedInput) {
+        return acc;
+      }
+      
+      // Also check with "ending XXXX" pattern
+      if (acc.ending) {
+        const withEnding = `${normalizedExisting} ending ${acc.ending}`;
+        if (withEnding === normalizedInput || normalizedInput.includes(normalizedExisting)) {
+          return acc;
+        }
+      }
+    }
+    
+    return null;
+  };
+  
+  // Handle save with duplicate detection
+  const handleSaveWithDuplicateCheck = () => {
+    if (selectedExistingAccountId) {
+      // Attaching to existing account
+      const txIds = Array.from(selectedAccountTxIds);
+      attachTransactionsToAccount(selectedExistingAccountId, txIds);
+      
+      // Reset form
+      setIsAddingAccount(false);
+      setAddAccountName("");
+      setAddAccountType("Checking");
+      setAddBaseTransactionId("");
+      setSelectedAccountTxIds(new Set());
+      setSelectedExistingAccountId("");
+    } else {
+      // Creating new account - check for duplicates
+      const duplicate = wouldCreateDuplicate(addAccountName);
+      if (duplicate) {
+        const confirmAttach = window.confirm(
+          `An account named "${duplicate.label}${duplicate.ending ? ` ending ${duplicate.ending}` : ""}" already exists. Would you like to add these transactions to that account instead?`
+        );
+        
+        if (confirmAttach) {
+          const txIds = Array.from(selectedAccountTxIds);
+          attachTransactionsToAccount(duplicate.id, txIds);
+          
+          // Reset form
+          setIsAddingAccount(false);
+          setAddAccountName("");
+          setAddAccountType("Checking");
+          setAddBaseTransactionId("");
+          setSelectedAccountTxIds(new Set());
+          setSelectedExistingAccountId("");
+        }
+        return;
+      }
+      
+      // No duplicate, proceed with normal save
+      handleSaveNewAccount();
+    }
+  };
 
   return (
     <div className="space-y-4 animate-fade-rise">
@@ -594,15 +686,21 @@ export function ReviewTab({
               })}
             </div>
           <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAddingAccount((prev) => !prev)}
-              className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
-            >
-              {isAddingAccount ? "Cancel add account" : "Add account"}
-            </button>
+            {unassignedTransferTransactions.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setIsAddingAccount((prev) => !prev)}
+                className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-800"
+              >
+                {isAddingAccount ? "Cancel add account" : "Add account"}
+              </button>
+            ) : (
+              <div className="text-xs text-zinc-400 italic">
+                No uncategorized transfers. All transfers are assigned to accounts.
+              </div>
+            )}
           </div>
-          {isAddingAccount && (
+          {isAddingAccount && unassignedTransferTransactions.length > 0 && (
             <GlassPanel variant="card" className="space-y-3 px-4 py-4 text-left text-sm text-zinc-200">
               <div className="flex justify-end gap-2">
                 <button
@@ -612,6 +710,7 @@ export function ReviewTab({
                     setAddAccountName("");
                     setAddBaseTransactionId("");
                     setSelectedAccountTxIds(new Set());
+                    setSelectedExistingAccountId("");
                   }}
                   className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
                 >
@@ -619,13 +718,41 @@ export function ReviewTab({
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveNewAccount}
+                  onClick={handleSaveWithDuplicateCheck}
                   className="rounded-full border border-purple-400 bg-purple-900/50 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!addAccountName.trim() || selectedAccountTxIds.size === 0}
+                  disabled={selectedAccountTxIds.size === 0 || (!selectedExistingAccountId && !addAccountName.trim())}
                 >
-                  Save account
+                  {selectedExistingAccountId ? "Add to account" : "Save account"}
                 </button>
               </div>
+              
+              {/* Add to existing account option */}
+              <div className="rounded-md border border-purple-500/30 bg-purple-900/20 px-3 py-2">
+                <label className="text-xs text-zinc-400">
+                  Add to existing account (optional)
+                  <select
+                    className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                    value={selectedExistingAccountId}
+                    onChange={(e) => setSelectedExistingAccountId(e.target.value)}
+                  >
+                    <option value="">Create new account instead</option>
+                    {transferAccounts.map((acc) => {
+                      const displayLabel = acc.ending ? `${acc.label} ending ${acc.ending}` : acc.label;
+                      return (
+                        <option key={acc.id} value={acc.id}>
+                          {displayLabel}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {selectedExistingAccountId && (
+                    <p className="mt-1 text-[11px] text-purple-200">
+                      Selected transactions will be added to this existing account
+                    </p>
+                  )}
+                </label>
+              </div>
+              
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-xs text-zinc-400">
                   Representative transaction
@@ -635,9 +762,9 @@ export function ReviewTab({
                     onChange={(e) => handleSelectBaseTransaction(e.target.value)}
                   >
                     <option value="">Select a transaction</option>
-                    {transferTransactions.map((tx) => (
+                    {sortedUnassignedTransactions.map((tx) => (
                       <option key={tx.id} value={tx.id}>
-                        {`${dateFormatter.format(new Date(tx.date))} • ${tx.description} (${currency.format(tx.amount)})`}
+                        {`${dateFormatter.format(new Date(tx.date))} • ${normalizeCounterpartyName(tx.description)} (${currency.format(tx.amount)})`}
                       </option>
                     ))}
                   </select>
@@ -647,18 +774,25 @@ export function ReviewTab({
                     Account name
                     <input
                       type="text"
-                      className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       value={addAccountName}
                       onChange={(e) => setAddAccountName(e.target.value)}
                       placeholder="e.g., Capital One card"
+                      disabled={!!selectedExistingAccountId}
                     />
+                    {selectedExistingAccountId && (
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        Disabled (using existing account)
+                      </p>
+                    )}
                   </label>
                   <label className="text-xs text-zinc-400">
                     Account type
                     <select
-                      className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       value={addAccountType}
                       onChange={(e) => setAddAccountType(e.target.value)}
+                      disabled={!!selectedExistingAccountId}
                     >
                       {accountTypeOptions.map((opt) => (
                         <option key={opt} value={opt}>
@@ -682,7 +816,7 @@ export function ReviewTab({
                       <div className="flex items-center gap-2">
                         <input type="checkbox" className="h-4 w-4" checked={selectedAccountTxIds.has(tx.id)} onChange={() => handleToggleAccountTransaction(tx.id)} />
                         <span className="truncate" title={tx.description}>
-                          {tx.description}
+                          {normalizeCounterpartyName(tx.description)}
                         </span>
                       </div>
                       <span className="text-right font-semibold">{currency.format(tx.amount)}</span>
@@ -699,6 +833,7 @@ export function ReviewTab({
                     setAddAccountName("");
                     setAddBaseTransactionId("");
                     setSelectedAccountTxIds(new Set());
+                    setSelectedExistingAccountId("");
                   }}
                   className="rounded-full border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
                 >
@@ -706,11 +841,11 @@ export function ReviewTab({
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveNewAccount}
+                  onClick={handleSaveWithDuplicateCheck}
                   className="rounded-full border border-purple-400 bg-purple-900/50 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!addAccountName.trim() || selectedAccountTxIds.size === 0}
+                  disabled={selectedAccountTxIds.size === 0 || (!selectedExistingAccountId && !addAccountName.trim())}
                 >
-                  Save account
+                  {selectedExistingAccountId ? "Add to account" : "Save account"}
                 </button>
               </div>
             </GlassPanel>

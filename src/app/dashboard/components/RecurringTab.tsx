@@ -1,9 +1,10 @@
 import React from "react";
-
 import type { TabId } from "../../../lib/dashboard/config";
 import type { Transaction } from "../../../lib/fakeData";
 import { SectionHeader } from "./SectionHeader";
 import { GlassPanel } from "./GlassPanel";
+
+import { isBillLikeCategory } from "../../../lib/categoryRules";
 
 type Props = {
   currency: Intl.NumberFormat;
@@ -62,8 +63,7 @@ export function RecurringTab({
           </div>
           <div className="divide-y divide-zinc-800">
             {recurringRows.map((row) => {
-              const displayCategory =
-                row.category === "Utilities" || row.category === "Bills & services" || row.category === "Bills"
+              const displayCategory = isBillLikeCategory(row.category)
                   ? "Bills and services"
                   : row.category;
               const duplicateDecision = duplicateDecisions[row.id];

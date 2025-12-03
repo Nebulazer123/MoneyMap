@@ -9,6 +9,15 @@ export type TransactionKind =
 
 export type AccountKey = "navy_checking" | "cash_app" | "visa_debit" | string;
 
+export type BaseAccountId = "checking" | "savings";
+
+export type BaseAccount = {
+  id: BaseAccountId;
+  label: string;
+  fullAccountNumber: string;
+  last4: string;
+};
+
 export type Transaction = {
   id: string;
   date: string; // ISO string
@@ -20,6 +29,7 @@ export type Transaction = {
   target?: string;
   sourceKey?: AccountKey;
   targetKey?: AccountKey;
+  sourceAccountId?: BaseAccountId;
 };
 
 export type OwnershipMap = Record<AccountKey, boolean>;
@@ -35,6 +45,15 @@ export type BudgetGuidanceItem = {
   differenceAmount: number;
   differenceDirection: "over" | "under";
 };
+
+// Centralized category and detection rules
+import {
+  isSubscriptionCategory,
+  isBillLikeCategory,
+  isBillishDescription,
+  matchesKnownMerchant,
+  budgetGuidelineRatios as rulesBudgetGuidelineRatios,
+} from "./categoryRules";
 
 const BANK_MERCHANTS = [
   "Navy Federal Credit Union",
@@ -62,6 +81,81 @@ const CREDIT_CARD_LABELS = [
   "American Express Blue Cash",
   "American Express Gold",
 ];
+
+// Generate random account numbers once per run for checking and savings accounts
+const generateAccountNumber = (): string => {
+  return Math.floor(100000000000 + Math.random() * 900000000000).toString();
+};
+
+let baseAccountsCache: BaseAccount[] | null = null;
+
+export const getBaseAccounts = (): BaseAccount[] => {
+  if (!baseAccountsCache) {
+    const checkingNumber = generateAccountNumber();
+    const savingsNumber = generateAccountNumber();
+    baseAccountsCache = [
+      {
+        id: "checking",
+        label: "Checking",
+        fullAccountNumber: checkingNumber,
+        last4: checkingNumber.slice(-4),
+      },
+      {
+        id: "savings",
+        label: "Savings",
+        fullAccountNumber: savingsNumber,
+        last4: savingsNumber.slice(-4),
+      },
+    ];
+  }
+  return baseAccountsCache;
+};
+
+export const getBaseAccount = (id: BaseAccountId): BaseAccount => {
+  const accounts = getBaseAccounts();
+  return accounts.find((acc) => acc.id === id)!;
+};
+
+export const formatBaseAccountLabel = (accountId: BaseAccountId, includeFullNumber = false): string => {
+  const account = getBaseAccount(accountId);
+  if (includeFullNumber) {
+    return `${account.label} ****${account.last4}`;
+  }
+  return `${account.label} -${account.last4}`;
+};
+
+// Helper to determine if a transaction should use ACH or Visa based on category/description
+const isAchTransaction = (category: string, description: string): boolean => {
+  const achCategories = ["Utilities", "Insurance", "Bills & services", "Rent", "Auto", "Education", "Loans"];
+  const achKeywords = ["insurance", "utility", "utilities", "internet", "mobile", "phone", "loan", "mortgage", "rent"];
+  
+  if (achCategories.includes(category)) return true;
+  
+  const lowerDesc = description.toLowerCase();
+  return achKeywords.some(keyword => lowerDesc.includes(keyword));
+};
+
+// Generate realistic single-sided transfer descriptions
+const generateTransferDescription = (
+  accountId: BaseAccountId,
+  direction: "to" | "from",
+  counterpartyLabel: string,
+  counterpartyLast4: string,
+): string => {
+  if (direction === "to") {
+    return `Transfer to ${counterpartyLabel} ${counterpartyLast4}`;
+  }
+  return `Transfer from ${counterpartyLabel} ${counterpartyLast4}`;
+};
+
+// Generate internal transfer between checking and savings
+const generateInternalTransferDescription = (
+  fromAccountId: BaseAccountId,
+  toAccountId: BaseAccountId,
+): string => {
+  const toAccount = getBaseAccount(toAccountId);
+  return `Transfer to ${toAccount.label} ${toAccount.last4}`;
+};
 
 const RENT_PAYEES = [
   "Greystone Apartments",
@@ -124,6 +218,7 @@ const STREAMING_VIDEO = [
   "Disney Plus",
   "Max",
   "Amazon Prime Video",
+  "Amazon Prime",
   "Apple TV Plus",
   "Peacock",
   "Paramount Plus",
@@ -149,6 +244,8 @@ const GROCERY_STORES = [
   "Publix",
   "Aldi",
   "Trader Joes",
+  "Whole Foods Market",
+  "Safeway",
 ];
 
 const FAST_FOOD_RESTAURANTS = [
@@ -164,7 +261,14 @@ const FAST_FOOD_RESTAURANTS = [
   "Panda Express",
 ];
 
-const COFFEE_SHOPS = ["Starbucks", "Dunkin", "Tim Hortons", "Dutch Bros Coffee"];
+const COFFEE_SHOPS = [
+  "Starbucks",
+  "Dunkin",
+  "Tim Hortons",
+  "Dutch Bros Coffee",
+  "Peets Coffee",
+  "Blue Bottle Coffee",
+];
 
 const CASUAL_DINING = [
   "Olive Garden",
@@ -175,6 +279,8 @@ const CASUAL_DINING = [
   "Red Lobster",
   "Outback Steakhouse",
   "Red Robin",
+  "Pizza Hut",
+  "Local Diner",
 ];
 
 const GAS_STATIONS = [
@@ -190,7 +296,17 @@ const GAS_STATIONS = [
   "Costco Gas",
 ];
 
-const RIDESHARE_AND_DELIVERY = ["Uber Rides", "Lyft Rides", "Uber Eats", "DoorDash", "Grubhub", "Instacart"];
+const RIDESHARE_AND_DELIVERY = [
+  "Uber Rides",
+  "Lyft Rides",
+  "Uber",
+  "Lyft",
+  "Metro Transit",
+  "Uber Eats",
+  "DoorDash",
+  "Grubhub",
+  "Instacart",
+];
 
 const RETAIL_SHOPS = [
   "Amazon Marketplace",
@@ -207,9 +323,19 @@ const RETAIL_SHOPS = [
 
 const PHARMACY_MERCHANTS = ["CVS Pharmacy", "Walgreens", "Walmart Pharmacy", "Costco Pharmacy"];
 
-const UTILITY_PROVIDERS = ["City Utilities", "Metro Energy", "Water & Power Co.", "Regional Electric", "Green Energy Services"];
+const UTILITY_PROVIDERS = [
+  "City Utilities",
+  "Metro Energy",
+  "Water & Power Co.",
+  "Regional Electric",
+  "Green Energy Services",
+  "PG&E",
+  "ComEd",
+  "Water Company",
+];
 
 const CAR_LENDERS = ["Ally Auto", "Capital One Auto", "Honda Finance", "Chase Auto", "Toyota Financial"];
+
 export const categoryEmojis: Record<string, string> = {
   Rent: "🏠",
   Groceries: "🛒",
@@ -787,51 +913,13 @@ export const transactions: Transaction[] = [
   },
 ];
 
-export const budgetGuidelineRatios: Record<string, number> = {
-  Rent: 0.3,
-  Transport: 0.15,
-  Subscriptions: 0.05,
-  Dining: 0.1,
-  "Bills & services": 0.15,
-};
+export const budgetGuidelineRatios: Record<string, number> = rulesBudgetGuidelineRatios;
 
 let sampleRunCounter = 0;
 
 export type OwnershipMode = "spending" | "payment" | "notMine";
 
-export type TransferAccount = {
-  id: AccountKey;
-  label: string;
-  ownedByDefault: boolean;
-  ending?: string;
-  accountType?: string;
-};
 
-export function getTransferAccounts(): TransferAccount[] {
-  return [
-    {
-      id: "navy_checking",
-      label: "Navy Federal checking",
-      ownedByDefault: true,
-      accountType: "Checking",
-      ending: "3124",
-    },
-    {
-      id: "cash_app",
-      label: "Cash App",
-      ownedByDefault: true,
-      accountType: "Wallet",
-      ending: "0884",
-    },
-    {
-      id: "visa_debit",
-      label: "Visa debit",
-      ownedByDefault: true,
-      accountType: "Debit card",
-      ending: "9921",
-    },
-  ];
-}
 
 export type AccountModeMap = Record<AccountKey, OwnershipMode>;
 
@@ -846,8 +934,8 @@ export function isInternalTransfer(
     accountModes?.[t.sourceKey] ?? (ownershipMap[t.sourceKey] ? ("spending" as OwnershipMode) : "notMine");
   const targetMode =
     accountModes?.[t.targetKey] ?? (ownershipMap[t.targetKey] ? ("spending" as OwnershipMode) : "notMine");
-  const sourceOwned = sourceMode !== "notMine" && ownershipMap[t.sourceKey] === true;
-  const targetOwned = targetMode !== "notMine" && ownershipMap[t.targetKey] === true;
+  const sourceOwned = sourceMode !== "notMine";
+  const targetOwned = targetMode !== "notMine";
   const bothOwned = sourceOwned && targetOwned;
   const eitherPayment = sourceMode === "payment" || targetMode === "payment";
   return bothOwned && !eitherPayment;
@@ -1034,7 +1122,7 @@ export function parseInstitutionAndLast4(
   ];
 
   noiseWords.forEach((word) => {
-    cleaned = cleaned.replace(new RegExp(`\\b${word}\\b`, "gi"), " ");
+    cleaned = cleaned.replace(new RegExp(`\b${word}\b`, "gi"), " ");
   });
 
   cleaned = cleaned.replace(/\s+/g, " ").trim();
@@ -1053,15 +1141,9 @@ const normalizeRecurringLabel = (description: string): string =>
 
 const isRecurringCandidate = (t: Transaction): boolean => {
   if (t.kind.startsWith("transfer")) return false;
-  const categoryLower = t.category.toLowerCase();
-  const isSubscription = t.kind === "subscription";
-  const isBillCategory =
-    categoryLower === "utilities" ||
-    categoryLower === "bills & services" ||
-    categoryLower === "bills";
-  const isPaymentDescription = /loan|mortgage|credit|card payment|car payment|auto payment|internet|wifi|phone|cable/i.test(
-    t.description,
-  );
+  const isSubscription = t.kind === "subscription" || isSubscriptionCategory(t.category);
+  const isBillCategory = isBillLikeCategory(t.category);
+  const isPaymentDescription = isBillishDescription(t.description);
   return isSubscription || isBillCategory || isPaymentDescription;
 };
 
@@ -1416,133 +1498,217 @@ const buildHouseholdProfile = (): HouseholdProfile => {
 };
 
 const applyProfileToTransaction = (t: Transaction, profile: HouseholdProfile): Transaction => {
-  const withEndings = (label: string, ending: string) => `${label} ending ${ending}`;
-  const primaryLabel = withEndings(profile.primaryChecking.label, profile.primaryChecking.ending);
-  const walletLabel = withEndings(profile.wallet.label, profile.wallet.ending);
-  const paymentLabel = withEndings(profile.paymentAccount.label, profile.paymentAccount.ending);
-
   const tx = { ...t };
   const desc = tx.description.toLowerCase();
 
+  // Handle internal transfers - use realistic single-sided descriptions with last4
   if (tx.kind === "transferInternal") {
-    if (desc.includes("checking") || desc.includes("transfer from checking")) {
-      tx.description = `Transfer from ${primaryLabel} to ${walletLabel}`;
-      tx.source = primaryLabel;
-      tx.target = walletLabel;
-      tx.sourceKey = "navy_checking";
-      tx.targetKey = "cash_app";
-    } else if (desc.includes("cash app transfer") || desc.includes("cash out to card")) {
-      tx.description = `Cash App transfer to ${paymentLabel}`;
-      tx.source = walletLabel;
-      tx.target = paymentLabel;
-      tx.sourceKey = "cash_app";
-      tx.targetKey = "visa_debit";
-    } else if (desc.includes("cash out")) {
-      tx.description = `Transfer from ${walletLabel} to ${paymentLabel}`;
-      tx.source = walletLabel;
-      tx.target = paymentLabel;
-      tx.sourceKey = "cash_app";
-      tx.targetKey = "visa_debit";
-    } else if (desc.includes("added from primary checking")) {
-      tx.description = `Added from ${primaryLabel}`;
-      tx.source = primaryLabel;
-      tx.target = walletLabel;
-      tx.sourceKey = "navy_checking";
-      tx.targetKey = "cash_app";
+    const walletLabel = profile.wallet.label;
+    const walletLast4 = profile.wallet.ending;
+    
+    if (tx.sourceKey === "navy_checking" && tx.targetKey === "cash_app") {
+      // Transfer from checking to external wallet
+      tx.description = generateTransferDescription("checking", "to", walletLabel, walletLast4);
+      tx.source = formatBaseAccountLabel("checking");
+      tx.target = `${walletLabel} ${walletLast4}`;
+    } else if (tx.sourceKey === "cash_app" && tx.targetKey === "visa_debit") {
+      // Transfer from wallet to payment card - not shown in our demo checking/savings
+      const paymentLast4 = profile.paymentAccount.ending;
+      tx.description = generateTransferDescription("checking", "to", profile.paymentAccount.label, paymentLast4);
+      tx.source = `${walletLabel} ${walletLast4}`;
+      tx.target = `${profile.paymentAccount.label} ${paymentLast4}`;
     }
     return tx;
   }
 
-  if (tx.category === "Groceries" || desc.includes("grocery") || desc.includes("market")) {
+  // Use matchesKnownMerchant for more reliable category-based assignments
+  // Apply ACH or VISA prefix based on transaction type
+  if (matchesKnownMerchant(desc, "Groceries")) {
     const store = pickOne(profile.merchants.grocery);
-    tx.description = `Groceries - ${store}`;
+    const useAch = isAchTransaction("Groceries", tx.description);
+    tx.description = useAch ? `ACH - ${store}` : `VISA *${store}`;
     tx.target = store;
-  } else if (tx.category === "Dining" || desc.includes("dinner") || desc.includes("lunch") || desc.includes("brunch") || desc.includes("takeout") || desc.includes("food")) {
+    tx.category = "Groceries";
+  } else if (matchesKnownMerchant(desc, "Dining")) {
     if (desc.includes("coffee")) {
       const shop = pickOne(profile.merchants.coffee);
-      tx.description = `Coffee - ${shop}`;
+      tx.description = `VISA *${shop}`;
       tx.target = shop;
     } else if (desc.includes("food truck") || desc.includes("quick") || desc.includes("fast")) {
       const spot = pickOne(profile.merchants.fastFood);
-      tx.description = `Dining - ${spot}`;
+      tx.description = `VISA *${spot}`;
       tx.target = spot;
     } else {
       const spot = pickOne(profile.merchants.casualDining);
-      tx.description = `Dining - ${spot}`;
+      tx.description = `VISA *${spot}`;
       tx.target = spot;
     }
-  } else if (desc.includes("ride-share") || desc.includes("rideshare")) {
+    tx.category = "Dining";
+  } else if (matchesKnownMerchant(desc, "Transport")) {
     const ride = pickOne(profile.merchants.rideshare);
-    tx.description = `${ride} trip`;
+    tx.description = `VISA *${ride}`;
     tx.target = ride;
-  } else if (desc.includes("rent") || desc.includes("mortgage")) {
-    tx.description = `${profile.billers.rentPayee} rent`;
+    tx.category = "Transport";
+  } else if (matchesKnownMerchant(desc, "Rent")) {
+    tx.description = `ACH - ${profile.billers.rentPayee}`;
     tx.target = profile.billers.rentPayee;
-  } else if (desc.includes("internet")) {
-    tx.description = `${profile.billers.internet} internet`;
-    tx.target = profile.billers.internet;
-  } else if (desc.includes("mobile plan") || desc.includes("mobile")) {
-    tx.description = `${profile.billers.mobile} mobile plan`;
-    tx.target = profile.billers.mobile;
-  } else if (desc.includes("music subscription") || desc.includes("music")) {
-    tx.description = `${profile.billers.music} subscription`;
-    tx.target = profile.billers.music;
-  } else if (desc.includes("streaming")) {
-    tx.description = `${profile.billers.streaming} subscription`;
-    tx.target = profile.billers.streaming;
-  } else if (desc.includes("gym")) {
-    tx.description = `${profile.billers.gym} membership`;
-    tx.target = profile.billers.gym;
-  } else if (desc.includes("utilities") || desc.includes("electric")) {
-    tx.description = `${profile.billers.utility} bill`;
+    tx.category = "Rent";
+  } else if (matchesKnownMerchant(desc, "Utilities")) {
+    tx.description = `ACH - ${profile.billers.utility}`;
     tx.target = profile.billers.utility;
-  } else if (desc.includes("auto insurance")) {
-    tx.description = `${profile.billers.autoInsurance} auto insurance`;
-    tx.target = profile.billers.autoInsurance;
-    tx.category = "Bills & services";
-  } else if (desc.includes("health insurance")) {
-    tx.description = `${profile.billers.healthInsurance} health insurance`;
-    tx.target = profile.billers.healthInsurance;
-    tx.category = "Bills & services";
-  } else if (desc.includes("car payment")) {
-    tx.description = `${profile.billers.carLender} car payment`;
-    tx.target = profile.billers.carLender;
-  } else if (desc.includes("loan payment")) {
-    tx.description = `${profile.billers.studentLoan} payment`;
-    tx.target = profile.billers.studentLoan;
-  } else if (desc.includes("college tuition")) {
-    tx.description = `${profile.billers.studentLoan} tuition`;
-    tx.target = profile.billers.studentLoan;
-  } else if (desc.includes("gas station") || desc.includes("gas -")) {
-    tx.description = `${profile.billers.gasBrand} fuel`;
-    tx.target = profile.billers.gasBrand;
-  } else if (desc.includes("pharmacy") || desc.includes("health")) {
-    const pharm = pickOne(profile.merchants.pharmacy);
-    tx.description = `${pharm}`;
-    tx.target = pharm;
-  } else if (desc.includes("cloud") || desc.includes("storage")) {
-    tx.description = `${profile.merchants.cloud} storage`;
-    tx.target = profile.merchants.cloud;
+    tx.category = "Utilities";
+  } else if (matchesKnownMerchant(desc, "Subscriptions")) {
+    if (desc.includes("music")) {
+      tx.description = `ACH - ${profile.billers.music}`;
+      tx.target = profile.billers.music;
+    } else if (desc.includes("cloud") || desc.includes("storage")) {
+      tx.description = `${profile.merchants.cloud} storage`;
+      tx.target = profile.merchants.cloud;
+    } else if (desc.includes("internet")) {
+      tx.description = `ACH - ${profile.billers.internet}`;
+      tx.target = profile.billers.internet;
+    } else if (desc.includes("mobile")) {
+      tx.description = `ACH - ${profile.billers.mobile}`;
+      tx.target = profile.billers.mobile;
+    } else {
+      tx.description = `${profile.billers.streaming} subscription`;
+      tx.target = profile.billers.streaming;
+    }
     tx.category = "Subscriptions";
-  } else if (desc.includes("card") && tx.kind === "expense") {
-    tx.source = paymentLabel;
-  } else if (desc.includes("amazon") || desc.includes("shopping") || tx.category === "Other") {
+  } else if (matchesKnownMerchant(desc, "Bills & services")) {
+    if (desc.includes("mobile")) {
+      tx.description = `ACH - ${profile.billers.mobile}`;
+      tx.target = profile.billers.mobile;
+    } else if (desc.includes("insurance")) {
+      tx.description = `ACH - ${profile.billers.autoInsurance}`;
+      tx.target = profile.billers.autoInsurance;
+    } else if (desc.includes("loan")) {
+      tx.description = `ACH - ${profile.billers.studentLoan}`;
+      tx.target = profile.billers.studentLoan;
+    }
+    tx.category = "Bills & services";
+  } else if (matchesKnownMerchant(desc, "Auto")) {
+    tx.description = `ACH - ${profile.billers.carLender}`;
+    tx.target = profile.billers.carLender;
+    tx.category = "Auto";
+  } else if (matchesKnownMerchant(desc, "Other")) {
     const shop = pickOne(profile.merchants.retail);
     tx.target = tx.target ?? shop;
     tx.description = tx.description.includes("Amazon")
-      ? tx.description
-      : `${shop} purchase`;
-  }
-
-  if (tx.category === "Transfer" && tx.kind !== "transferInternal") {
-    tx.source = primaryLabel;
-  }
-
-  if (tx.target?.toLowerCase().includes("checking")) {
-    tx.target = primaryLabel;
+      ? `VISA *Amazon`
+      : `VISA *${shop}`;
+    tx.category = "Other";
   }
 
   return tx;
+};
+
+/**
+ * Lovable style amount logic:
+ *   subscriptions and bills stay very close to their base prices
+ *   income moves a few percent around base
+ *   transfers stay clean round numbers near base
+ *   groceries, dining, transport, fees use realistic ranges by type
+ */
+const getRandomizedAmount = (template: Transaction, profiled: Transaction): number => {
+  const baseSource = profiled.amount !== 0 ? profiled : template;
+  const baseAmountRaw = baseSource.amount;
+  const sign = Math.sign(baseAmountRaw) || 1;
+  const base = Math.abs(baseAmountRaw);
+
+  const category = (profiled.category || template.category);
+  const kind = profiled.kind || template.kind;
+  const desc = (profiled.description || template.description).toLowerCase();
+
+  // income: keep close to template paycheck and bonus
+  if (kind === "income") {
+    const min = base * 0.98;
+    const max = base * 1.02;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // internal transfers: keep neat whole numbers near base
+  if (kind === "transferInternal") {
+    const step = base >= 500 ? 50 : 20;
+    const direction = Math.random() < 0.5 ? -1 : 1;
+    const jitter = step * Math.floor(Math.random() * 3) * direction; // 0, 1, or 2 steps
+    const val = Math.max(20, base + jitter);
+    return Math.round(val / 10) * 10 * sign; // round to nearest 10
+  }
+
+  const isSubscription = kind === "subscription" || isSubscriptionCategory(category);
+  const isBill = isBillLikeCategory(category) || isBillishDescription(desc);
+
+  // recurring bills and subscriptions: very little jitter
+  if (isSubscription || isBill) {
+    const min = base * 0.99;
+    const max = base * 1.01;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // groceries: realistic bands for small vs large trips
+  if (category === "Groceries") {
+    const isSmallTrip = base < 50 || desc.includes("quick") || desc.includes("corner");
+    const min = isSmallTrip ? 15 : 70;
+    const max = isSmallTrip ? 60 : 220;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // dining: separate coffee, fast food, and casual dining
+  if (category === "Dining") {
+    if (desc.includes("coffee")) {
+      const min = 4;
+      const max = 18;
+      const val = min + Math.random() * (max - min);
+      return Number((val * sign).toFixed(2));
+    }
+    const min = 12;
+    const max = 85;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // transport: rides vs gas
+  if (category === "Transport") {
+    if (desc.includes("fuel") || desc.includes("gas")) {
+      const min = 35;
+      const max = 85;
+      const val = min + Math.random() * (max - min);
+      return Number((val * sign).toFixed(2));
+    }
+    const min = 8;
+    const max = 45;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // fees: tight, small, believable bands
+  if (category === "Fees") {
+    if (base <= 5) {
+      return Number(((2.5 + Math.random() * 2) * sign).toFixed(2)); // e.g., ATM fee
+    }
+    if (base > 5 && base < 20) {
+      return Number(((5 + Math.random() * 10) * sign).toFixed(2)); // e.g., service fee
+    }
+    return Number(((20 + Math.random() * 15) * sign).toFixed(2)); // e.g., late fee
+  }
+
+  // generic expenses and other spending
+  if (kind === "expense") {
+    const min = 10;
+    const max = 250;
+    const val = min + Math.random() * (max - min);
+    return Number((val * sign).toFixed(2));
+  }
+
+  // fallback: gentle jitter around base
+  const min = base * 0.95;
+  const max = base * 1.05;
+  const val = min + Math.random() * (max - min);
+  return Number((val * sign).toFixed(2));
 };
 
 export function generateSampleStatement(
@@ -1591,24 +1757,80 @@ export function generateSampleStatement(
     transactions.map((t, index) => {
       const profiled = applyProfileToTransaction(t, profile);
       const day = Math.floor(Math.random() * 28) + 1;
-      const newDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const newDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(
+        2,
+        "0",
+      )}`;
 
-      const sign = Math.sign(profiled.amount) || 1;
-      const baseAmount = Math.abs(profiled.amount);
-      const stableAmountIds = new Set(["t52", "t53", "t54", "t55"]);
-      const factor = stableAmountIds.has(t.id) ? 1 : 0.85 + Math.random() * 0.3; // 0.85 - 1.15
-      const amount = Number((baseAmount * factor * sign).toFixed(2));
+      const amount = getRandomizedAmount(t, profiled);
+
+      // Assign source account ID - default to checking for all transactions
+      // In real implementation, savings transactions would be added separately
+      const sourceAccountId: BaseAccountId = "checking";
 
       return {
         ...profiled,
         id: `run-${runId}-m${monthIndex}-t${index}`,
         date: newDate,
         amount,
+        sourceAccountId,
       };
     }),
   );
 
-  return generated.sort(
+  // Add some savings-specific transactions for each month
+  const savingsTransactions = monthsInRange.flatMap(({ month, year }, monthIndex) => {
+    const savingsMonth: Transaction[] = [];
+    
+    // Interest earned (once per month, on first day)
+    savingsTransactions.push({
+      id: `run-${runId}-m${monthIndex}-savings-interest`,
+      date: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+      description: "Interest earned",
+      amount: Number((0.5 + Math.random() * 2).toFixed(2)),
+      category: "Income",
+      kind: "income",
+      source: formatBaseAccountLabel("savings"),
+      target: "Savings",
+      sourceAccountId: "savings",
+    });
+    
+    // Internal transfer to checking (mid-month, about 50% of months)
+    if (Math.random() > 0.5) {
+      savingsTransactions.push({
+        id: `run-${runId}-m${monthIndex}-savings-to-checking`,
+        date: `${year}-${String(month + 1).padStart(2, "0")}-${String(Math.floor(Math.random() * 10) + 10).padStart(2, "0")}`,
+        description: generateInternalTransferDescription("savings", "checking"),
+        amount: -(200 + Math.floor(Math.random() * 500)),
+        category: "Transfer",
+        kind: "transferInternal",
+        source: formatBaseAccountLabel("savings"),
+        target: formatBaseAccountLabel("checking"),
+        sourceAccountId: "savings",
+        targetKey: "checking_internal",
+      });
+    }
+    
+    // Internal transfer from checking (late month, about 60% of months)
+    if (Math.random() > 0.4) {
+      savingsTransactions.push({
+        id: `run-${runId}-m${monthIndex}-checking-to-savings`,
+        date: `${year}-${String(month + 1).padStart(2, "0")}-${String(Math.floor(Math.random() * 5) + 20).padStart(2, "0")}`,
+        description: generateInternalTransferDescription("checking", "savings"),
+        amount: 500 + Math.floor(Math.random() * 1500),
+        category: "Transfer",
+        kind: "transferInternal",
+        source: formatBaseAccountLabel("checking"),
+        target: formatBaseAccountLabel("savings"),
+        sourceAccountId: "checking",
+        targetKey: "savings_internal",
+      });
+    }
+    
+    return savingsMonth;
+  });
+
+  return [...generated, ...savingsTransactions].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
 }

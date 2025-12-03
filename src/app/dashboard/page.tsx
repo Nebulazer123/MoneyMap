@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   accountTypeOptions,
-  categoryOptions,
   internetGuideline,
   STORAGE_FLOW_KEY,
   STORAGE_STATEMENT_KEY,
   STORAGE_TAB_KEY,
   transportGuideline,
-  type OverviewGroupKey,
   type TabId,
 } from "../../lib/dashboard/config";
+import { CATEGORY_NAMES } from "../../lib/categoryRules";
 import { useDuplicates } from "./hooks/useDuplicates";
 import { useExpansionState } from "./hooks/useExpansionState";
 import { useDateRange } from "./hooks/useDateRange";
@@ -37,7 +36,6 @@ export default function DemoPage() {
 
   const contentRef = useRef<HTMLDivElement>(null);
   const [flashContent, setFlashContent] = useState(false);
-  const [liveMsg, setLiveMsg] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
@@ -128,6 +126,9 @@ export default function DemoPage() {
     handleSaveNewAccount,
     suggestedAccountTransactions,
     transferTransactions,
+    unassignedTransferTransactions,
+    assignedTransactionIds,
+    attachTransactionsToAccount,
     resetAccounts,
     detectedAccountCandidates,
     candidateDrafts,
@@ -156,12 +157,9 @@ export default function DemoPage() {
     feeRows,
     totalFees,
     recurringRows,
-    categoryBreakdown,
     budgetGuidance,
     topSpendingCategories,
     groupedSpendingData,
-    resolvedActiveSpendingGroup,
-    groupedTransactionsByGroup,
     subscriptionRows,
     leftAfterBills,
     transportPercent,
@@ -379,20 +377,20 @@ export default function DemoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_TAB_KEY, activeTab);
-    const tabLabel =
-      activeTab === "overview"
-        ? "Overview"
-        : activeTab === "recurring"
-        ? "Subscriptions"
-        : activeTab === "fees"
-        ? "Fees"
-        : activeTab === "cashflow"
-        ? "Cash flow"
-        : activeTab === "review"
-        ? "Review"
-        : activeTab;
-    setLiveMsg(`Active tab: ${tabLabel}`);
   }, [activeTab]);
+
+  const tabLabel =
+    activeTab === "overview"
+      ? "Overview"
+      : activeTab === "recurring"
+      ? "Subscriptions"
+      : activeTab === "fees"
+      ? "Fees"
+      : activeTab === "cashflow"
+      ? "Cash flow"
+      : activeTab === "review"
+      ? "Review"
+      : activeTab;
 
   return (
     <div
@@ -518,7 +516,7 @@ export default function DemoPage() {
         statementTransactions={statementTransactions}
         currency={currency}
         dateFormatter={dateFormatter}
-        categoryOptions={categoryOptions}
+        categoryOptions={CATEGORY_NAMES}
         normalizedRange={normalizedRange}
         onAddTransaction={handleAddTransaction}
         onChangeCategory={handleUpdateTransactionCategory}
@@ -580,7 +578,7 @@ export default function DemoPage() {
         ref={contentRef}
         className={`space-y-6 sm:space-y-8 animate-fade-rise ${flashContent ? "ring-2 ring-purple-300/50" : ""}`}
       >
-        <div aria-live="polite" role="status" className="sr-only">{liveMsg}</div>
+        <div aria-live="polite" role="status" className="sr-only">Active tab: {tabLabel}</div>
         {showResults && (
           <TabsBar activeTab={activeTab} onSelectTab={setActiveTab} isEditing={isEditing} onToggleEditing={handleToggleEditing} />
         )}
@@ -592,7 +590,6 @@ export default function DemoPage() {
             groupedSpendingData={groupedSpendingData}
             activeCategoryIds={activeSpendingCategories}
             onSelectGroup={(categories) => setActiveSpendingCategories(categories)}
-            categoryBreakdown={categoryBreakdown}
             overviewTransactions={overviewTransactions}
             flowStep={flowStep}
           />
@@ -661,7 +658,7 @@ export default function DemoPage() {
             editingAccountName={editingAccountName}
             editingAccountType={editingAccountType}
             setEditingAccountName={setEditingAccountName}
-            setEditingAccountType={(type: string) => setEditingAccountType(type as any)}
+            setEditingAccountType={(type: string) => setEditingAccountType(type as "Checking" | "Savings" | "Credit card" | "Wallet" | "Loan" | "Other")}
             startEditingAccount={startEditingAccount}
             handleSaveEditedAccount={handleSaveEditedAccount}
             handleDeleteAccount={handleDeleteAccount}
@@ -676,6 +673,9 @@ export default function DemoPage() {
             addBaseTransactionId={addBaseTransactionId}
             setAddBaseTransactionId={setAddBaseTransactionId}
             transferTransactions={transferTransactions}
+            unassignedTransferTransactions={unassignedTransferTransactions}
+            assignedTransactionIds={assignedTransactionIds}
+            attachTransactionsToAccount={attachTransactionsToAccount}
             suggestedAccountTransactions={suggestedAccountTransactions}
             selectedAccountTxIds={selectedAccountTxIds}
             setSelectedAccountTxIds={setSelectedAccountTxIds}

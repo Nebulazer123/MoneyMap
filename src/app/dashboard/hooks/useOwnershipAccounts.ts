@@ -2,15 +2,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   accountTypeLabels,
-  accountTypeOptions,
   STORAGE_ACCOUNT_OVERRIDES_KEY,
   STORAGE_CUSTOM_ACCOUNTS_KEY,
   STORAGE_HIDDEN_ACCOUNTS_KEY,
   STORAGE_OWNERSHIP_MODES_KEY,
   STORAGE_STATEMENT_KEY,
 } from "../../../lib/dashboard/config";
-import { parseInstitutionAndLast4, type Transaction, TransferAccount, OwnershipMode, OwnershipMap } from "../../../lib/fakeData";
-import { descriptionKey, titleCase } from "../../../lib/dashboard/categories";
+import { parseInstitutionAndLast4, type Transaction, OwnershipMode, OwnershipMap } from "../../../lib/fakeData";
+import { titleCase } from "../../../lib/dashboard/categories";
+
+export type TransferAccount = {
+  id: string;
+  label: string;
+  ownedByDefault: boolean;
+  accountType?: string;
+  ending?: string;
+  matchedTransactionIds?: string[]; // Track which transactions are assigned to this account
+};
 
 const loadCustomAccounts = (): TransferAccount[] => {
   try {
@@ -19,7 +27,11 @@ const loadCustomAccounts = (): TransferAccount[] => {
       if (stored) {
         const parsed = JSON.parse(stored) as TransferAccount[];
         if (Array.isArray(parsed)) {
-          return parsed;
+          // Ensure matchedTransactionIds exists
+          return parsed.map(acc => ({
+            ...acc,
+            matchedTransactionIds: acc.matchedTransactionIds ?? [],
+          }));
         }
       }
     }
@@ -113,24 +125,25 @@ const extractLabelAndLast4 = (raw: string) => {
   return { label, last4: last4 ?? undefined };
 };
 
-const parseTransferSides = (description: string) => {
-  const match = description.match(/from\s+(.*?)\s+(?:to|->)\s+(.*)/i);
-  if (match) {
-    const fromRaw = match[1]?.trim() ?? "";
-    const toRaw = match[2]?.trim() ?? "";
-    const from = extractLabelAndLast4(fromRaw);
-    const to = extractLabelAndLast4(toRaw);
-    return [
-      { ...from, side: "source" as const },
-      { ...to, side: "target" as const },
-    ];
+// Normalize transfer description into unique account key
+// Strips "Transfer to/from" prefix and extracts account name + last4
+const normalizeTransferAccountKey = (description: string): string => {
+  // Strip "Transfer to/from" prefix that fakeData.ts now uses
+  let cleaned = description.replace(/^transfer\s+(to|from)\s+/i, "").trim();
+  
+  // Extract last 4 digits if present
+  const last4Match = cleaned.match(/\b([0-9]{4})\s*$/i);
+  const last4 = last4Match ? last4Match[1] : null;
+  
+  // Remove last4 from label
+  if (last4) {
+    cleaned = cleaned.replace(/\b[0-9]{4}\s*$/, "").trim();
   }
-  const parsed = parseInstitutionAndLast4(description);
-  if (parsed.institution) {
-    const { label, last4 } = extractLabelAndLast4(parsed.institution);
-    return [{ label, last4, side: "source" as const }];
-  }
-  return [];
+  
+  // Normalize spacing and case
+  const normalized = cleaned.toLowerCase().replace(/\s+/g, " ").trim();
+  
+  return `${normalized}::${last4 ?? ""}`;
 };
 
 export function useOwnershipAccounts({
@@ -143,30 +156,28 @@ export function useOwnershipAccounts({
   setFullStatementTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
 }) {
   const deriveAccountsFromTransactions = useCallback((list: Transaction[]): TransferAccount[] => {
-    const counts = new Map<string, { label: string; ending?: string; accountType?: string; count: number }>();
+    const accountMap = new Map<string, { label: string; ending?: string; accountType?: string; count: number; txIds: string[] }>();
+    
     list
       .filter((t) => t.kind.startsWith("transfer"))
       .forEach((t) => {
-        const candidates = [t.source, t.target].filter(Boolean) as string[];
-        const parsed = parseInstitutionAndLast4(t.description);
-        if (parsed.institution) {
-          candidates.push(parsed.institution);
-        }
-        candidates.forEach((raw) => {
-          const label = titleCase(raw);
-          const ending = parsed.last4 ?? undefined;
-          const key = `${label.toLowerCase()}::${ending ?? ""}`;
-          const existing = counts.get(key) ?? {
-            label,
-            ending,
-            accountType: inferAccountTypeFromLabel(label),
-            count: 0,
-          };
-          existing.count += 1;
-          counts.set(key, existing);
-        });
+        // Use new normalization that understands "Transfer to/from X YYYY" format
+        const accountKey = normalizeTransferAccountKey(t.description);
+        const parsed = extractLabelAndLast4(t.description.replace(/^transfer\s+(to|from)\s+/i, ""));
+        
+        const existing = accountMap.get(accountKey) ?? {
+          label: parsed.label || "Account",
+          ending: parsed.last4,
+          accountType: inferAccountTypeFromLabel(parsed.label || "Account"),
+          count: 0,
+          txIds: [],
+        };
+        existing.count += 1;
+        existing.txIds.push(t.id);
+        accountMap.set(accountKey, existing);
       });
-    return Array.from(counts.values())
+    
+    return Array.from(accountMap.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
       .map((item, idx) => ({
@@ -175,6 +186,7 @@ export function useOwnershipAccounts({
         ownedByDefault: true,
         ending: item.ending,
         accountType: item.accountType,
+        matchedTransactionIds: item.txIds,
       }));
   }, []);
 
@@ -262,10 +274,24 @@ export function useOwnershipAccounts({
   const [editingAccountType, setEditingAccountType] = useState<AccountTypeLabel>("Checking");
   const [claimedCandidateKeys, setClaimedCandidateKeys] = useState<Set<string>>(new Set());
   const [candidateDrafts, setCandidateDrafts] = useState<Record<string, CandidateDraft>>({});
+  
+  // Track which transaction IDs are assigned to accounts
+  const [accountAssignments, setAccountAssignments] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     setOwnership(deriveOwnershipFromModes(ownershipModes));
   }, [ownershipModes]);
+  
+  // Initialize account assignments from matchedTransactionIds
+  useEffect(() => {
+    const assignments: Record<string, string[]> = {};
+    transferAccounts.forEach(acc => {
+      if (acc.matchedTransactionIds && acc.matchedTransactionIds.length > 0) {
+        assignments[acc.id] = [...acc.matchedTransactionIds];
+      }
+    });
+    setAccountAssignments(assignments);
+  }, [transferAccounts]);
 
   useEffect(() => {
     const activeIds = new Set(transferAccounts.map((acc) => acc.id));
@@ -327,6 +353,26 @@ export function useOwnershipAccounts({
     });
     return keys;
   }, [transferAccounts]);
+  
+  // Build set of all assigned transaction IDs across all accounts
+  const assignedTransactionIds = useMemo(() => {
+    const assigned = new Set<string>();
+    transferAccounts.forEach((acc) => {
+      const txIds = accountAssignments[acc.id] ?? acc.matchedTransactionIds ?? [];
+      txIds.forEach(id => assigned.add(id));
+    });
+    // Also include transactions being actively edited in manual-add
+    if (isAddingAccount) {
+      selectedAccountTxIds.forEach(id => assigned.add(id));
+    }
+    return assigned;
+  }, [transferAccounts, accountAssignments, isAddingAccount, selectedAccountTxIds]);
+  
+  // Compute unassigned transfer transactions (available for manual-add)
+  const unassignedTransferTransactions = useMemo(
+    () => transferTransactions.filter(tx => !assignedTransactionIds.has(tx.id)),
+    [transferTransactions, assignedTransactionIds],
+  );
 
   const availableTransferTransactions = useMemo(
     () =>
@@ -342,30 +388,37 @@ export function useOwnershipAccounts({
 
   const detectedAccountCandidates: CandidateAccount[] = useMemo(() => {
     const candidates = new Map<string, CandidateAccount>();
-    transferTransactions.forEach((tx) => {
-      const sides = parseTransferSides(tx.description);
-      sides.forEach((side) => {
-        if (side.side === "source" && tx.sourceKey && transferAccountIds.has(tx.sourceKey)) return;
-        if (side.side === "target" && tx.targetKey && transferAccountIds.has(tx.targetKey)) return;
-        const baseLabel = side.label || tx.source || tx.target || "Account";
-        const key = candidateKey(baseLabel, side.last4);
-        if (existingAccountKeys.has(key) || claimedCandidateKeys.has(key)) return;
-        const accountType = inferAccountTypeFromLabel(baseLabel);
-        const existing = candidates.get(key) ?? {
-          key,
-          label: baseLabel,
-          ending: side.last4,
-          accountType,
-          transactions: [],
-          count: 0,
-        };
-        existing.transactions.push({ tx, side: side.side });
-        existing.count += 1;
-        candidates.set(key, existing);
-      });
+    
+    // Only consider unassigned transactions for candidates
+    unassignedTransferTransactions.forEach((tx) => {
+      // Use new normalization for consistent account identity
+      const accountKey = normalizeTransferAccountKey(tx.description);
+      
+      // Skip if this key already exists as an account or was claimed
+      if (existingAccountKeys.has(accountKey) || claimedCandidateKeys.has(accountKey)) return;
+      
+      const parsed = extractLabelAndLast4(tx.description.replace(/^transfer\s+(to|from)\s+/i, ""));
+      const baseLabel = parsed.label || "Account";
+      const accountType = inferAccountTypeFromLabel(baseLabel);
+      
+      const existing = candidates.get(accountKey) ?? {
+        key: accountKey,
+        label: baseLabel,
+        ending: parsed.last4,
+        accountType,
+        transactions: [],
+        count: 0,
+      };
+      
+      // Determine side based on transaction flow
+      const side: "source" | "target" = tx.amount < 0 ? "source" : "target";
+      existing.transactions.push({ tx, side });
+      existing.count += 1;
+      candidates.set(accountKey, existing);
     });
+    
     return Array.from(candidates.values()).sort((a, b) => b.count - a.count);
-  }, [claimedCandidateKeys, existingAccountKeys, transferAccountIds, transferTransactions]);
+  }, [unassignedTransferTransactions, existingAccountKeys, claimedCandidateKeys]);
 
   useEffect(() => {
     setCandidateDrafts((prev) => {
@@ -382,11 +435,11 @@ export function useOwnershipAccounts({
   }, [detectedAccountCandidates]);
 
   useEffect(() => {
-    if (isAddingAccount && !addBaseTransactionId && transferTransactions.length > 0) {
-      const first = transferTransactions[0];
+    if (isAddingAccount && !addBaseTransactionId && unassignedTransferTransactions.length > 0) {
+      const first = unassignedTransferTransactions[0];
       setAddBaseTransactionId(first.id);
     }
-  }, [isAddingAccount, addBaseTransactionId, transferTransactions]);
+  }, [isAddingAccount, addBaseTransactionId, unassignedTransferTransactions]);
 
   const baseAccountParse = useMemo(() => {
     const baseTx = fullStatementTransactions.find((tx) => tx.id === addBaseTransactionId);
@@ -396,33 +449,18 @@ export function useOwnershipAccounts({
 
   const suggestedAccountTransactions = useMemo(() => {
     if (!addBaseTransactionId) return [];
-    const baseTx = fullStatementTransactions.find((tx) => tx.id === addBaseTransactionId);
+    const baseTx = unassignedTransferTransactions.find((tx) => tx.id === addBaseTransactionId);
     if (!baseTx) return [];
-    const baseParsed = parseInstitutionAndLast4(baseTx.description);
-    const baseKey = descriptionKey(baseTx.description);
-    const keywordPattern = /(added|transfer|payment|to|from)/i;
-    return fullStatementTransactions.filter((tx) => {
+    
+    // Use normalized key matching for consistent grouping
+    const baseAccountKey = normalizeTransferAccountKey(baseTx.description);
+    
+    return unassignedTransferTransactions.filter((tx) => {
       if (tx.id === addBaseTransactionId) return true;
-      const parsed = parseInstitutionAndLast4(tx.description);
-      const descLower = tx.description.toLowerCase();
-      const looksTransfer = keywordPattern.test(descLower);
-      const last4Match =
-        baseParsed.last4 !== null && parsed.last4 !== null && baseParsed.last4 === parsed.last4;
-      const institutionMatch =
-        baseParsed.institution !== null &&
-        parsed.institution !== null &&
-        baseParsed.institution === parsed.institution &&
-        looksTransfer;
-      const fallback =
-        (baseParsed.institution === null && baseParsed.last4 === null) ||
-        (parsed.institution === null && parsed.last4 === null);
-      if (last4Match || institutionMatch) return true;
-      if (fallback) {
-        return descriptionKey(tx.description) === baseKey;
-      }
-      return false;
+      const txAccountKey = normalizeTransferAccountKey(tx.description);
+      return txAccountKey === baseAccountKey;
     });
-  }, [addBaseTransactionId, fullStatementTransactions]);
+  }, [addBaseTransactionId, unassignedTransferTransactions]);
 
   useEffect(() => {
     if (!addBaseTransactionId) {
@@ -530,19 +568,25 @@ export function useOwnershipAccounts({
     if (!addAccountName.trim() || selectedAccountTxIds.size === 0) return;
     const newId = `account_${Date.now()}`;
     const accountType = addAccountType;
-    const baseTx = fullStatementTransactions.find((tx) => tx.id === addBaseTransactionId);
-    const parsed = baseTx ? parseInstitutionAndLast4(baseTx.description) : { institution: null, last4: null };
-    const institutionTitle = parsed.institution ? titleCase(parsed.institution) : addAccountName.trim();
-    const accountLabelBase = `${institutionTitle} ${accountType.toLowerCase()}`.trim();
+    const baseTx = unassignedTransferTransactions.find((tx) => tx.id === addBaseTransactionId);
+    const parsed = baseTx ? extractLabelAndLast4(baseTx.description.replace(/^transfer\s+(to|from)\s+/i, "")) : { label: null, last4: null };
+    const institutionTitle = parsed.label ? titleCase(parsed.label) : addAccountName.trim();
+    const accountLabelBase = institutionTitle;
     const displayLabel = parsed.last4 ? `${accountLabelBase} ending ${parsed.last4}` : accountLabelBase;
+    
+    const matchedTxIds = Array.from(selectedAccountTxIds);
     const newAccount: TransferAccount = {
       id: newId,
       label: accountLabelBase,
       ownedByDefault: true,
       accountType,
       ending: parsed.last4 ?? undefined,
+      matchedTransactionIds: matchedTxIds,
     };
+    
     setCustomAccounts((prev) => [...prev, newAccount]);
+    setAccountAssignments((prev) => ({ ...prev, [newId]: matchedTxIds }));
+    
     setOwnershipModes((prev) => {
       const next = { ...prev, [newId]: defaultModeForAccountType(accountType) };
       if (typeof window !== "undefined") {
@@ -550,6 +594,7 @@ export function useOwnershipAccounts({
       }
       return next;
     });
+    
     setFullStatementTransactions((prev) => {
       const updated = prev.map((tx) => {
         if (!selectedAccountTxIds.has(tx.id)) return tx;
@@ -574,6 +619,7 @@ export function useOwnershipAccounts({
       }
       return updated;
     });
+    
     setIsAddingAccount(false);
     setAddAccountName("");
     setAddAccountTypeState("Checking");
@@ -591,14 +637,20 @@ export function useOwnershipAccounts({
     const accountType = draft?.accountType ?? candidate.accountType;
     const mode = draft?.mode ?? defaultModeForAccountType(accountType);
     const newId = `detected_${Date.now()}`;
+    
+    const matchedTxIds = candidate.transactions.map(item => item.tx.id);
     const newAccount: TransferAccount = {
       id: newId,
       label: name,
       ownedByDefault: true,
       accountType,
       ending: candidate.ending,
+      matchedTransactionIds: matchedTxIds,
     };
+    
     setCustomAccounts((prev) => [...prev, newAccount]);
+    setAccountAssignments((prev) => ({ ...prev, [newId]: matchedTxIds }));
+    
     setOwnershipModes((prev) => {
       const next = { ...prev, [newId]: mode };
       if (typeof window !== "undefined") {
@@ -607,6 +659,7 @@ export function useOwnershipAccounts({
       setOwnership(deriveOwnershipFromModes(next));
       return next;
     });
+    
     const displayLabel = candidate.ending ? `${name} ending ${candidate.ending}` : name;
     setFullStatementTransactions((prev) => {
       const updated = prev.map((tx) => {
@@ -622,6 +675,7 @@ export function useOwnershipAccounts({
       }
       return updated;
     });
+    
     setClaimedCandidateKeys((prev) => new Set(prev).add(candidate.key));
     setCandidateDrafts((prev) => {
       const next = { ...prev };
@@ -638,6 +692,55 @@ export function useOwnershipAccounts({
     });
   };
 
+  const attachTransactionsToAccount = (accountId: string, txIds: string[]) => {
+    if (txIds.length === 0) return;
+    
+    // Ensure transactions are actually unassigned
+    const validTxIds = txIds.filter(id => !assignedTransactionIds.has(id));
+    if (validTxIds.length === 0) return;
+    
+    // Update account assignments
+    setAccountAssignments((prev) => {
+      const existing = prev[accountId] ?? [];
+      return {
+        ...prev,
+        [accountId]: [...existing, ...validTxIds],
+      };
+    });
+    
+    // Update custom accounts to persist matchedTransactionIds
+    setCustomAccounts((prev) => prev.map(acc => {
+      if (acc.id !== accountId) return acc;
+      const existingIds = acc.matchedTransactionIds ?? [];
+      return {
+        ...acc,
+        matchedTransactionIds: [...existingIds, ...validTxIds],
+      };
+    }));
+    
+    // Update transaction sourceKey/targetKey
+    const account = transferAccounts.find(acc => acc.id === accountId);
+    if (!account) return;
+    
+    const displayLabel = account.ending ? `${account.label} ending ${account.ending}` : account.label;
+    setFullStatementTransactions((prev) => {
+      const updated = prev.map((tx) => {
+        if (!validTxIds.includes(tx.id)) return tx;
+        if (tx.kind.startsWith("transfer")) {
+          if (tx.amount < 0) {
+            return { ...tx, sourceKey: accountId, source: tx.source ?? displayLabel };
+          }
+          return { ...tx, targetKey: accountId, target: tx.target ?? displayLabel };
+        }
+        return tx;
+      });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_STATEMENT_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+  
   const resetAccounts = () => {
     setCustomAccounts([]);
     setAccountOverrides({});
@@ -693,6 +796,9 @@ export function useOwnershipAccounts({
     handleSaveNewAccount,
     suggestedAccountTransactions,
     transferTransactions: availableTransferTransactions,
+    unassignedTransferTransactions, // NEW: Only unassigned transactions
+    assignedTransactionIds, // NEW: Set of all assigned transaction IDs
+    attachTransactionsToAccount, // NEW: Attach transactions to existing account
     resetAccounts,
     detectedAccountCandidates,
     candidateDrafts,

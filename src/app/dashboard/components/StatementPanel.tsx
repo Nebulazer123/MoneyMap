@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 
 import { months } from "../../../lib/dashboard/config";
+import { getBaseAccounts, formatBaseAccountLabel } from "../../../lib/fakeData";
 import type { Transaction } from "../../../lib/fakeData";
 import AddTransactionRow from "./AddTransactionRow";
 import InfoTip from "./InfoTip";
@@ -117,7 +118,14 @@ export function StatementPanel({
             <div>
               <h2 className="text-lg font-semibold text-white">Demo statement</h2>
               <p className="text-sm text-zinc-400">
-                Randomized transactions across your selected months - income, bills, subscriptions, fees, and transfers.
+                {(() => {
+                  const accounts = getBaseAccounts();
+                  const accountLabels = accounts.map(acc => formatBaseAccountLabel(acc.id as "checking" | "savings", true)).join(" and ");
+                  return `Demo statement covering ${accountLabels}`;
+                })()}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Randomized transactions across your selected months - income, bills, subscriptions, fees, and transfers. All descriptions shown exactly as generated.
               </p>
               {isEditing && <p className="mt-1 text-xs text-zinc-500">Editing only affects this demo and saves locally on this device.</p>}
               <div className="mt-2 flex flex-col gap-3 text-xs text-zinc-300 sm:gap-4 md:flex-row md:items-start md:gap-6">

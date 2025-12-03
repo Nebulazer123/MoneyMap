@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Transaction,
   isInternalTransfer,
@@ -17,12 +18,19 @@ type DebugTransactionPanelProps = {
 };
 
 export function DebugTransactionPanel({ transactions, ownership, accountModes }: DebugTransactionPanelProps) {
-  const { flaggedTransactionIds, clusters } = analyzeDuplicateCharges(transactions);
-
-  const getDuplicateClusterKey = (transactionId: string) => {
-    const cluster = clusters.find((c) => c.transactionIds.includes(transactionId));
-    return cluster ? cluster.key : "N/A";
-  };
+  const { flaggedTransactionIds, clusterKeyById } = useMemo(() => {
+    const analysis = analyzeDuplicateCharges(transactions);
+    const keyMap = new Map<string, string>();
+    analysis.clusters.forEach((cluster) => {
+      cluster.transactionIds.forEach((id) => {
+        keyMap.set(id, cluster.key);
+      });
+    });
+    return {
+      flaggedTransactionIds: analysis.flaggedTransactionIds,
+      clusterKeyById: keyMap,
+    };
+  }, [transactions]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 text-white p-4 overflow-auto max-h-96 border-t border-zinc-700">
@@ -52,7 +60,7 @@ export function DebugTransactionPanel({ transactions, ownership, accountModes }:
               <td className="p-2">{isInternalTransfer(tx, ownership, accountModes) ? "Yes" : "No"}</td>
               <td className="p-2">{isRealIncome(tx, ownership, accountModes) ? "Yes" : "No"}</td>
               <td className="p-2">{isRealSpending(tx, ownership, accountModes) ? "Yes" : "No"}</td>
-              <td className="p-2">{flaggedTransactionIds.has(tx.id) ? getDuplicateClusterKey(tx.id) : "No"}</td>
+              <td className="p-2">{flaggedTransactionIds.has(tx.id) ? clusterKeyById.get(tx.id) || "No" : "No"}</td>
             </tr>
           ))}
         </tbody>

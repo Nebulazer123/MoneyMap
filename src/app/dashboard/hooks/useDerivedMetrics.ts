@@ -22,6 +22,7 @@ import {
   getOverviewGroupForCategory,
   getTransactionDisplayCategory,
 } from "../../../lib/dashboard/categories";
+import { isEssentialCategory, isBillLikeCategory, isBillishDescription } from "../../../lib/categoryRules";
 import { overviewGroupMeta, overviewGroupOrder, type OverviewGroupKey, months } from "../../../lib/dashboard/config";
 
 export function useDerivedMetrics({
@@ -145,13 +146,9 @@ export function useDerivedMetrics({
 
   const recurringRows = statementTransactions.filter((t) => {
     if (isInternalTransfer(t, ownership, ownershipModes)) return false;
-    const categoryLower = t.category.toLowerCase();
     const isSubscription = t.kind === "subscription";
-    const isBillCategory =
-      categoryLower === "utilities" || categoryLower === "bills & services" || categoryLower === "bills";
-    const isPaymentDescription = /loan|mortgage|credit|card payment|car payment|auto payment|internet|wifi|phone|cable/i.test(
-      t.description,
-    );
+    const isBillCategory = isBillLikeCategory(t.category);
+    const isPaymentDescription = isBillishDescription(t.description);
     return isSubscription || isBillCategory || isPaymentDescription;
   });
 
@@ -172,10 +169,8 @@ export function useDerivedMetrics({
   );
 
   // Essentials vs everything else
-  const essentialsBuckets = ["Rent", "Groceries", "Bills & services", "Insurance", "Loans", "Education", "Health", "Transport"];
-
-  const essentialsTotal = essentialsBuckets.reduce(
-    (sum, cat) => sum + (categoryAmountMap.get(cat) ?? 0),
+  const essentialsTotal = categoryBreakdown.reduce(
+    (sum, cat) => sum + (isEssentialCategory(cat.category) ? cat.amount : 0),
     0,
   );
 

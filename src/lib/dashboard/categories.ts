@@ -1,12 +1,7 @@
 // Category helper utilities: string normalization, display mapping, emoji lookups, and overview grouping helpers consumed by the dashboard's analytics and UI.
 import { Transaction } from "../fakeData";
-import {
-  categoryEmojis,
-  displayCategoryLabels,
-  overviewGroupMeta,
-  overviewGroupOrder,
-  type OverviewGroupKey,
-} from "./config";
+import { overviewGroupMeta, type OverviewGroupKey } from "./config";
+import { classifyDescription } from "../categoryRules";
 
 export const descriptionKey = (description: string) =>
   description
@@ -23,19 +18,9 @@ export const titleCase = (value: string) =>
     .join(" ")
     .trim();
 
-export const classifyBillsCategory = (
-  description: string,
-): "Insurance" | "Loans" | "Education" | "Bills & services" => {
-  const lower = description.toLowerCase();
-  if (/tuition|college|university|school|education|bursar/.test(lower)) return "Education";
-  if (/loan|lender|servicer|finance|mortgage|car payment|auto payment|repayment/.test(lower)) return "Loans";
-  if (/insurance|premium/.test(lower)) return "Insurance";
-  return "Bills & services";
-};
-
 export const getTransactionDisplayCategory = (tx: Transaction): string => {
-  if (tx.category === "Bills & services" || tx.category === "Bills") {
-    return classifyBillsCategory(tx.description);
+  if (tx.category === "Bills & services") {
+    return classifyDescription(tx.description);
   }
   return tx.category;
 };

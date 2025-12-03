@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { overviewGroupMeta, categoryEmojis, type OverviewGroupKey } from "../../../lib/dashboard/config";
@@ -29,7 +29,7 @@ const detailCardsConfig: DetailCardConfig[] = [
   { label: "Utilities", categories: ["Utilities"], groupId: "rent_utils", emoji: categoryEmojis.Utilities },
   { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
   { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
-  { label: "Bills and services", categories: ["Bills & services", "Bills"], groupId: "bills_services", emoji: categoryEmojis["Bills & services"] },
+  { label: "Bills and services", categories: ["Bills & services"], groupId: "bills_services", emoji: categoryEmojis["Bills & services"] },
   { label: "Groceries", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
   { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
   { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
@@ -45,7 +45,6 @@ export type OverviewTabProps = {
   groupedSpendingData: SpendingGroup[];
   activeCategoryIds: string[];
   onSelectGroup: (categories: string[]) => void;
-  categoryBreakdown: { category: string; amount: number }[];
   overviewTransactions: Transaction[];
   flowStep: "idle" | "statement" | "analyzing" | "results";
 };
@@ -56,7 +55,6 @@ export function OverviewTab({
   groupedSpendingData,
   activeCategoryIds,
   onSelectGroup,
-  categoryBreakdown,
   overviewTransactions,
   flowStep,
 }: OverviewTabProps) {
@@ -77,16 +75,6 @@ export function OverviewTab({
 
   const showChart = flowStep === "results" && groupedSpendingData.length > 0;
   const [chartInteractive, setChartInteractive] = useState(false);
-  useEffect(() => {
-    // Disable interactions while (re)animating; enable after animation completes.
-    if (!showChart) {
-      setChartInteractive(false);
-      return;
-    }
-    setChartInteractive(false);
-    const t = setTimeout(() => setChartInteractive(true), 900); // match animationDuration + buffer
-    return () => clearTimeout(t);
-  }, [showChart, groupedSpendingData]);
   const tableGroupMeta = activeGroupId ? overviewGroupMeta[activeGroupId] : null;
   const groupCategoryAmountMap = useMemo(() => {
     const map = new Map<OverviewGroupKey, Map<string, number>>();
@@ -140,6 +128,7 @@ export function OverviewTab({
                   isAnimationActive
                   animationDuration={800}
                   onAnimationEnd={() => setChartInteractive(true)}
+                  onAnimationStart={() => setChartInteractive(false)}
                   onClick={(entry) => {
                     if (!chartInteractive) return;
                     const groupId = getGroupIdFromEntry(entry);
@@ -225,7 +214,7 @@ export function OverviewTab({
       )}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {detailCards.map((card) => {
-          const isActive = card.categories.every((cat) => activeCategoryIds.includes(cat));
+          const isActive = card.categories.some((cat) => activeCategoryIds.includes(cat));
           return (
             <GlassPanel
               key={card.label}

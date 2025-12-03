@@ -1,5 +1,6 @@
 // Centralized dashboard config: tabs, localStorage keys, option lists, and display metadata (categories, accounts, overview groups, guideline targets) used across dashboard helpers/components.
-import { categoryEmojis as categoryEmojiMap } from "../fakeData";
+
+import { categoryEmojis } from "../fakeData";
 
 export type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
 
@@ -40,44 +41,6 @@ export const months = [
   "Nov",
   "Dec",
 ] as const;
-
-export const categoryOptions = [
-  "Income",
-  "Rent",
-  "Groceries",
-  "Dining",
-  "Subscriptions",
-  "Utilities",
-  "Transport",
-  "Fees",
-  "Transfer",
-  "Other",
-] as const;
-
-export const categoryEmojis = {
-  ...categoryEmojiMap,
-  Rent: "🏘️",
-  Groceries: "🛍️",
-  Dining: "🍣",
-  Transport: "🚙",
-  Subscriptions: "♾️",
-  Utilities: "⚡",
-  "Bills & services": "📋",
-  Fees: "💰",
-  Other: "✨",
-  Insurance: "🔒",
-  Loans: "🏛️",
-  Education: "📚",
-  Transfer: "🔄",
-};
-
-export const displayCategoryLabels: Record<string, string> = {
-  Transport: "Auto",
-  "Bills & services": "Bills & services",
-  Insurance: "Insurance",
-  Loans: "Loans",
-  Education: "Education",
-};
 
 export const accountTypeLabels: Record<string, string> = {
   navy_checking: "Checking",
@@ -137,7 +100,7 @@ export const overviewGroupMeta: Record<
   },
   auto: {
     label: "Auto",
-    categories: ["Transport"],
+    categories: ["Transport", "Auto"],
     color: "#0ea5e9",
     emoji: categoryEmojis.Transport,
   },
@@ -149,13 +112,13 @@ export const overviewGroupMeta: Record<
   },
   insurance: {
     label: "Insurance",
-    categories: ["Insurance"],
+    categories: ["Insurance", "Health"],
     color: "#22c55e",
     emoji: categoryEmojis.Insurance,
   },
   bills_services: {
     label: "Bills and services",
-    categories: ["Bills & services", "Bills"],
+    categories: ["Bills & services"],
     color: "#38bdf8",
     emoji: categoryEmojis["Bills & services"],
   },
@@ -181,3 +144,5 @@ export const overviewGroupMeta: Record<
 
 export const transportGuideline = 15;
 export const internetGuideline = 5;
+
+export { categoryEmojis };
