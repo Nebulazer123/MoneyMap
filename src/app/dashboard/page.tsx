@@ -31,7 +31,10 @@ import { ReviewTab } from "./components/ReviewTab";
 import { DuplicateOverlay } from "./components/DuplicateOverlay";
 import { GlassPanel } from "./components/GlassPanel";
 import { SectionHeader } from "./components/SectionHeader";
+import { DebugTransactionPanel } from "./components/DebugTransactionPanel";
 export default function DemoPage() {
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const [flashContent, setFlashContent] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
@@ -39,7 +42,7 @@ export default function DemoPage() {
     if (typeof window === "undefined") return "overview";
     return (window.localStorage.getItem(STORAGE_TAB_KEY) as TabId) ?? "overview";
   });
-  const [activeSpendingGroup, setActiveSpendingGroup] = useState<OverviewGroupKey | null>(null);
+  const [activeSpendingCategories, setActiveSpendingCategories] = useState<string[]>([]);
 
   const {
     selectedMonthFrom,
@@ -352,10 +355,10 @@ export default function DemoPage() {
     [flowStep, setFlowStep, setFullStatementTransactions],
   );
 
-  const activeSpendingGroupId = resolvedActiveSpendingGroup(activeSpendingGroup);
-  const overviewTransactions = activeSpendingGroupId
-    ? groupedTransactionsByGroup.get(activeSpendingGroupId) ?? []
-    : [];
+  const overviewTransactions =
+    activeSpendingCategories.length > 0
+      ? statementTransactions.filter((tx) => activeSpendingCategories.includes(tx.category))
+      : statementTransactions;
 
   const { totalInflowStatement, totalOutflowStatement, netStatement } = useMemo(() => {
     const totals = statementTransactions.reduce(
@@ -400,8 +403,24 @@ export default function DemoPage() {
     >
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-zinc-400">Phase one demo using sample data only.</p>
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            className="px-2 py-1 text-xs font-semibold text-white bg-zinc-700 rounded hover:bg-zinc-600"
+          >
+            {showDebugPanel ? "Hide" : "Show"} Debug
+          </button>
+        </div>
       </header>
+
+      {showDebugPanel && (
+        <DebugTransactionPanel
+          transactions={fullStatementTransactions}
+          ownership={ownership}
+          accountModes={ownershipModes}
+        />
+      )}
 
       {!hasResults && (
         <GlassPanel variant="hero" tone="vivid" className="space-y-6 sm:space-y-8 animate-fade-rise">
@@ -571,8 +590,8 @@ export default function DemoPage() {
             currency={currency}
             dateFormatter={dateFormatter}
             groupedSpendingData={groupedSpendingData}
-            activeGroupId={activeSpendingGroupId}
-            onSelectGroup={(groupId) => setActiveSpendingGroup(groupId)}
+            activeCategoryIds={activeSpendingCategories}
+            onSelectGroup={(categories) => setActiveSpendingCategories(categories)}
             categoryBreakdown={categoryBreakdown}
             overviewTransactions={overviewTransactions}
             flowStep={flowStep}
@@ -609,7 +628,6 @@ export default function DemoPage() {
             expandedCashflowDates={expandedCashflowDates}
             setExpandedCashflowDates={setExpandedCashflowDates}
             cashFlowRows={cashFlowRows}
-            internalTransfersTotal={internalTransfersTotal}
             showGroupedCashflow={showGroupedCashflow}
             flowStep={flowStep}
           />
@@ -634,9 +652,6 @@ export default function DemoPage() {
             otherPercent={otherPercent}
             netThisMonth={netThisMonth}
             totalIncome={totalIncome}
-            duplicateMetaById={duplicateMetaById}
-            duplicateDecisions={duplicateDecisions}
-            activeDuplicateIds={activeDuplicateIds}
             handleOpenDuplicateOverlay={handleOpenDuplicateOverlay}
             transferAccounts={transferAccounts}
             ownership={ownership}
@@ -646,7 +661,7 @@ export default function DemoPage() {
             editingAccountName={editingAccountName}
             editingAccountType={editingAccountType}
             setEditingAccountName={setEditingAccountName}
-            setEditingAccountType={setEditingAccountType}
+            setEditingAccountType={(type: string) => setEditingAccountType(type as any)}
             startEditingAccount={startEditingAccount}
             handleSaveEditedAccount={handleSaveEditedAccount}
             handleDeleteAccount={handleDeleteAccount}
@@ -685,7 +700,7 @@ export default function DemoPage() {
           handleCloseDuplicateOverlay={handleCloseDuplicateOverlay}
           handleConfirmDuplicate={handleConfirmDuplicate}
           handleDismissDuplicate={handleDismissDuplicate}
-          duplicateOverlayRef={duplicateOverlayRef}
+          duplicateOverlayRef={duplicateOverlayRef as React.RefObject<HTMLDivElement>}
           currency={currency}
           dateFormatter={dateFormatter}
         />

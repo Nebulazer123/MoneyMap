@@ -40,10 +40,6 @@ export const getTransactionDisplayCategory = (tx: Transaction): string => {
   return tx.category;
 };
 
-export const getDisplayCategory = (category: string) => displayCategoryLabels[category] ?? category;
-
-export const getCategoryEmoji = (category: string) => categoryEmojis[category];
-
 export const getOverviewGroupForCategory = (category: string): OverviewGroupKey | null => {
   const entry = Object.entries(overviewGroupMeta).find(([, meta]) =>
     meta.categories.includes(category),
@@ -53,5 +49,3 @@ export const getOverviewGroupForCategory = (category: string): OverviewGroupKey 
 
 export const getCategoriesForGroup = (groupId: OverviewGroupKey): string[] =>
   overviewGroupMeta[groupId]?.categories ?? [];
-
-export const getOverviewGroupOrder = (): OverviewGroupKey[] => [...overviewGroupOrder];

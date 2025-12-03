@@ -1,4 +1,5 @@
 import type { Transaction } from "../fakeData";
+import { isSubscriptionCategory, matchesKnownMerchant } from "../categoryRules";
 
 export type SuspiciousEntry = { tx: Transaction; reason: string };
 
@@ -27,10 +28,10 @@ const monthKey = (date: string) => {
   return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
 };
 
-const isStreamingMerchant = (tx: Transaction) => tx.category === "Subscriptions";
+const isStreamingMerchant = (tx: Transaction) =>
+  isSubscriptionCategory(tx.category) || matchesKnownMerchant(`${tx.description} ${tx.target ?? ""}`, "Subscriptions");
 
 const isPhoneMerchant = (tx: Transaction) =>
-  tx.category === "Bills & services" &&
   /wireless|mobile|cell|phone/i.test(`${tx.description} ${tx.target ?? ""}`);
 
 export const buildDuplicateClusters = (
