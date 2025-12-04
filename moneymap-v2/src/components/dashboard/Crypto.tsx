@@ -40,7 +40,6 @@ interface CryptoQuote {
 
 interface CryptoHolding {
     id: string;
-    id: string;
     name: string;
     shares: number;
     avgCost: number; // Average cost per share
