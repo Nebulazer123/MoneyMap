@@ -40,6 +40,7 @@ interface CryptoQuote {
 
 interface CryptoHolding {
     id: string;
+    cryptoId: string;
     name: string;
     shares: number;
     avgCost: number; // Average cost per share
@@ -49,6 +50,7 @@ interface CryptoHolding {
 
 interface WatchlistItem {
     id: string;
+    cryptoId: string;
     name: string;
     addedAt: Date;
 }
@@ -136,9 +138,9 @@ const INITIAL_HOLDINGS: Omit<CryptoHolding, 'currentPrice'>[] = [
 
 // Initial watchlist
 const INITIAL_WATCHLIST: WatchlistItem[] = [
-    { cryptoId: 'cardano', name: 'Cardano', addedAt: new Date() },
-    { cryptoId: 'polkadot', name: 'Polkadot', addedAt: new Date() },
-    { cryptoId: 'avalanche-2', name: 'Avalanche', addedAt: new Date() },
+    { id: '1', cryptoId: 'cardano', name: 'Cardano', addedAt: new Date() },
+    { id: '2', cryptoId: 'polkadot', name: 'Polkadot', addedAt: new Date() },
+    { id: '3', cryptoId: 'avalanche-2', name: 'Avalanche', addedAt: new Date() },
 ];
 
 // Mini Chart Component for expanded view
@@ -363,8 +365,8 @@ export function Crypto() {
             setIsInitialLoading(true);
             
             // Get all symbols we need (defaults + holdings + watchlist)
-            const holdingSymbols = INITIAL_HOLDINGS.map(h => h.id);
-            const watchlistSymbols = INITIAL_WATCHLIST.map(w => w.id);
+            const holdingSymbols = INITIAL_HOLDINGS.map(h => h.cryptoId);
+            const watchlistSymbols = INITIAL_WATCHLIST.map(w => w.cryptoId);
             const allSymbols = [...new Set([...DEFAULT_CRYPTOS, ...holdingSymbols, ...watchlistSymbols])];
             
             await fetchQuotes(allSymbols);
@@ -385,7 +387,7 @@ export function Crypto() {
     useEffect(() => {
         setHoldings(prev => prev.map(h => ({
             ...h,
-            currentPrice: quotes[h.id]?.price || h.currentPrice,
+            currentPrice: quotes[h.cryptoId]?.price || h.currentPrice,
         })));
     }, [quotes]);
 
@@ -394,8 +396,8 @@ export function Crypto() {
         const interval = setInterval(() => {
             const allSymbols = [
                 ...Object.keys(quotes),
-                ...holdings.map(h => h.id),
-                ...watchlist.map(w => w.id),
+                ...holdings.map(h => h.cryptoId),
+                ...watchlist.map(w => w.cryptoId),
             ];
             const uniqueSymbols = [...new Set(allSymbols)];
             if (uniqueSymbols.length > 0) {
@@ -411,8 +413,8 @@ export function Crypto() {
         setIsRefreshing(true);
         const allSymbols = [
             ...Object.keys(quotes),
-            ...holdings.map(h => h.id),
-            ...watchlist.map(w => w.id),
+            ...holdings.map(h => h.cryptoId),
+            ...watchlist.map(w => w.cryptoId),
         ];
         const uniqueSymbols = [...new Set(allSymbols)];
         await fetchQuotes(uniqueSymbols);
@@ -426,7 +428,7 @@ export function Crypto() {
         let dayChange = 0;
 
         holdings.forEach(holding => {
-            const quote = quotes[holding.id];
+            const quote = quotes[holding.cryptoId];
             if (quote) {
                 const currentValue = holding.shares * quote.price;
                 const costBasis = holding.shares * holding.avgCost;
@@ -451,25 +453,26 @@ export function Crypto() {
     }, [holdings, quotes]);
 
     // Add to watchlist
-    const addToWatchlist = async (id: string, name?: string) => {
-        if (!watchlist.find(w => w.id === id)) {
-            const quote = quotes[id];
+    const addToWatchlist = async (cryptoId: string, name?: string) => {
+        if (!watchlist.find(w => w.cryptoId === cryptoId)) {
+            const quote = quotes[cryptoId];
             setWatchlist([...watchlist, { 
-                id, 
-                name: name || quote?.name || id, 
+                id: Date.now().toString(),
+                cryptoId, 
+                name: name || quote?.name || cryptoId, 
                 addedAt: new Date() 
             }]);
             
             // Fetch quote if we don't have it
-            if (!quotes[id]) {
-                await fetchQuotes([id]);
+            if (!quotes[cryptoId]) {
+                await fetchQuotes([cryptoId]);
             }
         }
     };
 
     // Remove from watchlist
-    const removeFromWatchlist = (id: string) => {
-        setWatchlist(watchlist.filter(w => w.id !== id));
+    const removeFromWatchlist = (cryptoId: string) => {
+        setWatchlist(watchlist.filter(w => w.cryptoId !== cryptoId));
     };
 
     // Add holding
@@ -479,7 +482,7 @@ export function Crypto() {
         const quote = quotes[selectedid];
         const holding: CryptoHolding = {
             id: Date.now().toString(),
-            id: selectedid,
+            cryptoId: selectedid,
             name: quote?.name || selectedid,
             shares: newHolding.shares,
             avgCost: newHolding.avgCost || quote?.price || 0,
