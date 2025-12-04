@@ -1,18 +1,24 @@
 {
-  "name": "moneymap",
+  "name": "moneymap-v2",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cd moneymap-v2 && npm run dev",
-    "build": "cd moneymap-v2 && npm run build",
-    "start": "cd moneymap-v2 && npm run start",
-    "lint": "cd moneymap-v2 && npm run lint"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.13.12",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.555.0",
     "next": "^16.0.7",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "recharts": "^3.5.1"
+    "recharts": "^3.5.1",
+    "tailwind-merge": "^3.4.0",
+    "yahoo-finance2": "^3.10.2",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
