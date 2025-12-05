@@ -4,14 +4,15 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn } from "../../lib/utils";
-import { 
-    Search, Plus, Trash2, TrendingUp, TrendingDown, RefreshCw, 
+import {
+    Search, Plus, Trash2, TrendingUp, TrendingDown, RefreshCw,
     Star, StarOff, BarChart3, Loader2, Wifi, WifiOff,
     DollarSign, Percent, Activity, Clock, AlertCircle,
-    ChevronDown, ChevronUp, ExternalLink, Newspaper, 
+    ChevronDown, ChevronUp, ExternalLink, Newspaper,
     LineChart, Building2, X, ArrowUpRight, ArrowDownRight,
     Bell, BellOff, Sun, Moon
 } from "lucide-react";
+import { CryptoCurrencyConverter } from "./CurrencyConverter";
 
 // Market hours helper
 function getMarketStatus() {
@@ -124,9 +125,9 @@ type ChartTimeframe = '1D' | '1W' | '1M' | '3M' | '1Y';
 
 // Default symbols to load on startup
 const DEFAULT_CRYPTOS = [
-    'bitcoin', 'bitcoin', 'bitcoin', 'bitcoin', 'bitcoin', 'META', 'TSLA',
-    'NFLX', 'AMD', 'INTC', 'JPM', 'V', 'MA', 'DIS',
-    'SPY', 'QQQ', 'VOO', 'COIN', 'PLTR', 'BA', 'HD', 'WMT'
+    'bitcoin', 'ethereum', 'solana', 'cardano', 'ripple', 'polkadot',
+    'dogecoin', 'avalanche-2', 'chainlink', 'matic-network', 'binancecoin',
+    'uniswap', 'litecoin', 'stellar', 'cosmos'
 ];
 
 // Initial holdings (will fetch real prices from CoinGecko)
@@ -146,27 +147,27 @@ const INITIAL_WATCHLIST: WatchlistItem[] = [
 // Mini Chart Component for expanded view
 function MiniChart({ data, isPositive }: { data: ChartPoint[], isPositive: boolean }) {
     if (!data || data.length === 0) return null;
-    
+
     const prices = data.map(d => d.close).filter(p => p != null);
     if (prices.length === 0) return null;
-    
+
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const range = maxPrice - minPrice || 1;
-    
+
     const width = 100;
     const height = 100;
     const padding = 2;
-    
+
     const points = prices.map((price, i) => {
         const x = padding + (i / (prices.length - 1)) * (width - padding * 2);
         const y = height - padding - ((price - minPrice) / range) * (height - padding * 2);
         return `${x},${y}`;
     }).join(' ');
-    
+
     const gradientId = `chartGradient-${isPositive ? 'up' : 'down'}`;
     const color = isPositive ? '#22c55e' : '#ef4444';
-    
+
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
             <defs>
@@ -210,11 +211,11 @@ export function Crypto() {
     const [isOnline, setIsOnline] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
-    
+
     // New states for expanded view
     const [expandedid, setExpandedid] = useState<string | null>(null);
     const [CryptoDetail, setCryptoDetail] = useState<CryptoDetail | null>(null);
-    
+
     // Market status state
     const [marketStatus, setMarketStatus] = useState(getMarketStatus());
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -237,11 +238,11 @@ export function Crypto() {
     // Fetch quotes from CoinGecko API
     const fetchQuotes = useCallback(async (symbols: string[]) => {
         if (symbols.length === 0) return;
-        
+
         try {
-            const response = await fetch(`/api/crypto?symbols=${symbols.join(',')}`);
+            const response = await fetch(`/api/crypto?ids=${symbols.join(',')}`);
             if (!response.ok) throw new Error('Failed to fetch quotes');
-            
+
             const data = await response.json();
             if (data.quotes) {
                 const newQuotes: Record<string, CryptoQuote> = {};
@@ -269,19 +270,19 @@ export function Crypto() {
             setSearchResults([]);
             return;
         }
-        
+
         setIsSearching(true);
         try {
             const response = await fetch(`/api/crypto?search=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Search failed');
-            
+
             const data = await response.json();
             setSearchResults(data.quotes || []);
         } catch (err) {
             console.error('Search error:', err);
             // Fallback to local search
             const localResults = Object.keys(quotes)
-                .filter(s => 
+                .filter(s =>
                     s.toLowerCase().includes(query.toLowerCase()) ||
                     quotes[s]?.name.toLowerCase().includes(query.toLowerCase())
                 )
@@ -298,7 +299,7 @@ export function Crypto() {
         try {
             const response = await fetch(`/api/crypto?detail=${id}`);
             if (!response.ok) throw new Error('Failed to fetch detail');
-            
+
             const data = await response.json();
             setCryptoDetail(data);
         } catch (err) {
@@ -314,7 +315,7 @@ export function Crypto() {
         try {
             const response = await fetch('/api/crypto?trending=true');
             if (!response.ok) throw new Error('Failed to fetch trending');
-            
+
             const data = await response.json();
             setTrendingStocks(data.trending || []);
         } catch (err) {
@@ -363,23 +364,23 @@ export function Crypto() {
     useEffect(() => {
         const loadInitialData = async () => {
             setIsInitialLoading(true);
-            
+
             // Get all symbols we need (defaults + holdings + watchlist)
             const holdingSymbols = INITIAL_HOLDINGS.map(h => h.cryptoId);
             const watchlistSymbols = INITIAL_WATCHLIST.map(w => w.cryptoId);
             const allSymbols = [...new Set([...DEFAULT_CRYPTOS, ...holdingSymbols, ...watchlistSymbols])];
-            
+
             await fetchQuotes(allSymbols);
-            
+
             // Initialize holdings with current prices (will be updated when quotes load)
             setHoldings(INITIAL_HOLDINGS.map(h => ({
                 ...h,
                 currentPrice: 0,
             })));
-            
+
             setIsInitialLoading(false);
         };
-        
+
         loadInitialData();
     }, [fetchQuotes]);
 
@@ -404,7 +405,7 @@ export function Crypto() {
                 fetchQuotes(uniqueSymbols);
             }
         }, 60000);
-        
+
         return () => clearInterval(interval);
     }, [fetchQuotes, quotes, holdings, watchlist]);
 
@@ -456,13 +457,13 @@ export function Crypto() {
     const addToWatchlist = async (cryptoId: string, name?: string) => {
         if (!watchlist.find(w => w.cryptoId === cryptoId)) {
             const quote = quotes[cryptoId];
-            setWatchlist([...watchlist, { 
+            setWatchlist([...watchlist, {
                 id: Date.now().toString(),
-                cryptoId, 
-                name: name || quote?.name || cryptoId, 
-                addedAt: new Date() 
+                cryptoId,
+                name: name || quote?.name || cryptoId,
+                addedAt: new Date()
             }]);
-            
+
             // Fetch quote if we don't have it
             if (!quotes[cryptoId]) {
                 await fetchQuotes([cryptoId]);
@@ -478,7 +479,7 @@ export function Crypto() {
     // Add holding
     const handleAddHolding = async () => {
         if (!selectedid || newHolding.shares <= 0) return;
-        
+
         const quote = quotes[selectedid];
         const holding: CryptoHolding = {
             id: Date.now().toString(),
@@ -489,7 +490,7 @@ export function Crypto() {
             currentPrice: quote?.price || 0,
             addedAt: new Date(),
         };
-        
+
         setHoldings([...holdings, holding]);
         setNewHolding({ shares: 0, avgCost: 0 });
         setSelectedid(null);
@@ -505,12 +506,12 @@ export function Crypto() {
     // Add custom crypto by id (fetch from CoinGecko)
     const handleAddCustomStock = async () => {
         if (!customStock.id) return;
-        
+
         const id = customStock.id.toUpperCase();
-        
+
         // Fetch real data from CoinGecko
         await fetchQuotes([id]);
-        
+
         setCustomStock({ id: '', name: '', price: 0 });
         setShowAddCustomStockModal(false);
     };
@@ -532,7 +533,7 @@ export function Crypto() {
             {/* Market Status Box */}
             <div className={cn(
                 "mb-6 p-4 rounded-xl border transition-all",
-                marketStatus.isOpen 
+                marketStatus.isOpen
                     ? "bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                     : "bg-zinc-900/60 border-zinc-600/30"
             )}>
@@ -541,7 +542,7 @@ export function Crypto() {
                         {/* Market Status Icon */}
                         <div className={cn(
                             "w-12 h-12 rounded-xl flex items-center justify-center",
-                            marketStatus.isOpen 
+                            marketStatus.isOpen
                                 ? "bg-emerald-500/20"
                                 : "bg-zinc-700/40"
                         )}>
@@ -551,7 +552,7 @@ export function Crypto() {
                                 <BellOff className="h-6 w-6 text-zinc-400" />
                             )}
                         </div>
-                        
+
                         <div>
                             <div className="flex items-center gap-2">
                                 <span className={cn(
@@ -562,7 +563,7 @@ export function Crypto() {
                                 </span>
                                 <span className={cn(
                                     "px-2 py-0.5 text-xs font-medium rounded-full",
-                                    marketStatus.isOpen 
+                                    marketStatus.isOpen
                                         ? "bg-emerald-500/20 text-emerald-400 animate-pulse"
                                         : "bg-zinc-700/50 text-zinc-400"
                                 )}>
@@ -574,7 +575,7 @@ export function Crypto() {
                             </p>
                         </div>
                     </div>
-                    
+
                     <div className="text-right">
                         <p className={cn(
                             "text-sm font-medium",
@@ -594,7 +595,7 @@ export function Crypto() {
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Power Hours hint */}
                 {marketStatus.isOpen && (
                     <div className="mt-3 pt-3 border-t border-white/5">
@@ -611,7 +612,12 @@ export function Crypto() {
                     </div>
                 )}
             </div>
-            
+
+            {/* Crypto Converter */}
+            <div className="mb-8">
+                <CryptoCurrencyConverter />
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="text-center flex-1">
@@ -659,7 +665,7 @@ export function Crypto() {
                     <p className="text-2xl font-bold text-white">{currency.format(portfolioStats.totalValue)}</p>
                     <p className="text-xs text-zinc-500 mt-1">Across {holdings.length} positions</p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Percent className="h-4 w-4 text-white" />
@@ -678,7 +684,7 @@ export function Crypto() {
                         {portfolioStats.totalGainPercent >= 0 ? '+' : ''}{portfolioStats.totalGainPercent.toFixed(2)}% all time
                     </p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="h-4 w-4 text-cyan-400" />
@@ -697,7 +703,7 @@ export function Crypto() {
                         {portfolioStats.dayChangePercent >= 0 ? '+' : ''}{portfolioStats.dayChangePercent.toFixed(2)}% today
                     </p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-4 w-4 text-zinc-400" />
@@ -740,7 +746,7 @@ export function Crypto() {
                         </button>
                     </div>
                 </div>
-                
+
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                     <input
@@ -779,9 +785,9 @@ export function Crypto() {
                                 const quote = quotes[result.id];
                                 const inWatchlist = watchlist.some(w => w.id === result.id);
                                 const inHoldings = holdings.some(h => h.id === result.id);
-                                
+
                                 return (
-                                    <div 
+                                    <div
                                         key={result.id}
                                         className="flex items-center justify-between p-4 hover:bg-white/5 border-b border-white/5 last:border-b-0"
                                     >
@@ -837,8 +843,8 @@ export function Crypto() {
                                                 disabled={inHoldings}
                                                 className={cn(
                                                     "p-2 rounded-lg transition-colors",
-                                                    inHoldings 
-                                                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed" 
+                                                    inHoldings
+                                                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
                                                         : "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
                                                 )}
                                             >
@@ -863,7 +869,7 @@ export function Crypto() {
                     </div>
                     <span className="text-xs text-zinc-500">{holdings.length} positions</span>
                 </div>
-                
+
                 {holdings.length === 0 ? (
                     <div className="text-center py-8">
                         <p className="text-zinc-500">No holdings yet. Search and add cryptos to your portfolio.</p>
@@ -878,14 +884,14 @@ export function Crypto() {
                             const gainPercent = (gain / costBasis) * 100;
                             const isExpanded = expandedid === holding.id;
                             const isPositive = gain >= 0;
-                            
+
                             return (
                                 <div key={holding.id} className="space-y-0">
-                                    <div 
+                                    <div
                                         className={cn(
                                             "relative overflow-hidden rounded-xl border transition-all duration-300 group cursor-pointer",
-                                            isExpanded 
-                                                ? "border-orange-500/40 bg-gradient-to-br from-orange-950/30 via-zinc-900/40 to-zinc-900/40 shadow-[0_0_30px_rgba(163,230,53,0.15)] rounded-b-none" 
+                                            isExpanded
+                                                ? "border-orange-500/40 bg-gradient-to-br from-orange-950/30 via-zinc-900/40 to-zinc-900/40 shadow-[0_0_30px_rgba(163,230,53,0.15)] rounded-b-none"
                                                 : "border-zinc-800/60 bg-zinc-900/40 hover:border-zinc-700/70 hover:bg-zinc-900/60"
                                         )}
                                         onClick={() => toggleExpandedStock(holding.id)}
@@ -895,7 +901,7 @@ export function Crypto() {
                                             "absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
                                             isPositive ? "from-emerald-500/5 to-transparent" : "from-rose-500/5 to-transparent"
                                         )} />
-                                        
+
                                         <div className="relative p-5">
                                             {/* Top Row: id & Price Action */}
                                             <div className="flex items-center justify-between mb-4">
@@ -903,8 +909,8 @@ export function Crypto() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={cn(
                                                         "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm transition-all",
-                                                        isPositive 
-                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                                                        isPositive
+                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                                                             : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
                                                     )}>
                                                         {holding.id.slice(0, 2)}
@@ -921,7 +927,7 @@ export function Crypto() {
                                                         <p className="text-xs text-zinc-500 mt-0.5">{holding.shares} shares</p>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Right: Current Price & Change */}
                                                 <div className="text-right">
                                                     <div className="text-xl font-bold text-white mb-1">
@@ -929,8 +935,8 @@ export function Crypto() {
                                                     </div>
                                                     <div className={cn(
                                                         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                                        (quote?.change || 0) >= 0 
-                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                                                        (quote?.change || 0) >= 0
+                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                                                             : "bg-rose-500/15 text-rose-400 border border-rose-500/20"
                                                     )}>
                                                         {(quote?.change || 0) >= 0 ? (
@@ -942,7 +948,7 @@ export function Crypto() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Bottom Row: Stats Grid */}
                                             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-zinc-800/60">
                                                 {/* Avg Cost */}
@@ -950,13 +956,13 @@ export function Crypto() {
                                                     <p className="text-xs text-zinc-500 mb-1">Avg Cost</p>
                                                     <p className="text-sm font-medium text-zinc-300">{currency.format(holding.avgCost)}</p>
                                                 </div>
-                                                
+
                                                 {/* Total Value */}
                                                 <div>
                                                     <p className="text-xs text-zinc-500 mb-1">Total Value</p>
                                                     <p className="text-sm font-medium text-white">{currency.format(currentValue)}</p>
                                                 </div>
-                                                
+
                                                 {/* Gain/Loss */}
                                                 <div className="text-right">
                                                     <p className="text-xs text-zinc-500 mb-1">Gain/Loss</p>
@@ -976,7 +982,7 @@ export function Crypto() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Delete Button */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteHolding(holding.id); }}
@@ -986,7 +992,7 @@ export function Crypto() {
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Expanded Detail View */}
                                     {isExpanded && (
                                         <div className="bg-zinc-900/50 border border-t-0 border-orange-500/30 rounded-b-xl p-4 animate-in slide-in-from-top-2 duration-200">
@@ -1010,7 +1016,7 @@ export function Crypto() {
                                                                     onClick={() => setChartTimeframe(tf)}
                                                                     className={cn(
                                                                         "px-2.5 py-1 text-xs rounded-lg transition-colors",
-                                                                        chartTimeframe === tf 
+                                                                        chartTimeframe === tf
                                                                             ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
                                                                             : "bg-zinc-800/50 text-zinc-400 hover:text-white"
                                                                     )}
@@ -1020,7 +1026,7 @@ export function Crypto() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Mini Chart */}
                                                     <div className="h-32 bg-zinc-900/30 rounded-xl border border-white/5 p-3">
                                                         {CryptoDetail.charts[chartTimeframe]?.length > 0 ? (
@@ -1031,7 +1037,7 @@ export function Crypto() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     {/* Key Stats Grid */}
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1083,7 +1089,7 @@ export function Crypto() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Analyst Info */}
                                                     {CryptoDetail.insights && (
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1096,8 +1102,8 @@ export function Crypto() {
                                                                     <div className={cn(
                                                                         "px-3 py-1 rounded-full text-xs font-medium",
                                                                         CryptoDetail.insights.recommendation.toLowerCase().includes('buy') ? "bg-emerald-500/20 text-emerald-400" :
-                                                                        CryptoDetail.insights.recommendation.toLowerCase().includes('sell') ? "bg-rose-500/20 text-rose-400" :
-                                                                        "bg-amber-500/20 text-amber-400"
+                                                                            CryptoDetail.insights.recommendation.toLowerCase().includes('sell') ? "bg-rose-500/20 text-rose-400" :
+                                                                                "bg-amber-500/20 text-amber-400"
                                                                     )}>
                                                                         {CryptoDetail.insights.recommendation}
                                                                     </div>
@@ -1111,7 +1117,7 @@ export function Crypto() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* News Section */}
                                                     {CryptoDetail.news.length > 0 && (
                                                         <div>
@@ -1129,9 +1135,9 @@ export function Crypto() {
                                                                         className="flex items-start gap-3 p-2 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors group"
                                                                     >
                                                                         {news.thumbnail && (
-                                                                            <img 
-                                                                                src={news.thumbnail} 
-                                                                                alt="" 
+                                                                            <img
+                                                                                src={news.thumbnail}
+                                                                                alt=""
                                                                                 className="w-16 h-12 rounded object-cover flex-shrink-0"
                                                                             />
                                                                         )}
@@ -1178,7 +1184,7 @@ export function Crypto() {
                     </div>
                     <span className="text-xs text-zinc-500">{watchlist.length} cryptos</span>
                 </div>
-                
+
                 {watchlist.length === 0 ? (
                     <div className="text-center py-8">
                         <p className="text-zinc-500">Your watchlist is empty. Star cryptos to track them here.</p>
@@ -1189,10 +1195,10 @@ export function Crypto() {
                             const quote = quotes[item.id];
                             const isUp = (quote?.change || 0) >= 0;
                             const isExpanded = expandedid === item.id;
-                            
+
                             return (
                                 <div key={item.id} className="space-y-0">
-                                    <div 
+                                    <div
                                         className={cn(
                                             "flex items-center justify-between p-4 rounded-xl bg-zinc-900/30 border transition-all group cursor-pointer",
                                             isExpanded ? "border-yellow-500/30 rounded-b-none" : "border-white/5 hover:border-white/10"
@@ -1239,7 +1245,7 @@ export function Crypto() {
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Expanded Detail View for Watchlist */}
                                     {isExpanded && (
                                         <div className="bg-zinc-900/50 border border-t-0 border-yellow-500/30 rounded-b-xl p-4 animate-in slide-in-from-top-2 duration-200">
@@ -1263,7 +1269,7 @@ export function Crypto() {
                                                                     onClick={() => setChartTimeframe(tf)}
                                                                     className={cn(
                                                                         "px-2.5 py-1 text-xs rounded-lg transition-colors",
-                                                                        chartTimeframe === tf 
+                                                                        chartTimeframe === tf
                                                                             ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
                                                                             : "bg-zinc-800/50 text-zinc-400 hover:text-white"
                                                                     )}
@@ -1273,7 +1279,7 @@ export function Crypto() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Mini Chart */}
                                                     <div className="h-32 bg-zinc-900/30 rounded-xl border border-white/5 p-3">
                                                         {CryptoDetail.charts[chartTimeframe]?.length > 0 ? (
@@ -1284,7 +1290,7 @@ export function Crypto() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     {/* Key Stats Grid */}
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1336,7 +1342,7 @@ export function Crypto() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* News Section */}
                                                     {CryptoDetail.news.length > 0 && (
                                                         <div>
@@ -1368,7 +1374,7 @@ export function Crypto() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* Add to Holdings button */}
                                                     <button
                                                         onClick={(e) => {
@@ -1401,7 +1407,7 @@ export function Crypto() {
                 <div>
                     <p className="text-sm text-orange-200">Live Market Data from CoinGecko</p>
                     <p className="text-xs text-orange-400/70 mt-1">
-                        crypto prices, charts, and news are fetched in real-time from CoinGecko. 
+                        crypto prices, charts, and news are fetched in real-time from CoinGecko.
                         <span className="text-amber-300"> Portfolio holdings shown are simulated for demonstration purposes.</span>
                     </p>
                 </div>
@@ -1423,7 +1429,7 @@ export function Crypto() {
                                 <X className="h-5 w-5 text-zinc-400" />
                             </button>
                         </div>
-                        
+
                         <div className="p-4 overflow-y-auto max-h-[calc(80vh-100px)]">
                             {/* Loaded cryptos Section */}
                             <div className="mb-6">
@@ -1436,9 +1442,9 @@ export function Crypto() {
                                         const isUp = (quote?.change || 0) >= 0;
                                         const inWatchlist = watchlist.some(w => w.id === id);
                                         const inHoldings = holdings.some(h => h.id === id);
-                                        
+
                                         return (
-                                            <div 
+                                            <div
                                                 key={id}
                                                 className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 transition-all group"
                                             >
@@ -1492,8 +1498,8 @@ export function Crypto() {
                                                         disabled={inHoldings}
                                                         className={cn(
                                                             "p-1.5 rounded-lg transition-colors",
-                                                            inHoldings 
-                                                                ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed" 
+                                                            inHoldings
+                                                                ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
                                                                 : "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
                                                         )}
                                                     >
@@ -1505,7 +1511,7 @@ export function Crypto() {
                                     })}
                                 </div>
                             </div>
-                            
+
                             {/* Trending Section */}
                             {trendingStocks.length > 0 && (
                                 <div>
@@ -1515,7 +1521,7 @@ export function Crypto() {
                                     </h4>
                                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                         {trendingStocks.filter(t => !quotes[t.id]).map((crypto) => (
-                                            <div 
+                                            <div
                                                 key={crypto.id}
                                                 className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 transition-all"
                                             >
@@ -1553,7 +1559,7 @@ export function Crypto() {
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Add {selectedid} to Portfolio
                         </h3>
-                        
+
                         <div className="flex items-center gap-4 p-4 bg-zinc-900/50 rounded-xl mb-4">
                             <div className="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
                                 <span className="text-orange-400 font-bold">{selectedid.slice(0, 2)}</span>
@@ -1564,7 +1570,7 @@ export function Crypto() {
                                 <p className="text-sm text-orange-400">{currency.format(quotes[selectedid]?.price || 0)}</p>
                             </div>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Number of Shares *</label>
@@ -1578,7 +1584,7 @@ export function Crypto() {
                                     className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-orange-500/50"
                                 />
                             </div>
-                            
+
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Average Cost Per Share</label>
                                 <input
@@ -1592,7 +1598,7 @@ export function Crypto() {
                                 />
                                 <p className="text-xs text-zinc-500 mt-1">Leave empty to use current price</p>
                             </div>
-                            
+
                             {newHolding.shares > 0 && (
                                 <div className="p-3 bg-zinc-900/30 rounded-lg">
                                     <div className="flex justify-between text-sm">
@@ -1604,7 +1610,7 @@ export function Crypto() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => {
@@ -1638,7 +1644,7 @@ export function Crypto() {
                         <p className="text-sm text-zinc-400 mb-4">
                             Enter a ticker id to fetch real-time data from CoinGecko.
                         </p>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Ticker id *</label>
@@ -1650,7 +1656,7 @@ export function Crypto() {
                                     className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50"
                                 />
                             </div>
-                            
+
                             {customStock.id && quotes[customStock.id] && (
                                 <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                                     <p className="text-sm text-emerald-300">
@@ -1659,7 +1665,7 @@ export function Crypto() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => {

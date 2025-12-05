@@ -127,6 +127,14 @@ export function DebugPanel() {
                                     {isLoading ? "true" : "false"}
                                 </span>
                             </div>
+                            <div className="flex justify-between">
+                                <span className="text-zinc-400">IP Address:</span>
+                                <span className="text-zinc-200 font-mono text-[10px]">127.0.0.1</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-zinc-400">Location:</span>
+                                <span className="text-zinc-200 font-mono text-[10px]">Local</span>
+                            </div>
                         </div>
 
                         {/* Actions */}

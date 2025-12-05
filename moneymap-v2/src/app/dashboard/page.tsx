@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useDataStore } from '@/lib/store/useDataStore';
 import { useUIStore } from '@/lib/store/useUIStore';
 import { Overview } from '@/components/dashboard/Overview';
+import { Dashboard } from '@/components/dashboard/Dashboard';
 import { StatementTab } from '@/components/dashboard/StatementTab';
 import { Recurring } from '@/components/dashboard/Recurring';
 import { Fees } from '@/components/dashboard/Fees';
@@ -29,6 +30,8 @@ export default function DashboardPage() {
 
     const renderTab = () => {
         switch (activeTab) {
+            case 'dashboard':
+                return <Dashboard />;
             case 'overview':
                 return <Overview />;
             case 'statement':

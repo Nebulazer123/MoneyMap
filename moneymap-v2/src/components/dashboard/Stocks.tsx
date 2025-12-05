@@ -4,19 +4,20 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn } from "../../lib/utils";
-import { 
-    Search, Plus, Trash2, TrendingUp, TrendingDown, RefreshCw, 
+import {
+    Search, Plus, Trash2, TrendingUp, TrendingDown, RefreshCw,
     Star, StarOff, BarChart3, Loader2, Wifi, WifiOff,
     DollarSign, Percent, Activity, Clock, AlertCircle,
-    ChevronDown, ChevronUp, ExternalLink, Newspaper, 
+    ChevronDown, ChevronUp, ExternalLink, Newspaper,
     LineChart, Building2, X, ArrowUpRight, ArrowDownRight,
     Bell, BellOff, Sun, Moon
 } from "lucide-react";
+import { FiatCurrencyConverter } from "./CurrencyConverter";
 
 // Market hours helper
 function getMarketStatus() {
     const now = new Date();
-    
+
     // Get current time in NY timezone
     const nyFormatter = new Intl.DateTimeFormat('en-US', {
         timeZone: 'America/New_York',
@@ -25,7 +26,7 @@ function getMarketStatus() {
         hour12: true,
     });
     const nyTimeStr = nyFormatter.format(now);
-    
+
     // Get day/hour/minute in NY timezone
     const nyParts = new Intl.DateTimeFormat('en-US', {
         timeZone: 'America/New_York',
@@ -34,22 +35,22 @@ function getMarketStatus() {
         minute: 'numeric',
         hour12: false,
     }).formatToParts(now);
-    
+
     const dayName = nyParts.find(p => p.type === 'weekday')?.value || '';
     const hour = parseInt(nyParts.find(p => p.type === 'hour')?.value || '0');
     const minute = parseInt(nyParts.find(p => p.type === 'minute')?.value || '0');
     const currentMinutes = hour * 60 + minute;
-    
+
     // Market hours: 9:30 AM - 4:00 PM ET, Mon-Fri
     const marketOpen = 9 * 60 + 30; // 9:30 AM = 570 minutes
     const marketClose = 16 * 60; // 4:00 PM = 960 minutes
-    
+
     const isWeekend = dayName === 'Sat' || dayName === 'Sun';
     const isMarketHours = currentMinutes >= marketOpen && currentMinutes < marketClose;
     const isOpen = !isWeekend && isMarketHours;
-    
+
     let statusMessage = '';
-    
+
     if (isOpen) {
         // Time until close
         const minutesLeft = marketClose - currentMinutes;
@@ -59,7 +60,7 @@ function getMarketStatus() {
     } else {
         // Time until open
         let minutesToOpen = 0;
-        
+
         if (dayName === 'Sat') {
             // Saturday: 2 days until Monday 9:30
             minutesToOpen = (24 * 60 - currentMinutes) + (24 * 60) + marketOpen;
@@ -76,10 +77,10 @@ function getMarketStatus() {
             // Weekday after close: until tomorrow 9:30
             minutesToOpen = (24 * 60 - currentMinutes) + marketOpen;
         }
-        
+
         const hoursUntil = Math.floor(minutesToOpen / 60);
         const minsUntil = minutesToOpen % 60;
-        
+
         if (hoursUntil >= 24) {
             const days = Math.floor(hoursUntil / 24);
             const remainingHours = hoursUntil % 24;
@@ -88,7 +89,7 @@ function getMarketStatus() {
             statusMessage = `${hoursUntil}h ${minsUntil}m until open`;
         }
     }
-    
+
     return {
         isOpen,
         statusMessage,
@@ -220,27 +221,27 @@ const INITIAL_WATCHLIST: WatchlistItem[] = [
 // Mini Chart Component for expanded view
 function MiniChart({ data, isPositive }: { data: ChartPoint[], isPositive: boolean }) {
     if (!data || data.length === 0) return null;
-    
+
     const prices = data.map(d => d.close).filter(p => p != null);
     if (prices.length === 0) return null;
-    
+
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const range = maxPrice - minPrice || 1;
-    
+
     const width = 100;
     const height = 100;
     const padding = 2;
-    
+
     const points = prices.map((price, i) => {
         const x = padding + (i / (prices.length - 1)) * (width - padding * 2);
         const y = height - padding - ((price - minPrice) / range) * (height - padding * 2);
         return `${x},${y}`;
     }).join(' ');
-    
+
     const gradientId = `chartGradient-${isPositive ? 'up' : 'down'}`;
     const color = isPositive ? '#22c55e' : '#ef4444';
-    
+
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
             <defs>
@@ -284,11 +285,11 @@ export function Stocks() {
     const [isOnline, setIsOnline] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
-    
+
     // New states for expanded view
     const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
     const [stockDetail, setStockDetail] = useState<StockDetail | null>(null);
-    
+
     // Market status state
     const [marketStatus, setMarketStatus] = useState(getMarketStatus());
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -311,11 +312,11 @@ export function Stocks() {
     // Fetch quotes from Yahoo Finance API
     const fetchQuotes = useCallback(async (symbols: string[]) => {
         if (symbols.length === 0) return;
-        
+
         try {
             const response = await fetch(`/api/stocks?symbols=${symbols.join(',')}`);
             if (!response.ok) throw new Error('Failed to fetch quotes');
-            
+
             const data = await response.json();
             if (data.quotes) {
                 const newQuotes: Record<string, StockQuote> = {};
@@ -343,19 +344,19 @@ export function Stocks() {
             setSearchResults([]);
             return;
         }
-        
+
         setIsSearching(true);
         try {
             const response = await fetch(`/api/stocks?search=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Search failed');
-            
+
             const data = await response.json();
             setSearchResults(data.quotes || []);
         } catch (err) {
             console.error('Search error:', err);
             // Fallback to local search
             const localResults = Object.keys(quotes)
-                .filter(s => 
+                .filter(s =>
                     s.toLowerCase().includes(query.toLowerCase()) ||
                     quotes[s]?.name.toLowerCase().includes(query.toLowerCase())
                 )
@@ -372,7 +373,7 @@ export function Stocks() {
         try {
             const response = await fetch(`/api/stocks?detail=${symbol}`);
             if (!response.ok) throw new Error('Failed to fetch detail');
-            
+
             const data = await response.json();
             setStockDetail(data);
         } catch (err) {
@@ -388,7 +389,7 @@ export function Stocks() {
         try {
             const response = await fetch('/api/stocks?trending=true');
             if (!response.ok) throw new Error('Failed to fetch trending');
-            
+
             const data = await response.json();
             setTrendingStocks(data.trending || []);
         } catch (err) {
@@ -437,23 +438,23 @@ export function Stocks() {
     useEffect(() => {
         const loadInitialData = async () => {
             setIsInitialLoading(true);
-            
+
             // Get all symbols we need (defaults + holdings + watchlist)
             const holdingSymbols = INITIAL_HOLDINGS.map(h => h.symbol);
             const watchlistSymbols = INITIAL_WATCHLIST.map(w => w.symbol);
             const allSymbols = [...new Set([...DEFAULT_SYMBOLS, ...holdingSymbols, ...watchlistSymbols])];
-            
+
             await fetchQuotes(allSymbols);
-            
+
             // Initialize holdings with current prices (will be updated when quotes load)
             setHoldings(INITIAL_HOLDINGS.map(h => ({
                 ...h,
                 currentPrice: 0,
             })));
-            
+
             setIsInitialLoading(false);
         };
-        
+
         loadInitialData();
     }, [fetchQuotes]);
 
@@ -478,7 +479,7 @@ export function Stocks() {
                 fetchQuotes(uniqueSymbols);
             }
         }, 60000);
-        
+
         return () => clearInterval(interval);
     }, [fetchQuotes, quotes, holdings, watchlist]);
 
@@ -530,12 +531,12 @@ export function Stocks() {
     const addToWatchlist = async (symbol: string, name?: string) => {
         if (!watchlist.find(w => w.symbol === symbol)) {
             const quote = quotes[symbol];
-            setWatchlist([...watchlist, { 
-                symbol, 
-                name: name || quote?.name || symbol, 
-                addedAt: new Date() 
+            setWatchlist([...watchlist, {
+                symbol,
+                name: name || quote?.name || symbol,
+                addedAt: new Date()
             }]);
-            
+
             // Fetch quote if we don't have it
             if (!quotes[symbol]) {
                 await fetchQuotes([symbol]);
@@ -551,7 +552,7 @@ export function Stocks() {
     // Add holding
     const handleAddHolding = async () => {
         if (!selectedSymbol || newHolding.shares <= 0) return;
-        
+
         const quote = quotes[selectedSymbol];
         const holding: StockHolding = {
             id: Date.now().toString(),
@@ -562,7 +563,7 @@ export function Stocks() {
             currentPrice: quote?.price || 0,
             addedAt: new Date(),
         };
-        
+
         setHoldings([...holdings, holding]);
         setNewHolding({ shares: 0, avgCost: 0 });
         setSelectedSymbol(null);
@@ -578,12 +579,12 @@ export function Stocks() {
     // Add custom stock by symbol (fetch from Yahoo Finance)
     const handleAddCustomStock = async () => {
         if (!customStock.symbol) return;
-        
+
         const symbol = customStock.symbol.toUpperCase();
-        
+
         // Fetch real data from Yahoo Finance
         await fetchQuotes([symbol]);
-        
+
         setCustomStock({ symbol: '', name: '', price: 0 });
         setShowAddCustomStockModal(false);
     };
@@ -605,7 +606,7 @@ export function Stocks() {
             {/* Market Status Box */}
             <div className={cn(
                 "mb-6 p-4 rounded-xl border transition-all",
-                marketStatus.isOpen 
+                marketStatus.isOpen
                     ? "bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                     : "bg-zinc-900/60 border-zinc-600/30"
             )}>
@@ -614,7 +615,7 @@ export function Stocks() {
                         {/* Market Status Icon */}
                         <div className={cn(
                             "w-12 h-12 rounded-xl flex items-center justify-center",
-                            marketStatus.isOpen 
+                            marketStatus.isOpen
                                 ? "bg-emerald-500/20"
                                 : "bg-zinc-700/40"
                         )}>
@@ -624,7 +625,7 @@ export function Stocks() {
                                 <BellOff className="h-6 w-6 text-zinc-400" />
                             )}
                         </div>
-                        
+
                         <div>
                             <div className="flex items-center gap-2">
                                 <span className={cn(
@@ -635,7 +636,7 @@ export function Stocks() {
                                 </span>
                                 <span className={cn(
                                     "px-2 py-0.5 text-xs font-medium rounded-full",
-                                    marketStatus.isOpen 
+                                    marketStatus.isOpen
                                         ? "bg-emerald-500/20 text-emerald-400 animate-pulse"
                                         : "bg-zinc-700/50 text-zinc-400"
                                 )}>
@@ -647,7 +648,7 @@ export function Stocks() {
                             </p>
                         </div>
                     </div>
-                    
+
                     <div className="text-right">
                         <p className={cn(
                             "text-sm font-medium",
@@ -667,7 +668,7 @@ export function Stocks() {
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Power Hours hint */}
                 {marketStatus.isOpen && (
                     <div className="mt-3 pt-3 border-t border-white/5">
@@ -684,7 +685,12 @@ export function Stocks() {
                     </div>
                 )}
             </div>
-            
+
+            {/* Currency Converter */}
+            <div className="mb-8">
+                <FiatCurrencyConverter />
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="text-center flex-1">
@@ -732,7 +738,7 @@ export function Stocks() {
                     <p className="text-2xl font-bold text-white">{currency.format(portfolioStats.totalValue)}</p>
                     <p className="text-xs text-zinc-500 mt-1">Across {holdings.length} positions</p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Percent className="h-4 w-4 text-white" />
@@ -751,7 +757,7 @@ export function Stocks() {
                         {portfolioStats.totalGainPercent >= 0 ? '+' : ''}{portfolioStats.totalGainPercent.toFixed(2)}% all time
                     </p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="h-4 w-4 text-cyan-400" />
@@ -770,7 +776,7 @@ export function Stocks() {
                         {portfolioStats.dayChangePercent >= 0 ? '+' : ''}{portfolioStats.dayChangePercent.toFixed(2)}% today
                     </p>
                 </GlassCard>
-                
+
                 <GlassCard className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-4 w-4 text-zinc-400" />
@@ -813,7 +819,7 @@ export function Stocks() {
                         </button>
                     </div>
                 </div>
-                
+
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                     <input
@@ -852,9 +858,9 @@ export function Stocks() {
                                 const quote = quotes[result.symbol];
                                 const inWatchlist = watchlist.some(w => w.symbol === result.symbol);
                                 const inHoldings = holdings.some(h => h.symbol === result.symbol);
-                                
+
                                 return (
-                                    <div 
+                                    <div
                                         key={result.symbol}
                                         className="flex items-center justify-between p-4 hover:bg-white/5 border-b border-white/5 last:border-b-0"
                                     >
@@ -910,8 +916,8 @@ export function Stocks() {
                                                 disabled={inHoldings}
                                                 className={cn(
                                                     "p-2 rounded-lg transition-colors",
-                                                    inHoldings 
-                                                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed" 
+                                                    inHoldings
+                                                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
                                                         : "bg-lime-500/20 text-lime-400 hover:bg-lime-500/30"
                                                 )}
                                             >
@@ -936,7 +942,7 @@ export function Stocks() {
                     </div>
                     <span className="text-xs text-zinc-500">{holdings.length} positions</span>
                 </div>
-                
+
                 {holdings.length === 0 ? (
                     <div className="text-center py-8">
                         <p className="text-zinc-500">No holdings yet. Search and add stocks to your portfolio.</p>
@@ -951,14 +957,14 @@ export function Stocks() {
                             const gainPercent = (gain / costBasis) * 100;
                             const isExpanded = expandedSymbol === holding.symbol;
                             const isPositive = gain >= 0;
-                            
+
                             return (
                                 <div key={holding.id} className="space-y-0">
-                                    <div 
+                                    <div
                                         className={cn(
                                             "relative overflow-hidden rounded-xl border transition-all duration-300 group cursor-pointer",
-                                            isExpanded 
-                                                ? "border-lime-500/40 bg-gradient-to-br from-lime-950/30 via-zinc-900/40 to-zinc-900/40 shadow-[0_0_30px_rgba(163,230,53,0.15)] rounded-b-none" 
+                                            isExpanded
+                                                ? "border-lime-500/40 bg-gradient-to-br from-lime-950/30 via-zinc-900/40 to-zinc-900/40 shadow-[0_0_30px_rgba(163,230,53,0.15)] rounded-b-none"
                                                 : "border-zinc-800/60 bg-zinc-900/40 hover:border-zinc-700/70 hover:bg-zinc-900/60"
                                         )}
                                         onClick={() => toggleExpandedStock(holding.symbol)}
@@ -968,7 +974,7 @@ export function Stocks() {
                                             "absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
                                             isPositive ? "from-emerald-500/5 to-transparent" : "from-rose-500/5 to-transparent"
                                         )} />
-                                        
+
                                         <div className="relative p-5">
                                             {/* Top Row: Symbol & Price Action */}
                                             <div className="flex items-center justify-between mb-4">
@@ -976,8 +982,8 @@ export function Stocks() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={cn(
                                                         "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm transition-all",
-                                                        isPositive 
-                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                                                        isPositive
+                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                                                             : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
                                                     )}>
                                                         {holding.symbol.slice(0, 2)}
@@ -994,7 +1000,7 @@ export function Stocks() {
                                                         <p className="text-xs text-zinc-500 mt-0.5">{holding.shares} shares</p>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Right: Current Price & Change */}
                                                 <div className="text-right">
                                                     <div className="text-xl font-bold text-white mb-1">
@@ -1002,8 +1008,8 @@ export function Stocks() {
                                                     </div>
                                                     <div className={cn(
                                                         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                                        (quote?.change || 0) >= 0 
-                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                                                        (quote?.change || 0) >= 0
+                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                                                             : "bg-rose-500/15 text-rose-400 border border-rose-500/20"
                                                     )}>
                                                         {(quote?.change || 0) >= 0 ? (
@@ -1015,7 +1021,7 @@ export function Stocks() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Bottom Row: Stats Grid */}
                                             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-zinc-800/60">
                                                 {/* Avg Cost */}
@@ -1023,13 +1029,13 @@ export function Stocks() {
                                                     <p className="text-xs text-zinc-500 mb-1">Avg Cost</p>
                                                     <p className="text-sm font-medium text-zinc-300">{currency.format(holding.avgCost)}</p>
                                                 </div>
-                                                
+
                                                 {/* Total Value */}
                                                 <div>
                                                     <p className="text-xs text-zinc-500 mb-1">Total Value</p>
                                                     <p className="text-sm font-medium text-white">{currency.format(currentValue)}</p>
                                                 </div>
-                                                
+
                                                 {/* Gain/Loss */}
                                                 <div className="text-right">
                                                     <p className="text-xs text-zinc-500 mb-1">Gain/Loss</p>
@@ -1049,7 +1055,7 @@ export function Stocks() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Delete Button */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteHolding(holding.id); }}
@@ -1059,7 +1065,7 @@ export function Stocks() {
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Expanded Detail View */}
                                     {isExpanded && (
                                         <div className="bg-zinc-900/50 border border-t-0 border-lime-500/30 rounded-b-xl p-4 animate-in slide-in-from-top-2 duration-200">
@@ -1083,7 +1089,7 @@ export function Stocks() {
                                                                     onClick={() => setChartTimeframe(tf)}
                                                                     className={cn(
                                                                         "px-2.5 py-1 text-xs rounded-lg transition-colors",
-                                                                        chartTimeframe === tf 
+                                                                        chartTimeframe === tf
                                                                             ? "bg-lime-500/20 text-lime-300 border border-lime-500/30"
                                                                             : "bg-zinc-800/50 text-zinc-400 hover:text-white"
                                                                     )}
@@ -1093,7 +1099,7 @@ export function Stocks() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Mini Chart */}
                                                     <div className="h-32 bg-zinc-900/30 rounded-xl border border-white/5 p-3">
                                                         {stockDetail.charts[chartTimeframe]?.length > 0 ? (
@@ -1104,7 +1110,7 @@ export function Stocks() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     {/* Key Stats Grid */}
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1156,7 +1162,7 @@ export function Stocks() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Analyst Info */}
                                                     {stockDetail.insights && (
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1169,8 +1175,8 @@ export function Stocks() {
                                                                     <div className={cn(
                                                                         "px-3 py-1 rounded-full text-xs font-medium",
                                                                         stockDetail.insights.recommendation.toLowerCase().includes('buy') ? "bg-emerald-500/20 text-emerald-400" :
-                                                                        stockDetail.insights.recommendation.toLowerCase().includes('sell') ? "bg-rose-500/20 text-rose-400" :
-                                                                        "bg-amber-500/20 text-amber-400"
+                                                                            stockDetail.insights.recommendation.toLowerCase().includes('sell') ? "bg-rose-500/20 text-rose-400" :
+                                                                                "bg-amber-500/20 text-amber-400"
                                                                     )}>
                                                                         {stockDetail.insights.recommendation}
                                                                     </div>
@@ -1184,7 +1190,7 @@ export function Stocks() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* News Section */}
                                                     {stockDetail.news.length > 0 && (
                                                         <div>
@@ -1202,9 +1208,9 @@ export function Stocks() {
                                                                         className="flex items-start gap-3 p-2 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors group"
                                                                     >
                                                                         {news.thumbnail && (
-                                                                            <img 
-                                                                                src={news.thumbnail} 
-                                                                                alt="" 
+                                                                            <img
+                                                                                src={news.thumbnail}
+                                                                                alt=""
                                                                                 className="w-16 h-12 rounded object-cover flex-shrink-0"
                                                                             />
                                                                         )}
@@ -1251,7 +1257,7 @@ export function Stocks() {
                     </div>
                     <span className="text-xs text-zinc-500">{watchlist.length} stocks</span>
                 </div>
-                
+
                 {watchlist.length === 0 ? (
                     <div className="text-center py-8">
                         <p className="text-zinc-500">Your watchlist is empty. Star stocks to track them here.</p>
@@ -1262,10 +1268,10 @@ export function Stocks() {
                             const quote = quotes[item.symbol];
                             const isUp = (quote?.change || 0) >= 0;
                             const isExpanded = expandedSymbol === item.symbol;
-                            
+
                             return (
                                 <div key={item.symbol} className="space-y-0">
-                                    <div 
+                                    <div
                                         className={cn(
                                             "flex items-center justify-between p-4 rounded-xl bg-zinc-900/30 border transition-all group cursor-pointer",
                                             isExpanded ? "border-yellow-500/30 rounded-b-none" : "border-white/5 hover:border-white/10"
@@ -1312,7 +1318,7 @@ export function Stocks() {
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Expanded Detail View for Watchlist */}
                                     {isExpanded && (
                                         <div className="bg-zinc-900/50 border border-t-0 border-yellow-500/30 rounded-b-xl p-4 animate-in slide-in-from-top-2 duration-200">
@@ -1336,7 +1342,7 @@ export function Stocks() {
                                                                     onClick={() => setChartTimeframe(tf)}
                                                                     className={cn(
                                                                         "px-2.5 py-1 text-xs rounded-lg transition-colors",
-                                                                        chartTimeframe === tf 
+                                                                        chartTimeframe === tf
                                                                             ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
                                                                             : "bg-zinc-800/50 text-zinc-400 hover:text-white"
                                                                     )}
@@ -1346,7 +1352,7 @@ export function Stocks() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Mini Chart */}
                                                     <div className="h-32 bg-zinc-900/30 rounded-xl border border-white/5 p-3">
                                                         {stockDetail.charts[chartTimeframe]?.length > 0 ? (
@@ -1357,7 +1363,7 @@ export function Stocks() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     {/* Key Stats Grid */}
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                         <div className="bg-zinc-900/30 rounded-lg p-3 border border-white/5">
@@ -1409,7 +1415,7 @@ export function Stocks() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* News Section */}
                                                     {stockDetail.news.length > 0 && (
                                                         <div>
@@ -1441,7 +1447,7 @@ export function Stocks() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* Add to Holdings button */}
                                                     <button
                                                         onClick={(e) => {
@@ -1474,7 +1480,7 @@ export function Stocks() {
                 <div>
                     <p className="text-sm text-lime-200">Live Market Data from Yahoo Finance</p>
                     <p className="text-xs text-lime-400/70 mt-1">
-                        Stock prices, charts, and news are fetched in real-time from Yahoo Finance. 
+                        Stock prices, charts, and news are fetched in real-time from Yahoo Finance.
                         <span className="text-amber-300"> Portfolio holdings shown are simulated for demonstration purposes.</span>
                     </p>
                 </div>
@@ -1496,7 +1502,7 @@ export function Stocks() {
                                 <X className="h-5 w-5 text-zinc-400" />
                             </button>
                         </div>
-                        
+
                         <div className="p-4 overflow-y-auto max-h-[calc(80vh-100px)]">
                             {/* Loaded Stocks Section */}
                             <div className="mb-6">
@@ -1509,9 +1515,9 @@ export function Stocks() {
                                         const isUp = (quote?.change || 0) >= 0;
                                         const inWatchlist = watchlist.some(w => w.symbol === symbol);
                                         const inHoldings = holdings.some(h => h.symbol === symbol);
-                                        
+
                                         return (
-                                            <div 
+                                            <div
                                                 key={symbol}
                                                 className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 transition-all group"
                                             >
@@ -1565,8 +1571,8 @@ export function Stocks() {
                                                         disabled={inHoldings}
                                                         className={cn(
                                                             "p-1.5 rounded-lg transition-colors",
-                                                            inHoldings 
-                                                                ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed" 
+                                                            inHoldings
+                                                                ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
                                                                 : "bg-lime-500/20 text-lime-400 hover:bg-lime-500/30"
                                                         )}
                                                     >
@@ -1578,7 +1584,7 @@ export function Stocks() {
                                     })}
                                 </div>
                             </div>
-                            
+
                             {/* Trending Section */}
                             {trendingStocks.length > 0 && (
                                 <div>
@@ -1588,7 +1594,7 @@ export function Stocks() {
                                     </h4>
                                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                         {trendingStocks.filter(t => !quotes[t.symbol]).map((stock) => (
-                                            <div 
+                                            <div
                                                 key={stock.symbol}
                                                 className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/30 border border-white/5 hover:border-white/10 transition-all"
                                             >
@@ -1626,7 +1632,7 @@ export function Stocks() {
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Add {selectedSymbol} to Portfolio
                         </h3>
-                        
+
                         <div className="flex items-center gap-4 p-4 bg-zinc-900/50 rounded-xl mb-4">
                             <div className="w-12 h-12 rounded-lg bg-lime-500/20 flex items-center justify-center">
                                 <span className="text-lime-400 font-bold">{selectedSymbol.slice(0, 2)}</span>
@@ -1637,7 +1643,7 @@ export function Stocks() {
                                 <p className="text-sm text-lime-400">{currency.format(quotes[selectedSymbol]?.price || 0)}</p>
                             </div>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Number of Shares *</label>
@@ -1651,7 +1657,7 @@ export function Stocks() {
                                     className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-lime-500/50"
                                 />
                             </div>
-                            
+
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Average Cost Per Share</label>
                                 <input
@@ -1665,7 +1671,7 @@ export function Stocks() {
                                 />
                                 <p className="text-xs text-zinc-500 mt-1">Leave empty to use current price</p>
                             </div>
-                            
+
                             {newHolding.shares > 0 && (
                                 <div className="p-3 bg-zinc-900/30 rounded-lg">
                                     <div className="flex justify-between text-sm">
@@ -1677,7 +1683,7 @@ export function Stocks() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => {
@@ -1711,7 +1717,7 @@ export function Stocks() {
                         <p className="text-sm text-zinc-400 mb-4">
                             Enter a ticker symbol to fetch real-time data from Yahoo Finance.
                         </p>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Ticker Symbol *</label>
@@ -1723,7 +1729,7 @@ export function Stocks() {
                                     className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50"
                                 />
                             </div>
-                            
+
                             {customStock.symbol && quotes[customStock.symbol] && (
                                 <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                                     <p className="text-sm text-emerald-300">
@@ -1732,7 +1738,7 @@ export function Stocks() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => {

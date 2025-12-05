@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DateRange } from '../types';
 
-export type DashboardTab = "overview" | "recurring" | "fees" | "cashflow" | "review" | "statement" | "subscriptions" | "budget" | "accounts" | "stocks" | "crypto";
+export type DashboardTab = "dashboard" | "overview" | "recurring" | "fees" | "cashflow" | "review" | "statement" | "subscriptions" | "budget" | "accounts" | "stocks" | "crypto";
 
 interface UIState {
     activeTab: DashboardTab;
@@ -30,7 +30,7 @@ const defaultDateRange: DateRange = {
 export const useUIStore = create<UIState>()(
     persist(
         (set) => ({
-            activeTab: 'overview',
+            activeTab: 'dashboard',
             dateRange: defaultDateRange,
             isSidebarOpen: true,
 

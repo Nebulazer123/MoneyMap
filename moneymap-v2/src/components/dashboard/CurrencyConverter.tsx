@@ -24,11 +24,23 @@ const POPULAR_CURRENCIES = [
     { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
 ];
 
+const CRYPTO_CURRENCIES = [
+    { code: 'BTC', name: 'Bitcoin', symbol: '₿' },
+    { code: 'ETH', name: 'Ethereum', symbol: 'Ξ' },
+    { code: 'USDT', name: 'Tether', symbol: '₮' },
+    { code: 'BNB', name: 'Binance Coin', symbol: 'BNB' },
+    { code: 'SOL', name: 'Solana', symbol: 'SOL' },
+    { code: 'XRP', name: 'Ripple', symbol: 'XRP' },
+    { code: 'ADA', name: 'Cardano', symbol: 'ADA' },
+    { code: 'DOGE', name: 'Dogecoin', symbol: 'Ð' },
+];
+
 interface CurrencyConverterProps {
     detectedCurrency?: string;
 }
 
-export function CurrencyConverter({ detectedCurrency }: CurrencyConverterProps) {
+// Fiat Currency Converter (for Stocks page)
+export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterProps) {
     const [rates, setRates] = useState<ExchangeRates | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [amount, setAmount] = useState<string>('100');
@@ -170,7 +182,134 @@ export function CurrencyConverter({ detectedCurrency }: CurrencyConverterProps) 
 
             <div className="mt-4 pt-4 border-t border-zinc-800/60">
                 <p className="text-xs text-zinc-500 text-center">
-                    Real-time exchange rates • Free API (no key required)
+                    Exchange rates updated daily
+                </p>
+            </div>
+        </GlassCard>
+    );
+}
+
+// Crypto Currency Converter (for Crypto page)
+export function CryptoCurrencyConverter({ detectedCurrency }: CurrencyConverterProps) {
+    const [cryptoAmount, setCryptoAmount] = useState<string>('1');
+    const [cryptoFromCurrency, setCryptoFromCurrency] = useState('USD');
+    const [cryptoToCrypto, setCryptoToCrypto] = useState('BTC');
+    const [hasAutoSet, setHasAutoSet] = useState(false);
+
+    // Auto-set currency based on detected location
+    useEffect(() => {
+        if (detectedCurrency && !hasAutoSet) {
+            setCryptoFromCurrency(detectedCurrency);
+            setHasAutoSet(true);
+        }
+    }, [detectedCurrency, hasAutoSet]);
+
+    // Placeholder crypto conversion (Phase 2 will wire real API)
+    const convertedCrypto = cryptoAmount
+        ? (parseFloat(cryptoAmount) * 0.000023).toFixed(8) // Placeholder rate
+        : '0.00000000';
+
+    const swapCrypto = () => {
+        const temp = cryptoFromCurrency;
+        setCryptoFromCurrency(cryptoToCrypto);
+        setCryptoToCrypto(temp);
+    };
+
+    return (
+        <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                    <span className="text-2xl">₿</span>
+                    <h3 className="text-lg font-semibold text-white">Crypto Converter</h3>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {/* From Currency/Crypto */}
+                <div>
+                    <label className="text-xs text-zinc-500 mb-2 block">Amount</label>
+                    <div className="flex gap-2">
+                        <input
+                            type="number"
+                            value={cryptoAmount}
+                            onChange={(e) => setCryptoAmount(e.target.value)}
+                            className="flex-1 px-4 py-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl text-white text-lg font-semibold focus:outline-none focus:border-purple-500/50 transition-colors"
+                            placeholder="1"
+                        />
+                        <select
+                            value={cryptoFromCurrency}
+                            onChange={(e) => setCryptoFromCurrency(e.target.value)}
+                            className="px-4 py-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl text-white font-medium focus:outline-none focus:border-purple-500/50 transition-colors cursor-pointer"
+                        >
+                            {POPULAR_CURRENCIES.map(curr => (
+                                <option key={curr.code} value={curr.code}>
+                                    {curr.code} {curr.symbol}
+                                </option>
+                            ))}
+                            {CRYPTO_CURRENCIES.map(crypto => (
+                                <option key={crypto.code} value={crypto.code}>
+                                    {crypto.code} {crypto.symbol}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Swap Button */}
+                <div className="flex justify-center">
+                    <button
+                        onClick={swapCrypto}
+                        className="p-3 bg-purple-500/20 hover:bg-purple-500/30 rounded-xl transition-colors border border-purple-500/30"
+                    >
+                        <ArrowRightLeft className="h-5 w-5 text-purple-400" />
+                    </button>
+                </div>
+
+                {/* To Crypto */}
+                <div>
+                    <label className="text-xs text-zinc-500 mb-2 block">Converted Amount</label>
+                    <div className="flex gap-2">
+                        <div className="flex-1 px-4 py-3 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                            <p className="text-2xl font-bold text-purple-400">
+                                {convertedCrypto}
+                            </p>
+                        </div>
+                        <select
+                            value={cryptoToCrypto}
+                            onChange={(e) => setCryptoToCrypto(e.target.value)}
+                            className="px-4 py-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl text-white font-medium focus:outline-none focus:border-purple-500/50 transition-colors cursor-pointer"
+                        >
+                            {CRYPTO_CURRENCIES.map(crypto => (
+                                <option key={crypto.code} value={crypto.code}>
+                                    {crypto.code} {crypto.symbol}
+                                </option>
+                            ))}
+                            {POPULAR_CURRENCIES.map(curr => (
+                                <option key={curr.code} value={curr.code}>
+                                    {curr.code} {curr.symbol}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Placeholder Exchange Rate Info */}
+                <div className="pt-4 border-t border-zinc-800/60">
+                    <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-500">Exchange Rate</span>
+                        <span className="text-white font-medium">
+                            1 {cryptoFromCurrency} = {convertedCrypto} {cryptoToCrypto}
+                        </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-2 text-center">
+                        Phase 2: Real-time crypto rates will be integrated
+                    </p>
+                </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-zinc-800/60">
+                <p className="text-xs text-zinc-500 text-center">
+                    Exchange rates updated daily
                 </p>
             </div>
         </GlassCard>

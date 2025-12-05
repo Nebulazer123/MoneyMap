@@ -20,19 +20,21 @@ export function NewsFeed() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSearch, setActiveSearch] = useState('');
-    const [category, setCategory] = useState<'business' | 'technology'>('business');
+    const [category, setCategory] = useState<'financial' | 'business' | 'technology' | 'stock' | 'cryptocurrency'>('financial');
 
     const fetchNews = async (query?: string) => {
         setIsLoading(true);
         try {
-            const endpoint = query 
+            const endpoint = query
                 ? `/api/news?q=${encodeURIComponent(query)}`
                 : `/api/news?category=${category}`;
-            
+
             const response = await fetch(endpoint);
             const data = await response.json();
             if (data.articles) {
-                setArticles(data.articles);
+                // Phase 1: Basic relevance sorting
+                const sortedArticles = sortArticlesByRelevance(data.articles, query);
+                setArticles(sortedArticles);
                 setActiveSearch(query || '');
             }
         } catch (error) {
@@ -40,6 +42,45 @@ export function NewsFeed() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Phase 1: Basic relevance sorting function
+    // Phase 2 will refine with deeper algorithms
+    const sortArticlesByRelevance = (articles: NewsArticle[], query?: string) => {
+        if (!query) {
+            // No search query: sort by recency only
+            return articles.sort((a, b) =>
+                new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+            );
+        }
+
+        const lowerQuery = query.toLowerCase();
+
+        return articles.sort((a, b) => {
+            // Calculate relevance scores
+            let scoreA = 0;
+            let scoreB = 0;
+
+            // Priority 1: Title match (highest priority)
+            if (a.title.toLowerCase().includes(lowerQuery)) scoreA += 100;
+            if (b.title.toLowerCase().includes(lowerQuery)) scoreB += 100;
+
+            // Priority 2: Description match
+            if (a.description?.toLowerCase().includes(lowerQuery)) scoreA += 50;
+            if (b.description?.toLowerCase().includes(lowerQuery)) scoreB += 50;
+
+            // Priority 3: Source match
+            if (a.source.toLowerCase().includes(lowerQuery)) scoreA += 25;
+            if (b.source.toLowerCase().includes(lowerQuery)) scoreB += 25;
+
+            // Priority 4: Recency (newer = higher score, max 10 points)
+            const daysDiffA = (Date.now() - new Date(a.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
+            const daysDiffB = (Date.now() - new Date(b.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
+            scoreA += Math.max(0, 10 - daysDiffA);
+            scoreB += Math.max(0, 10 - daysDiffB);
+
+            return scoreB - scoreA;
+        });
     };
 
     useEffect(() => {
@@ -64,7 +105,7 @@ export function NewsFeed() {
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                     <Newspaper className="h-5 w-5 text-blue-400" />
-                    <h3 className="text-lg font-semibold text-white">Financial News</h3>
+                    <h3 className="text-lg font-semibold text-white">Recent News</h3>
                 </div>
                 <button
                     onClick={() => fetchNews(activeSearch || undefined)}
@@ -106,7 +147,18 @@ export function NewsFeed() {
                 </form>
 
                 {!activeSearch && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                        <button
+                            onClick={() => setCategory('financial')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                                category === 'financial'
+                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                    : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
+                            )}
+                        >
+                            Financial
+                        </button>
                         <button
                             onClick={() => setCategory('business')}
                             className={cn(
@@ -128,6 +180,28 @@ export function NewsFeed() {
                             )}
                         >
                             Technology
+                        </button>
+                        <button
+                            onClick={() => setCategory('stock')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                                category === 'stock'
+                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                    : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
+                            )}
+                        >
+                            Stock
+                        </button>
+                        <button
+                            onClick={() => setCategory('cryptocurrency')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                                category === 'cryptocurrency'
+                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                    : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
+                            )}
+                        >
+                            Cryptocurrency
                         </button>
                     </div>
                 )}

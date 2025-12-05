@@ -41,9 +41,10 @@ const tintStyles: Record<GlassTint, string> = {
     none: '',
 };
 
-interface GlassCardProps extends HTMLAttributes<HTMLDivElement> {
+export interface GlassCardProps extends HTMLAttributes<HTMLDivElement> {
     children: ReactNode;
     className?: string;
+    contentClassName?: string;
     hoverEffect?: boolean;
     accent?: AccentColor;
     intensity?: GlassIntensity;
@@ -53,6 +54,7 @@ interface GlassCardProps extends HTMLAttributes<HTMLDivElement> {
 export function GlassCard({
     children,
     className,
+    contentClassName,
     hoverEffect = false,
     accent = 'none',
     intensity = 'medium',
@@ -73,15 +75,15 @@ export function GlassCard({
         >
             {/* Faint glass glare - diagonal reflection */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-transparent to-transparent pointer-events-none" aria-hidden="true" />
-            
+
             {/* Subtle top edge highlight */}
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden="true" />
-            
+
             {/* Left edge glint */}
             <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-white/15 via-transparent to-transparent" aria-hidden="true" />
 
             {/* Content */}
-            <div className="relative z-10">
+            <div className={cn("relative z-10", contentClassName)}>
                 {children}
             </div>
         </div>

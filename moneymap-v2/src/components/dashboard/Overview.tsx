@@ -10,11 +10,9 @@ import { getSpendingByCategory, getTransactionsByCategory, getTotalIncome, getTo
 import { GlassCard, AccentColor } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn, isDateInRange } from "../../lib/utils";
-import { TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Search } from "lucide-react";
 import { EconomicWidget } from "./EconomicWidget";
-import { NewsFeed } from "./NewsFeed";
-import { CurrencyConverter } from "./CurrencyConverter";
-import { LocationWidget } from "./LocationWidget";
+
 import { Transaction } from "../../lib/types";
 
 // Helper to get categories for a group
@@ -198,7 +196,108 @@ export function Overview() {
                 <p className="text-zinc-400">Where your money went this month.</p>
             </div>
 
-            {/* Summary Metric Cards */}
+
+
+            {groupedSpendingData.length > 0 && (
+                <GlassCard className="p-6 mb-6 bg-zinc-900/50 backdrop-blur-xl">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-white">Spending by group</h3>
+                    </div>
+                    <div className="h-80 w-full" style={{ pointerEvents: chartInteractive ? "auto" : "none" }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={groupedSpendingData}
+                                    dataKey="value"
+                                    nameKey="label"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={80}
+                                    outerRadius={130}
+                                    paddingAngle={2}
+                                    cornerRadius={4}
+                                    stroke="none"
+                                    onMouseEnter={() => setChartInteractive(true)}
+                                    onMouseLeave={() => setChartInteractive(false)}
+                                    onClick={(data) => {
+                                        const groupId = getGroupIdFromEntry(data);
+                                        if (groupId) {
+                                            const categories = getCategoriesForGroup(groupId);
+                                            onSelectGroup(categories);
+                                        }
+                                    }}
+                                >
+                                    {groupedSpendingData.map((entry) => (
+                                        <Cell
+                                            key={entry.id}
+                                            fill={entry.color}
+                                            className="transition-all duration-300 hover:opacity-80 cursor-pointer stroke-zinc-900 stroke-2"
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-xl">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-xl">{data.emoji}</span>
+                                                        <span className="font-medium text-white">{data.label}</span>
+                                                    </div>
+                                                    <div className="text-2xl font-bold text-white">
+                                                        {currency.format(data.value)}
+                                                    </div>
+                                                    <div className="text-xs text-zinc-400 mt-1">
+                                                        {data.percent.toFixed(1)}% of spending
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {groupedSpendingData.map((item) => {
+                            const isActive = item.id === activeGroupId;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                        const categories = getCategoriesForGroup(item.id);
+                                        onSelectGroup(categories);
+                                    }}
+                                    className={cn(
+                                        "flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none",
+                                        isActive
+                                            ? "border-zinc-500 bg-zinc-800"
+                                            : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3 text-zinc-200">
+                                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                        <span className="flex items-center gap-1">
+                                            <span aria-hidden="true">{item.emoji}</span>
+                                            <span>{item.label}</span>
+                                        </span>
+                                    </div>
+                                    <div className="text-right text-xs text-zinc-400">
+                                        <div className="text-base font-semibold text-white">{`${item.percent}%`}</div>
+                                        <div className="text-[11px] text-zinc-500">{currency.format(item.value)}</div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </GlassCard>
+            )}
+
+            {/* Summary Metric Cards (Moved) */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
                 <GlassCard accent="green" tint="emerald" intensity="light" hoverEffect className="p-4">
                     <div className="flex items-center justify-between mb-1">
@@ -262,105 +361,6 @@ export function Overview() {
                 </GlassCard>
             </div>
 
-            {groupedSpendingData.length > 0 && (
-                <GlassCard className="p-6 mb-6 bg-zinc-900/50 backdrop-blur-xl">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-white">Spending by group</h3>
-                    </div>
-                    <div className="h-80 w-full" style={{ pointerEvents: chartInteractive ? "auto" : "none" }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={groupedSpendingData}
-                                    dataKey="value"
-                                    nameKey="label"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={2}
-                                    cornerRadius={4}
-                                    stroke="none"
-                                    onMouseEnter={() => setChartInteractive(true)}
-                                    onMouseLeave={() => setChartInteractive(false)}
-                                    onClick={(data) => {
-                                        const groupId = getGroupIdFromEntry(data);
-                                        if (groupId) {
-                                            const categories = getCategoriesForGroup(groupId);
-                                            onSelectGroup(categories);
-                                        }
-                                    }}
-                                >
-                                    {groupedSpendingData.map((entry) => (
-                                        <Cell 
-                                            key={entry.id} 
-                                            fill={entry.color}
-                                            className="transition-all duration-300 hover:opacity-80 cursor-pointer stroke-zinc-900 stroke-2"
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip 
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const data = payload[0].payload;
-                                            return (
-                                                <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-xl">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-xl">{data.emoji}</span>
-                                                        <span className="font-medium text-white">{data.label}</span>
-                                                    </div>
-                                                    <div className="text-2xl font-bold text-white">
-                                                        {currency.format(data.value)}
-                                                    </div>
-                                                    <div className="text-xs text-zinc-400 mt-1">
-                                                        {data.percent.toFixed(1)}% of spending
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        {groupedSpendingData.map((item) => {
-                            const isActive = item.id === activeGroupId;
-                            return (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => {
-                                        const categories = getCategoriesForGroup(item.id);
-                                        onSelectGroup(categories);
-                                    }}
-                                    className={cn(
-                                        "flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none",
-                                        isActive
-                                            ? "border-zinc-500 bg-zinc-800"
-                                            : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3 text-zinc-200">
-                                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                        <span className="flex items-center gap-1">
-                                            <span aria-hidden="true">{item.emoji}</span>
-                                            <span>{item.label}</span>
-                                        </span>
-                                    </div>
-                                    <div className="text-right text-xs text-zinc-400">
-                                        <div className="text-base font-semibold text-white">{`${item.percent}%`}</div>
-                                        <div className="text-[11px] text-zinc-500">{currency.format(item.value)}</div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </GlassCard>
-            )}
-
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
                 {detailCards.map((card) => {
                     const isActive = card.categories.some((cat) => activeCategoryIds.includes(cat));
@@ -403,8 +403,16 @@ export function Overview() {
                             <span className="text-right">Amount</span>
                         </div>
                         {overviewTransactions.length === 0 ? (
-                            <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">
-                                Select a category group to see transactions.
+                            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                <div className="h-12 w-12 rounded-full bg-zinc-800/50 flex items-center justify-center mb-3">
+                                    <Search className="h-6 w-6 text-zinc-500" />
+                                </div>
+                                <p className="text-lg font-medium text-zinc-300 mb-1">
+                                    No transactions to display
+                                </p>
+                                <p className="text-sm text-zinc-500">
+                                    Select a category group above to see details.
+                                </p>
                             </div>
                         ) : (
                             <div className="divide-y divide-zinc-800">
@@ -432,23 +440,14 @@ export function Overview() {
                 </div>
             </div>
 
-            {/* Location & Currency Detection */}
-            <div className="mb-8">
-                <LocationWidget onCurrencyDetected={setDetectedCurrency} />
-            </div>
+
 
             {/* Economic Indicators Widget */}
             <div className="mb-8">
                 <EconomicWidget />
             </div>
 
-            {/* Currency Converter */}
-            <div className="mb-8">
-                <CurrencyConverter detectedCurrency={detectedCurrency} />
-            </div>
 
-            {/* Financial News Feed */}
-            <NewsFeed />
         </GlassCard>
     );
 }
