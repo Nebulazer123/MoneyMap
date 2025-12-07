@@ -13,6 +13,7 @@ import {
     Bell, BellOff, Sun, Moon
 } from "lucide-react";
 import { CryptoCurrencyConverter } from "./CurrencyConverter";
+import { DEFAULT_CRYPTOS, INITIAL_HOLDINGS, INITIAL_WATCHLIST, getCryptoInfo, REFRESH_INTERVAL_MS } from "../../lib/cryptoHelpers";
 
 // Market hours helper
 function getMarketStatus() {
@@ -122,27 +123,6 @@ interface CryptoDetail {
 }
 
 type ChartTimeframe = '1D' | '1W' | '1M' | '3M' | '1Y';
-
-// Default symbols to load on startup
-const DEFAULT_CRYPTOS = [
-    'bitcoin', 'ethereum', 'solana', 'cardano', 'ripple', 'polkadot',
-    'dogecoin', 'avalanche-2', 'chainlink', 'matic-network', 'binancecoin',
-    'uniswap', 'litecoin', 'stellar', 'cosmos'
-];
-
-// Initial holdings (will fetch real prices from CoinGecko)
-const INITIAL_HOLDINGS: Omit<CryptoHolding, 'currentPrice'>[] = [
-    { id: '1', cryptoId: 'bitcoin', name: 'Bitcoin', shares: 0.5, avgCost: 45000, addedAt: new Date('2024-06-15') },
-    { id: '2', cryptoId: 'ethereum', name: 'Ethereum', shares: 5, avgCost: 2500, addedAt: new Date('2024-03-20') },
-    { id: '3', cryptoId: 'solana', name: 'Solana', shares: 100, avgCost: 50, addedAt: new Date('2024-08-10') },
-];
-
-// Initial watchlist
-const INITIAL_WATCHLIST: WatchlistItem[] = [
-    { id: '1', cryptoId: 'cardano', name: 'Cardano', addedAt: new Date() },
-    { id: '2', cryptoId: 'polkadot', name: 'Polkadot', addedAt: new Date() },
-    { id: '3', cryptoId: 'avalanche-2', name: 'Avalanche', addedAt: new Date() },
-];
 
 // Mini Chart Component for expanded view
 function MiniChart({ data, isPositive }: { data: ChartPoint[], isPositive: boolean }) {
@@ -404,7 +384,7 @@ export function Crypto() {
             if (uniqueSymbols.length > 0) {
                 fetchQuotes(uniqueSymbols);
             }
-        }, 60000);
+        }, REFRESH_INTERVAL_MS); // 5 minutes
 
         return () => clearInterval(interval);
     }, [fetchQuotes, quotes, holdings, watchlist]);
@@ -522,7 +502,7 @@ export function Crypto() {
             <GlassCard intensity="medium" tint="orange" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex flex-col items-center justify-center py-20">
                     <Loader2 className="h-8 w-8 text-orange-400 animate-spin mb-4" />
-                    <p className="text-zinc-400">Loading crypto data from CoinGecko...</p>
+                    <p className="text-zinc-400">Loading crypto data...</p>
                 </div>
             </GlassCard>
         );
@@ -622,7 +602,7 @@ export function Crypto() {
             <div className="flex items-center justify-between mb-8">
                 <div className="text-center flex-1">
                     <h2 className="text-2xl font-semibold text-white">Crypto Portfolio</h2>
-                    <p className="text-zinc-400">Real-time data from CoinGecko</p>
+                    <p className="text-zinc-400">Real-time data from Yahoo Finance</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Connection Status */}
@@ -712,7 +692,7 @@ export function Crypto() {
                     <p className="text-lg font-medium text-white">
                         {lastRefresh ? lastRefresh.toLocaleTimeString() : '--:--:--'}
                     </p>
-                    <p className="text-xs text-zinc-500 mt-1">Auto-refresh every 60s</p>
+                    <p className="text-xs text-zinc-500 mt-1">Auto-refresh every 5min</p>
                 </GlassCard>
             </div>
 
@@ -721,7 +701,7 @@ export function Crypto() {
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-base font-semibold text-white">Search cryptos</h3>
-                        <InfoTooltip text="Search any crypto by ticker or company name. Powered by CoinGecko." />
+                        <InfoTooltip text="Search any crypto by ticker or name. Powered by Yahoo Finance." />
                         <span className="text-xs text-zinc-500 bg-zinc-800/50 px-2 py-0.5 rounded-full">
                             {Object.keys(quotes).length} loaded
                         </span>
@@ -877,13 +857,14 @@ export function Crypto() {
                 ) : (
                     <div className="space-y-3">
                         {holdings.map(holding => {
-                            const quote = quotes[holding.id];
+                            const quote = quotes[holding.cryptoId];
                             const currentValue = holding.shares * (quote?.price || holding.currentPrice);
                             const costBasis = holding.shares * holding.avgCost;
                             const gain = currentValue - costBasis;
                             const gainPercent = (gain / costBasis) * 100;
-                            const isExpanded = expandedid === holding.id;
+                            const isExpanded = expandedid === holding.cryptoId;
                             const isPositive = gain >= 0;
+                            const cryptoInfo = getCryptoInfo(holding.cryptoId);
 
                             return (
                                 <div key={holding.id} className="space-y-0">
@@ -894,7 +875,7 @@ export function Crypto() {
                                                 ? "border-orange-500/40 bg-gradient-to-br from-orange-950/30 via-zinc-900/40 to-zinc-900/40 shadow-[0_0_30px_rgba(163,230,53,0.15)] rounded-b-none"
                                                 : "border-zinc-800/60 bg-zinc-900/40 hover:border-zinc-700/70 hover:bg-zinc-900/60"
                                         )}
-                                        onClick={() => toggleExpandedStock(holding.id)}
+                                        onClick={() => toggleExpandedStock(holding.cryptoId)}
                                     >
                                         {/* Subtle gradient overlay */}
                                         <div className={cn(
@@ -913,18 +894,19 @@ export function Crypto() {
                                                             ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                                                             : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
                                                     )}>
-                                                        {holding.id.slice(0, 2)}
+                                                        {cryptoInfo.symbol.slice(0, 3)}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h4 className="text-base font-semibold text-white tracking-tight">{holding.id}</h4>
+                                                            <h4 className="text-base font-semibold text-white tracking-tight">{cryptoInfo.displayName}</h4>
+                                                            <span className="text-xs text-zinc-500">({cryptoInfo.symbol})</span>
                                                             {isExpanded ? (
                                                                 <ChevronUp className="h-4 w-4 text-orange-400" />
                                                             ) : (
                                                                 <ChevronDown className="h-4 w-4 text-zinc-500 group-hover:text-zinc-400" />
                                                             )}
                                                         </div>
-                                                        <p className="text-xs text-zinc-500 mt-0.5">{holding.shares} shares</p>
+                                                        <p className="text-xs text-zinc-500 mt-0.5">{cryptoInfo.type} • {holding.shares} units</p>
                                                     </div>
                                                 </div>
 
@@ -1119,7 +1101,7 @@ export function Crypto() {
                                                     )}
 
                                                     {/* News Section */}
-                                                    {CryptoDetail.news.length > 0 && (
+                                                    {CryptoDetail && Array.isArray(CryptoDetail.news) && CryptoDetail.news.length > 0 && (
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-3">
                                                                 <Newspaper className="h-4 w-4 text-cyan-400" />

@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
 import { cn } from "../../lib/utils";
-import { ChevronUp, ChevronDown, RefreshCw, Trash2, Terminal, Calendar, Info, PlayCircle } from "lucide-react";
+import { ChevronUp, ChevronDown, RefreshCw, Trash2, Terminal, Calendar, Info, PlayCircle, PlusCircle } from "lucide-react";
 
 const MONTHS = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -19,20 +20,30 @@ export function DebugPanel() {
         transactions,
         accounts,
         isLoading,
-        loadDemoData,
-        clearData
+        generateData,
+        clearData,
+        currentProfile
     } = useDataStore();
 
     const {
         activeTab,
-        dateRange,
+        dateRange: viewRange,
         isSidebarOpen,
-        setDateRange
+        setDateRange: setViewRange
     } = useUIStore();
 
+    const {
+        datasetStart,
+        datasetEnd,
+        profileId,
+        regenerateStatements,
+        extendDatasetRange,
+        setViewRange: setDateStoreViewRange
+    } = useDateStore();
+
     // Local state for date pickers
-    const fromDate = new Date(dateRange.from);
-    const toDate = new Date(dateRange.to);
+    const fromDate = new Date(viewRange.from);
+    const toDate = new Date(viewRange.to);
     const [fromMonth, setFromMonth] = useState(fromDate.getMonth());
     const [fromYear, setFromYear] = useState(fromDate.getFullYear());
     const [toMonth, setToMonth] = useState(toDate.getMonth());
@@ -43,18 +54,18 @@ export function DebugPanel() {
         return () => cancelAnimationFrame(id);
     }, []);
 
-    // Sync local state when dateRange changes externally
+    // Sync local state when viewRange changes externally
     useEffect(() => {
         const id = requestAnimationFrame(() => {
-            const from = new Date(dateRange.from);
-            const to = new Date(dateRange.to);
+            const from = new Date(viewRange.from);
+            const to = new Date(viewRange.to);
             setFromMonth(from.getMonth());
             setFromYear(from.getFullYear());
             setToMonth(to.getMonth());
             setToYear(to.getFullYear());
         });
         return () => cancelAnimationFrame(id);
-    }, [dateRange]);
+    }, [viewRange]);
 
     if (!isMounted) return null;
 
@@ -62,31 +73,40 @@ export function DebugPanel() {
 
     const handleLogState = () => {
         console.group("MoneyMap Debug State");
-        console.log("Data Store:", { transactions, accounts, isLoading });
-        console.log("UI Store:", { activeTab, dateRange, isSidebarOpen });
+        console.log("Data Store:", { transactions, accounts, isLoading, currentProfile });
+        console.log("UI Store:", { activeTab, viewRange, isSidebarOpen });
+        console.log("Date Store:", { datasetStart, datasetEnd, profileId });
         console.groupEnd();
     };
 
-    const handleRestartDemo = () => {
-        if (confirm("This will clear all current data and reload the fresh demo set. Continue?")) {
-            clearData();
-            setTimeout(() => {
-                loadDemoData();
-            }, 100);
+    const handleRegenerate = () => {
+        if (confirm("This will generate a NEW profile and wipe existing data. Continue?")) {
+            regenerateStatements(); // Reset date store profile
+            setTimeout(() => generateData('full'), 50); // Trigger generation
         }
     };
 
-    const setPresetDateRange = (monthsBack: number) => {
+    const handleExtend = () => {
+        // Extend by 3 months
+        const currentEnd = new Date(datasetEnd);
+        const newEnd = new Date(currentEnd.getFullYear(), currentEnd.getMonth() + 3, 0);
+        extendDatasetRange(newEnd);
+        setTimeout(() => generateData('extend'), 50);
+    };
+
+    const setPresetViewRange = (monthsBack: number) => {
         const now = new Date();
         const from = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
         const to = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 0);
-        setDateRange({ from, to });
+        setViewRange({ from, to });
+        setDateStoreViewRange(from, to);
     };
 
-    const applyCustomDateRange = () => {
+    const applyCustomViewRange = () => {
         const from = new Date(fromYear, fromMonth, 1);
         const to = new Date(toYear, toMonth + 1, 0); // Last day of month
-        setDateRange({ from, to });
+        setViewRange({ from, to });
+        setDateStoreViewRange(from, to);
     };
 
     const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -101,9 +121,9 @@ export function DebugPanel() {
                     <div className="mb-4 flex items-center justify-between border-b border-zinc-800 pb-2">
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
                             <Terminal className="h-4 w-4 text-purple-400" />
-                            Debug Panel
+                            Debug Panel (Phase 2)
                         </h3>
-                        <span className="text-[10px] text-zinc-500">v0.2.0</span>
+                        <span className="text-[10px] text-zinc-500">v2.0-alpha</span>
                     </div>
 
                     <div className="space-y-4">
@@ -114,12 +134,12 @@ export function DebugPanel() {
                                 <span className="text-zinc-200 font-mono">{transactions.length}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-zinc-400">Accounts:</span>
-                                <span className="text-zinc-200 font-mono">{accounts.length}</span>
+                                <span className="text-zinc-400">Profile ID:</span>
+                                <span className="text-zinc-200 font-mono text-[10px]">{profileId.substring(0, 8)}...</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-zinc-400">Active Tab:</span>
-                                <span className="text-zinc-200 font-mono">{activeTab}</span>
+                                <span className="text-zinc-400">Dataset End:</span>
+                                <span className="text-zinc-200 font-mono">{new Date(datasetEnd).toLocaleDateString()}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-zinc-400">Loading:</span>
@@ -127,31 +147,23 @@ export function DebugPanel() {
                                     {isLoading ? "true" : "false"}
                                 </span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-400">IP Address:</span>
-                                <span className="text-zinc-200 font-mono text-[10px]">127.0.0.1</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-400">Location:</span>
-                                <span className="text-zinc-200 font-mono text-[10px]">Local</span>
-                            </div>
                         </div>
 
                         {/* Actions */}
                         <div className="grid grid-cols-2 gap-2">
                             <button
-                                onClick={loadDemoData}
-                                className="flex items-center justify-center gap-2 rounded bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-700 active:scale-95 transition"
-                            >
-                                <RefreshCw className="h-3 w-3" />
-                                Reload Data
-                            </button>
-                            <button
-                                onClick={handleRestartDemo}
+                                onClick={handleRegenerate}
                                 className="flex items-center justify-center gap-2 rounded bg-purple-900/20 px-3 py-2 text-xs font-medium text-purple-400 hover:bg-purple-900/40 active:scale-95 transition"
                             >
-                                <PlayCircle className="h-3 w-3" />
-                                Restart Demo
+                                <RefreshCw className="h-3 w-3" />
+                                New Profile
+                            </button>
+                            <button
+                                onClick={handleExtend}
+                                className="flex items-center justify-center gap-2 rounded bg-emerald-900/20 px-3 py-2 text-xs font-medium text-emerald-400 hover:bg-emerald-900/40 active:scale-95 transition"
+                            >
+                                <PlusCircle className="h-3 w-3" />
+                                Extend +3M
                             </button>
                             <button
                                 onClick={clearData}
@@ -162,11 +174,11 @@ export function DebugPanel() {
                             </button>
                         </div>
 
-                        {/* Date Range Picker */}
+                        {/* View Range Picker */}
                         <div className="space-y-2">
                             <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                Date Range
+                                View Range
                             </p>
 
                             {/* From Date */}
@@ -218,19 +230,19 @@ export function DebugPanel() {
                             {/* Apply & Presets */}
                             <div className="flex gap-1">
                                 <button
-                                    onClick={applyCustomDateRange}
+                                    onClick={applyCustomViewRange}
                                     className="flex-1 rounded bg-purple-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-purple-500"
                                 >
-                                    Apply Range
+                                    Apply
                                 </button>
                                 <button
-                                    onClick={() => setPresetDateRange(0)}
+                                    onClick={() => setPresetViewRange(0)}
                                     className="rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700"
                                 >
                                     This Mo
                                 </button>
                                 <button
-                                    onClick={() => setPresetDateRange(1)}
+                                    onClick={() => setPresetViewRange(1)}
                                     className="rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700"
                                 >
                                     Last Mo
@@ -239,7 +251,7 @@ export function DebugPanel() {
 
                             {/* Current Range Display */}
                             <div className="text-[10px] text-zinc-500 text-center font-mono">
-                                {new Date(dateRange.from).toLocaleDateString()} - {new Date(dateRange.to).toLocaleDateString()}
+                                {new Date(viewRange.from).toLocaleDateString()} - {new Date(viewRange.to).toLocaleDateString()}
                             </div>
                         </div>
 
@@ -250,14 +262,8 @@ export function DebugPanel() {
                                 className="flex-1 flex items-center justify-center gap-2 rounded bg-zinc-800 border border-zinc-700 px-2 py-1.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
                             >
                                 <Terminal className="h-3 w-3" />
-                                Log State to Console
+                                Log State
                             </button>
-                            <div className="relative group">
-                                <Info className="h-4 w-4 text-zinc-500 cursor-help" />
-                                <div className="absolute bottom-full right-0 mb-1 w-48 p-2 rounded bg-zinc-800 border border-zinc-700 text-[9px] text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                                    Dumps the full store state (transactions, accounts, UI settings) to your browser&apos;s developer console (F12 then Console).
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

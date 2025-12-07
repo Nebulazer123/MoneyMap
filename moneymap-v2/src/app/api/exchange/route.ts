@@ -55,7 +55,7 @@ async function fetchFromFrankfurter(
     date: string | null,
     amount: string | null
 ): Promise<ExchangeResponse> {
-    let endpoint = date ? `${FRANKFURTER_BASE}/${date}` : `${FRANKFURTER_BASE}/latest`;
+    const endpoint = date ? `${FRANKFURTER_BASE}/${date}` : `${FRANKFURTER_BASE}/latest`;
     
     const params = new URLSearchParams();
     params.set('from', base);

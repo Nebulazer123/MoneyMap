@@ -1,25 +1,32 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
+import { useDateStore } from "../../lib/store/useDateStore";
 import { useUIStore } from "../../lib/store/useUIStore";
+import {
+    getTransactionsInDateRange,
+    getNetIncome,
+    getTotalSpending,
+    getTotalSubscriptions,
+    getCategoryTotals,
+    getInternalTransferTotals
+} from "../../lib/selectors/transactionSelectors";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
-import { cn, isDateInRange } from "../../lib/utils";
-import { calculateSummaryStats, calculateBudgetGuidance, calculateTopSpendingCategories, calculateNeedsVsWants } from "../../lib/logic/metrics";
+import { cn } from "../../lib/utils";
 import { detectAccountCandidates, CandidateAccount } from "../../lib/logic/accounts";
-import { analyzeDuplicateCharges } from "../../lib/fakeData";
-import { ChevronDown, ChevronUp, Check, X, AlertTriangle, Loader2 } from "lucide-react";
-import { Account } from "../../lib/types";
+import { Check, X, AlertTriangle } from "lucide-react";
+import { Account, Transaction } from "../../lib/types";
+import { isEssentialCategory } from "../../lib/categoryRules";
 
 export function Review() {
-    const { transactions, ownershipModes, accounts, addAccount, duplicateDecisions, setDuplicateDecision } = useDataStore();
-    const { dateRange } = useUIStore();
+    const { transactions, accounts, addAccount, duplicateDecisions, setDuplicateDecision } = useDataStore();
+    const { viewStart, viewEnd } = useDateStore();
+    const { setActiveTab } = useUIStore();
     const [isSubscriptionsOverlayOpen, setIsSubscriptionsOverlayOpen] = useState(false);
     const [isDuplicatesOverlayOpen, setIsDuplicatesOverlayOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAccount | null>(null);
-    const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
-    const [isAnalyzing, setIsAnalyzing] = useState(true);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -31,59 +38,120 @@ export function Review() {
         day: "numeric",
     });
 
-    // Filter transactions by date range
+    // 1. Filter transactions by date range
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(t => isDateInRange(t.date, dateRange));
-    }, [transactions, dateRange]);
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
 
-    const stats = useMemo(() => calculateSummaryStats(filteredTransactions, ownershipModes), [filteredTransactions, ownershipModes]);
-    const topCategories = useMemo(() => calculateTopSpendingCategories(filteredTransactions), [filteredTransactions]);
-    const needsVsWants = useMemo(() => calculateNeedsVsWants(filteredTransactions, stats.totalIncome), [filteredTransactions, stats.totalIncome]);
+    // 2. Calculate Stats using Selectors
+    const totalIncome = useMemo(() => getNetIncome(filteredTransactions), [filteredTransactions]);
+    const totalSpending = useMemo(() => getTotalSpending(filteredTransactions), [filteredTransactions]);
+    const net = totalIncome - totalSpending;
+    const totalSubscriptions = useMemo(() => getTotalSubscriptions(filteredTransactions), [filteredTransactions]);
+    const subscriptionCount = useMemo(() => filteredTransactions.filter(t => t.kind === 'subscription').length, [filteredTransactions]);
+    const internalTransfersTotal = useMemo(() => getInternalTransferTotals(filteredTransactions), [filteredTransactions]);
 
-    const duplicateAnalysis = useMemo(() => analyzeDuplicateCharges(transactions), [transactions]);
-    const duplicateClusters = duplicateAnalysis.clusters;
+    // Calculate Average Daily Spending (I4)
+    const avgDailySpending = useMemo(() => {
+        const daysDiff = Math.max(1, Math.ceil((viewEnd.getTime() - viewStart.getTime()) / (1000 * 60 * 60 * 24)));
+        return totalSpending / daysDiff;
+    }, [totalSpending, viewStart, viewEnd]);
 
-    // Simulate analysis delay
-    useEffect(() => {
-        const startId = setTimeout(() => setIsAnalyzing(true), 0);
-        const timer = setTimeout(() => {
-            setIsAnalyzing(false);
-        }, 800);
-        return () => {
-            clearTimeout(startId);
-            clearTimeout(timer);
+    // Calculate Account Totals from store (shared with My Money)
+    const accountTotals = useMemo(() => {
+        const includedAccounts = accounts.filter(a => a.includeInNetWorth !== false);
+
+        const cashAccounts = includedAccounts.filter(a => a.type === 'checking' || a.type === 'savings');
+        const totalCash = cashAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+        const debtAccounts = includedAccounts.filter(a => a.type === 'credit' || a.type === 'loan');
+        const totalDebt = debtAccounts.reduce((sum, a) => sum + Math.abs(a.balance), 0);
+
+        const assets = includedAccounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0);
+        const liabilities = includedAccounts.filter(a => a.balance < 0).reduce((sum, a) => sum + Math.abs(a.balance), 0);
+        const netWorth = assets - liabilities;
+
+        // Get top 3 accounts for display
+        const topAccounts = includedAccounts
+            .slice(0, 3)
+            .map(a => ({
+                name: a.name,
+                institution: a.institution,
+                last4: a.last4,
+                balance: a.balance,
+                type: a.type
+            }));
+
+        return { totalCash, totalDebt, netWorth, topAccounts };
+    }, [accounts]);
+
+    // 3. Top Categories
+    const topCategories = useMemo(() => {
+        const totals = getCategoryTotals(filteredTransactions);
+        return Array.from(totals.entries())
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount);
+    }, [filteredTransactions]);
+
+    // 4. Needs vs Wants
+    const needsVsWants = useMemo(() => {
+        let essentials = 0;
+        let others = 0;
+
+        topCategories.forEach(item => {
+            if (isEssentialCategory(item.category)) {
+                essentials += item.amount;
+            } else {
+                others += item.amount;
+            }
+        });
+
+        const total = essentials + others;
+        if (total === 0) return { essentialsPercent: 0, otherPercent: 0 };
+
+        return {
+            essentialsPercent: Math.round((essentials / total) * 100),
+            otherPercent: Math.round((others / total) * 100)
         };
+    }, [topCategories]);
+
+    // 5. Suspicious Transactions (Global check, not just view range)
+    const suspiciousTransactions = useMemo(() => {
+        return transactions.filter(t => t.isSuspicious);
     }, [transactions]);
 
-    // Duplicate stats
     const duplicateStats = useMemo(() => {
-        let totalSuspicious = 0;
+        const totalSuspicious = suspiciousTransactions.length;
         let unresolvedCount = 0;
         let confirmedCount = 0;
 
-        duplicateClusters.forEach(cluster => {
-            cluster.suspiciousTransactionIds.forEach(id => {
-                totalSuspicious++;
-                if (!duplicateDecisions[id]) {
-                    unresolvedCount++;
-                } else if (duplicateDecisions[id] === "confirmed") {
-                    confirmedCount++;
-                }
-            });
+        suspiciousTransactions.forEach(t => {
+            if (!duplicateDecisions[t.id]) {
+                unresolvedCount++;
+            } else if (duplicateDecisions[t.id] === "confirmed") {
+                confirmedCount++;
+            }
         });
 
         return { totalSuspicious, unresolvedCount, confirmedCount };
-    }, [duplicateClusters, duplicateDecisions]);
+    }, [suspiciousTransactions, duplicateDecisions]);
 
-    const toggleCluster = (key: string) => {
-        const newExpanded = new Set(expandedClusters);
-        if (newExpanded.has(key)) {
-            newExpanded.delete(key);
-        } else {
-            newExpanded.add(key);
-        }
-        setExpandedClusters(newExpanded);
-    };
+    // Group suspicious by type for display
+    const suspiciousGroups = useMemo(() => {
+        const groups: Record<string, Transaction[]> = {
+            duplicate: [],
+            overcharge: [],
+            unexpected: []
+        };
+
+        suspiciousTransactions.forEach(t => {
+            const type = t.suspiciousType || 'unexpected';
+            if (groups[type]) groups[type].push(t);
+            else groups['unexpected'].push(t);
+        });
+
+        return groups;
+    }, [suspiciousTransactions]);
 
     // Account detection
     const existingAccountKeys = useMemo(() => new Set(accounts.map(a => a.id)), [accounts]);
@@ -106,16 +174,16 @@ export function Review() {
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between items-center">
                                 <span className="text-zinc-400">Income</span>
-                                <span className="font-medium text-emerald-400">{currency.format(stats.totalIncome)}</span>
+                                <span className="font-medium text-emerald-400">{currency.format(totalIncome)}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-zinc-400">Spending</span>
-                                <span className="font-medium text-rose-400">{currency.format(stats.totalSpending)}</span>
+                                <span className="font-medium text-rose-400">{currency.format(totalSpending)}</span>
                             </div>
                             <div className="pt-2 border-t border-white/5 flex justify-between items-center">
                                 <span className="text-zinc-400">Net</span>
-                                <span className={cn("font-bold", stats.net >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                    {currency.format(stats.net)}
+                                <span className={cn("font-bold", net >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    {currency.format(net)}
                                 </span>
                             </div>
                         </div>
@@ -130,14 +198,19 @@ export function Review() {
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between items-center">
                                 <span className="text-zinc-400">Active</span>
-                                <span className="font-medium text-white">{stats.subscriptionCount} services</span>
+                                <span className="font-medium text-white">{subscriptionCount} services</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-zinc-400">Total Cost</span>
-                                <span className="font-bold text-white">{currency.format(stats.totalSubscriptions)}</span>
+                                <span className="font-bold text-white">{currency.format(totalSubscriptions)}</span>
                             </div>
                             <div className="pt-2 border-t border-white/5">
-                                <p className="text-xs text-purple-400 text-center">Tap to manage subscriptions</p>
+                                <button
+                                    onClick={() => setActiveTab('subscriptions')}
+                                    className="text-xs text-purple-400 hover:text-purple-300 transition w-full text-center"
+                                >
+                                    Tap to manage subscriptions →
+                                </button>
                             </div>
                         </div>
                     </GlassCard>
@@ -163,7 +236,7 @@ export function Review() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6 mb-6">
                 <GlassCard className="p-5">
                     <p className="text-sm font-semibold text-white">Internal transfers</p>
-                    <p className="mt-2 text-xl font-semibold text-white">{currency.format(stats.internalTransfersTotal)}</p>
+                    <p className="mt-2 text-xl font-semibold text-white">{currency.format(internalTransfersTotal)}</p>
                     <p className="mt-1 text-xs text-zinc-400">Money moved between your own accounts.</p>
                 </GlassCard>
 
@@ -171,53 +244,42 @@ export function Review() {
                 <GlassCard
                     className={cn(
                         "p-5 transition cursor-pointer hover:ring-2",
-                        isAnalyzing
-                            ? "hover:ring-zinc-500/50 cursor-wait"
-                            : (duplicateStats.totalSuspicious === 0 ? "hover:ring-emerald-500/50" : "hover:ring-amber-500/50")
+                        duplicateStats.totalSuspicious === 0 ? "hover:ring-emerald-500/50" : "hover:ring-amber-500/50"
                     )}
-                    onClick={() => !isAnalyzing && setIsDuplicatesOverlayOpen(true)}
+                    onClick={() => setIsDuplicatesOverlayOpen(true)}
                 >
-                    {isAnalyzing ? (
-                        <div className="flex flex-col items-center justify-center h-full py-1">
-                            <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" />
-                            <p className="text-xs text-zinc-400">Analyzing...</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex items-center gap-2">
-                                {duplicateStats.totalSuspicious === 0 ? (
-                                    <Check className="w-5 h-5 text-emerald-400" />
-                                ) : (
-                                    <AlertTriangle className="w-5 h-5 text-amber-400" />
-                                )}
-                                <p className="text-sm font-semibold text-white">Duplicate charges</p>
-                            </div>
-                            <div className="mt-2">
-                                {duplicateStats.totalSuspicious === 0 ? (
-                                    <>
-                                        <p className="text-xl font-semibold text-white">All looks good</p>
-                                        <p className="mt-1 text-xs text-zinc-400">None found</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-xl font-semibold text-white">
-                                            {duplicateStats.totalSuspicious} transaction{duplicateStats.totalSuspicious === 1 ? '' : 's'}
-                                        </p>
-                                        <p className="mt-1 text-xs text-zinc-400">
-                                            {duplicateStats.unresolvedCount > 0
-                                                ? "with possible duplicates"
-                                                : "confirmed duplicate(s)"}
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-                        </>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {duplicateStats.totalSuspicious === 0 ? (
+                            <Check className="w-5 h-5 text-emerald-400" />
+                        ) : (
+                            <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        )}
+                        <p className="text-sm font-semibold text-white">Suspicious charges</p>
+                    </div>
+                    <div className="mt-2">
+                        {duplicateStats.totalSuspicious === 0 ? (
+                            <>
+                                <p className="text-xl font-semibold text-white">All looks good</p>
+                                <p className="mt-1 text-xs text-zinc-400">None found</p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xl font-semibold text-white">
+                                    {duplicateStats.totalSuspicious} transaction{duplicateStats.totalSuspicious === 1 ? '' : 's'}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-400">
+                                    {duplicateStats.unresolvedCount > 0
+                                        ? "needing review"
+                                        : "all reviewed"}
+                                </p>
+                            </>
+                        )}
+                    </div>
                 </GlassCard>
 
                 <GlassCard className="p-5">
                     <p className="text-sm font-semibold text-white">Money left after bills</p>
-                    <p className="mt-2 text-xl font-semibold text-white">{currency.format(stats.net)}</p>
+                    <p className="mt-2 text-xl font-semibold text-white">{currency.format(net)}</p>
                     <p className="mt-1 text-xs text-zinc-400">Approximate savings.</p>
                 </GlassCard>
             </div>
@@ -230,10 +292,10 @@ export function Review() {
                     </div>
                     <div className="text-right">
                         <p className="text-sm font-medium text-emerald-400">
-                            Saved this month: {currency.format(stats.net)}
+                            Saved this month: {currency.format(net)}
                         </p>
                         <p className="text-xs text-zinc-500">
-                            {Math.round((stats.net / stats.totalIncome) * 100)}% of income
+                            {totalIncome > 0 ? Math.round((net / totalIncome) * 100) : 0}% of income
                         </p>
                     </div>
                 </div>
@@ -249,96 +311,87 @@ export function Review() {
                 </div>
             </GlassCard>
 
-            {/* Account Balances Section - Placeholder */}
+            {/* Account Balances Section - Now with real data from shared store (I3, I4) */}
             <GlassCard className="p-5 mb-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-base font-semibold text-white">Account Balances</h3>
-                        <InfoTooltip text="Connect your accounts to see real-time balances and track your net worth." />
+                        <InfoTooltip text="Balances from My Money page. Synced with include/exclude toggles." />
                     </div>
-                    <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">Coming Soon</span>
                 </div>
-                
-                {/* Placeholder accounts with mock data */}
+
+                {/* Account list - showing top accounts from store */}
                 <div className="space-y-3 mb-4">
-                    <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-900/30 border border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                <span className="text-blue-400 text-xs font-bold">CH</span>
+                    {accountTotals.topAccounts.map((account, idx) => {
+                        const bgColors: Record<string, string> = {
+                            checking: 'bg-blue-500/20',
+                            savings: 'bg-emerald-500/20',
+                            credit: 'bg-purple-500/20',
+                            investment: 'bg-lime-500/20',
+                            loan: 'bg-rose-500/20',
+                            wallet: 'bg-orange-500/20',
+                            other: 'bg-zinc-500/20'
+                        };
+                        const textColors: Record<string, string> = {
+                            checking: 'text-blue-400',
+                            savings: 'text-emerald-400',
+                            credit: 'text-purple-400',
+                            investment: 'text-lime-400',
+                            loan: 'text-rose-400',
+                            wallet: 'text-orange-400',
+                            other: 'text-zinc-400'
+                        };
+                        const initials = account.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+                        return (
+                            <div key={idx} className="flex justify-between items-center p-3 rounded-lg bg-zinc-900/30 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", bgColors[account.type] || bgColors.other)}>
+                                        <span className={cn("text-xs font-bold", textColors[account.type] || textColors.other)}>{initials}</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-white">{account.name}</p>
+                                        <p className="text-xs text-zinc-500">
+                                            {account.institution && `${account.institution} `}
+                                            {account.last4 && `••••${account.last4}`}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className={cn(
+                                        "text-sm font-medium",
+                                        account.balance < 0 ? "text-rose-400" : "text-emerald-400"
+                                    )}>{currency.format(account.balance)}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-white">Checking Account</p>
-                                <p className="text-xs text-zinc-500">••••4521</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-sm font-medium text-zinc-500">—</p>
-                            <p className="text-xs text-zinc-600">No data</p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-900/30 border border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                                <span className="text-emerald-400 text-xs font-bold">SV</span>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-white">Savings Account</p>
-                                <p className="text-xs text-zinc-500">••••8832</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-sm font-medium text-zinc-500">—</p>
-                            <p className="text-xs text-zinc-600">No data</p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-lg bg-zinc-900/30 border border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                <span className="text-purple-400 text-xs font-bold">CC</span>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-white">Credit Card</p>
-                                <p className="text-xs text-zinc-500">••••7291</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-sm font-medium text-zinc-500">—</p>
-                            <p className="text-xs text-zinc-600">No data</p>
-                        </div>
-                    </div>
+                        );
+                    })}
                 </div>
-                
-                {/* Summary */}
+
+                {/* Summary with real values from store */}
                 <div className="border-t border-white/5 pt-4 mt-4">
                     <div className="flex justify-between items-center mb-3">
                         <span className="text-sm text-zinc-400">Total Net Worth</span>
-                        <span className="text-lg font-bold text-zinc-500">—</span>
+                        <span className={cn(
+                            "text-lg font-bold",
+                            accountTotals.netWorth >= 0 ? "text-white" : "text-rose-400"
+                        )}>{currency.format(accountTotals.netWorth)}</span>
                     </div>
                     <div className="flex justify-between items-center mb-3">
-                        <span className="text-sm text-zinc-400">Avg. Daily Balance</span>
-                        <span className="text-sm font-medium text-zinc-500">—</span>
+                        <span className="text-sm text-zinc-400">Total Cash</span>
+                        <span className="text-sm font-medium text-emerald-400">{currency.format(accountTotals.totalCash)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm text-zinc-400">Monthly Change</span>
-                        <span className="text-sm font-medium text-zinc-500">—</span>
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm text-zinc-400">Total Debt</span>
+                        <span className="text-sm font-medium text-rose-400">{currency.format(accountTotals.totalDebt)}</span>
                     </div>
-                </div>
-                
-                {/* CTA */}
-                <div className="mt-5 p-4 rounded-xl bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
-                    <p className="text-sm font-medium text-white mb-1">🔗 Connect Your Accounts</p>
-                    <p className="text-xs text-zinc-400 mb-3">
-                        Link your bank accounts to see real balances, track net worth over time, and get personalized insights.
-                    </p>
-                    <div className="flex gap-2">
-                        <button className="text-xs bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-lg hover:bg-purple-500/30 transition-colors border border-purple-500/30">
-                            Connect Bank
-                        </button>
-                        <button className="text-xs bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors border border-white/10">
-                            Enter Manually
-                        </button>
+                    {/* Average Daily Spending (I4) */}
+                    <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-zinc-400">Avg. Daily Spending</span>
+                            <InfoTooltip text="Average spending per day over the current view range, excluding internal transfers." />
+                        </div>
+                        <span className="text-sm font-bold text-amber-400">{currency.format(avgDailySpending)}</span>
                     </div>
                 </div>
             </GlassCard>
@@ -427,13 +480,13 @@ export function Review() {
                 </div>
             )}
 
-            {/* Duplicate Review Modal */}
+            {/* Suspicious Review Modal */}
             {isDuplicatesOverlayOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-8">
                     <GlassCard className="w-full max-w-2xl p-6 relative animate-in zoom-in-95 duration-200 max-h-[70vh] flex flex-col">
                         <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
                             <div>
-                                <h3 className="text-xl font-bold text-white">Duplicate Review</h3>
+                                <h3 className="text-xl font-bold text-white">Suspicious Charges Review</h3>
                                 <p className="text-sm text-zinc-400">
                                     {duplicateStats.totalSuspicious === 0
                                         ? "No suspicious transactions found."
@@ -449,111 +502,77 @@ export function Review() {
                         </div>
 
                         <div className="overflow-y-auto pr-4 pb-4 space-y-4 flex-1 min-h-0 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-zinc-700/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-                            {duplicateClusters.length === 0 ? (
+                            {suspiciousTransactions.length === 0 ? (
                                 <div className="text-center py-12 text-zinc-500">
                                     <Check className="w-12 h-12 mx-auto mb-3 text-emerald-500/50" />
                                     <p>Everything looks clean!</p>
                                 </div>
                             ) : (
-                                duplicateClusters.map(cluster => {
-                                    const isExpanded = expandedClusters.has(cluster.key);
-                                    const allClusterTransactions = cluster.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                                    const suspiciousCount = cluster.suspiciousTransactionIds.length;
+                                Object.entries(suspiciousGroups).map(([type, txs]) => {
+                                    if (txs.length === 0) return null;
+                                    const label = type === 'duplicate' ? 'Potential Duplicates' :
+                                        type === 'overcharge' ? 'Unusual Amounts' : 'Unexpected Charges';
 
                                     return (
-                                        <div key={cluster.key} className="bg-zinc-900/50 rounded-lg border border-zinc-800 overflow-hidden">
-                                            <button
-                                                onClick={() => toggleCluster(cluster.key)}
-                                                className="w-full p-4 flex items-center justify-between hover:bg-zinc-800/50 transition"
-                                            >
-                                                <div className="text-left">
-                                                    <p className="font-semibold text-white">{cluster.label}</p>
-                                                    <div className="flex items-center gap-2 text-xs mt-1">
-                                                        <span className="text-amber-400">{suspiciousCount} suspicious</span>
-                                                        <span className="text-zinc-500">•</span>
-                                                        <span className="text-zinc-400">{allClusterTransactions.length} total transactions</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    {cluster.lastNormalChargeDate && (
-                                                        <div className="text-right hidden sm:block">
-                                                            <p className="text-xs text-zinc-500">Last normal charge</p>
-                                                            <p className="text-xs text-zinc-300">{dateFormatter.format(new Date(cluster.lastNormalChargeDate))}</p>
-                                                        </div>
-                                                    )}
-                                                    {isExpanded ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
-                                                </div>
-                                            </button>
-
-                                            {isExpanded && (
-                                                <div className="border-t border-zinc-800 bg-black/20 p-4 space-y-3">
-                                                    {allClusterTransactions.map(tx => {
-                                                        const isSuspicious = cluster.suspiciousTransactionIds.includes(tx.id);
-                                                        const decision = duplicateDecisions[tx.id];
-
-                                                        return (
-                                                            <div key={tx.id} className={cn(
-                                                                "p-3 rounded-lg border flex items-center justify-between gap-3",
-                                                                isSuspicious
-                                                                    ? "bg-amber-500/5 border-amber-500/20"
-                                                                    : "bg-zinc-800/30 border-zinc-700/50"
-                                                            )}>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        {isSuspicious && <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />}
-                                                                        <p className={cn("text-sm font-medium truncate", isSuspicious ? "text-amber-100" : "text-zinc-300")}>
-                                                                            {tx.description}
-                                                                        </p>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3 text-xs text-zinc-500">
-                                                                        <span>{dateFormatter.format(new Date(tx.date))}</span>
-                                                                        {isSuspicious && (
-                                                                            <span className="text-amber-500/80 italic">
-                                                                                {decision === 'confirmed' ? 'Confirmed duplicate' : decision === 'dismissed' ? 'Dismissed' : 'Potential duplicate'}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="flex items-center gap-4">
-                                                                    <span className={cn("font-medium", isSuspicious ? "text-amber-400" : "text-zinc-400")}>
-                                                                        {currency.format(tx.amount)}
-                                                                    </span>
-
-                                                                    {isSuspicious && (
-                                                                        <div className="flex gap-2">
-                                                                            <button
-                                                                                onClick={() => setDuplicateDecision(tx.id, "confirmed")}
-                                                                                className={cn(
-                                                                                    "p-1.5 rounded transition",
-                                                                                    decision === 'confirmed'
-                                                                                        ? "bg-emerald-500 text-white"
-                                                                                        : "bg-zinc-800 text-zinc-400 hover:bg-emerald-500/20 hover:text-emerald-400"
-                                                                                )}
-                                                                                title="Confirm Duplicate"
-                                                                            >
-                                                                                <Check className="w-4 h-4" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setDuplicateDecision(tx.id, "dismissed")}
-                                                                                className={cn(
-                                                                                    "p-1.5 rounded transition",
-                                                                                    decision === 'dismissed'
-                                                                                        ? "bg-zinc-600 text-white"
-                                                                                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-                                                                                )}
-                                                                                title="Dismiss"
-                                                                            >
-                                                                                <X className="w-4 h-4" />
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                        <div key={type} className="space-y-2">
+                                            <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">{label}</h4>
+                                            {txs.map(tx => {
+                                                const decision = duplicateDecisions[tx.id];
+                                                return (
+                                                    <div key={tx.id} className={cn(
+                                                        "p-3 rounded-lg border flex items-center justify-between gap-3",
+                                                        "bg-amber-500/5 border-amber-500/20"
+                                                    )}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                                                <p className="text-sm font-medium truncate text-amber-100">
+                                                                    {tx.description}
+                                                                </p>
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
+                                                            <div className="flex items-center gap-3 text-xs text-zinc-500">
+                                                                <span>{dateFormatter.format(new Date(tx.date))}</span>
+                                                                <span className="text-amber-500/80 italic">
+                                                                    {tx.suspiciousReason}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-4">
+                                                            <span className="font-medium text-amber-400">
+                                                                {currency.format(tx.amount)}
+                                                            </span>
+
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => setDuplicateDecision(tx.id, "confirmed")}
+                                                                    className={cn(
+                                                                        "p-1.5 rounded transition",
+                                                                        decision === 'confirmed'
+                                                                            ? "bg-emerald-500 text-white"
+                                                                            : "bg-zinc-800 text-zinc-400 hover:bg-emerald-500/20 hover:text-emerald-400"
+                                                                    )}
+                                                                    title="Confirm Issue"
+                                                                >
+                                                                    <Check className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setDuplicateDecision(tx.id, "dismissed")}
+                                                                    className={cn(
+                                                                        "p-1.5 rounded transition",
+                                                                        decision === 'dismissed'
+                                                                            ? "bg-zinc-600 text-white"
+                                                                            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                                                                    )}
+                                                                    title="Dismiss"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     );
                                 })

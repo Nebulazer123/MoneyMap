@@ -15,15 +15,36 @@ interface NewsArticle {
     author: string | null;
 }
 
+// Valid NewsAPI categories for /top-headlines endpoint
+type NewsCategory = 'business' | 'technology' | 'general' | 'science';
+
 export function NewsFeed() {
     const [articles, setArticles] = useState<NewsArticle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSearch, setActiveSearch] = useState('');
-    const [category, setCategory] = useState<'financial' | 'business' | 'technology' | 'stock' | 'cryptocurrency'>('financial');
+    const [category, setCategory] = useState<NewsCategory>('business');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // Debounce search input (400ms)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Trigger search when debounced value changes
+    useEffect(() => {
+        if (debouncedSearch.trim()) {
+            fetchNews(debouncedSearch);
+        }
+    }, [debouncedSearch]);
 
     const fetchNews = async (query?: string) => {
         setIsLoading(true);
+        setError(null);
         try {
             const endpoint = query
                 ? `/api/news?q=${encodeURIComponent(query)}`
@@ -31,14 +52,23 @@ export function NewsFeed() {
 
             const response = await fetch(endpoint);
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch news');
+            }
+
             if (data.articles) {
                 // Phase 1: Basic relevance sorting
                 const sortedArticles = sortArticlesByRelevance(data.articles, query);
                 setArticles(sortedArticles);
                 setActiveSearch(query || '');
+            } else {
+                setArticles([]);
             }
-        } catch (error) {
-            console.error('Failed to fetch news:', error);
+        } catch (err) {
+            console.error('Failed to fetch news:', err);
+            setError('Unable to load news right now');
+            setArticles([]);
         } finally {
             setIsLoading(false);
         }
@@ -149,17 +179,6 @@ export function NewsFeed() {
                 {!activeSearch && (
                     <div className="flex gap-2 flex-wrap">
                         <button
-                            onClick={() => setCategory('financial')}
-                            className={cn(
-                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                                category === 'financial'
-                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                    : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
-                            )}
-                        >
-                            Financial
-                        </button>
-                        <button
                             onClick={() => setCategory('business')}
                             className={cn(
                                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
@@ -182,26 +201,26 @@ export function NewsFeed() {
                             Technology
                         </button>
                         <button
-                            onClick={() => setCategory('stock')}
+                            onClick={() => setCategory('general')}
                             className={cn(
                                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                                category === 'stock'
+                                category === 'general'
                                     ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
                                     : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
                             )}
                         >
-                            Stock
+                            General
                         </button>
                         <button
-                            onClick={() => setCategory('cryptocurrency')}
+                            onClick={() => setCategory('science')}
                             className={cn(
                                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                                category === 'cryptocurrency'
+                                category === 'science'
                                     ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
                                     : "bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 hover:border-zinc-700/70"
                             )}
                         >
-                            Cryptocurrency
+                            Science
                         </button>
                     </div>
                 )}
@@ -225,6 +244,16 @@ export function NewsFeed() {
                 <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
                     <span className="ml-2 text-zinc-400">Loading news...</span>
+                </div>
+            ) : error ? (
+                <div className="text-center py-12">
+                    <p className="text-amber-400/80">{error}</p>
+                    <button
+                        onClick={() => fetchNews()}
+                        className="mt-3 text-sm text-blue-400 hover:text-blue-300"
+                    >
+                        Try again
+                    </button>
                 </div>
             ) : articles.length === 0 ? (
                 <div className="text-center py-12">

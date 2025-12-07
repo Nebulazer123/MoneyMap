@@ -2,10 +2,10 @@
 
 import React, { useMemo, useState } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
+import { getTransactionsInDateRange, getDailyCashflow } from "../../lib/selectors/transactionSelectors";
 import { GlassCard } from "../ui/GlassCard";
-import { cn, isDateInRange } from "../../lib/utils";
-import { Transaction } from "../../lib/types";
+import { cn } from "../../lib/utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 type CashflowRow = {
@@ -26,7 +26,7 @@ type CashflowMonth = {
 
 export function Cashflow() {
     const { transactions } = useDataStore();
-    const { dateRange } = useUIStore();
+    const { viewStart, viewEnd } = useDateStore();
     const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
     const [chartTimeRange, setChartTimeRange] = useState<'1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('ALL');
@@ -41,38 +41,29 @@ export function Cashflow() {
         day: "numeric",
     });
 
-    // Filter transactions by date range
+    // 1. Get transactions in the global view range
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(t => isDateInRange(t.date, dateRange));
-    }, [transactions, dateRange]);
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
 
-    // Prepare chart data
+    // 2. Get daily buckets for these transactions using the selector
+    const dailyBuckets = useMemo(() => {
+        return getDailyCashflow(filteredTransactions);
+    }, [filteredTransactions]);
+
+    // 3. Prepare Chart Data (filtered by chartTimeRange)
     const chartData = useMemo(() => {
-        const monthlyData: Record<string, { name: string; income: number; expenses: number; sortKey: number; fullDate: Date }> = {};
-
-        filteredTransactions.forEach(t => {
-            const date = new Date(t.date);
-            // For shorter ranges (1W, 1M), we might want daily data instead of monthly
-            // But for now, let's stick to monthly aggregation but filter the source transactions first based on range
-            // Actually, for 1W/1M, monthly bars are too coarse.
-            // Let's switch aggregation based on range?
-            // User asked for "1 week, 1 month, etc."
-            // If 1W or 1M, show daily data.
-            // If > 1M, show monthly data.
-
-            // Let's keep it simple first: Filter by time range relative to the latest transaction date
-        });
-
-        // 1. Determine the cutoff date based on range
-        const now = new Date(); // Or latest transaction date? Let's use current date for "Last 1M" semantics
-        let cutoff = new Date(0); // Default ALL
-
+        // Determine cutoff
+        let cutoff = new Date(0);
         if (chartTimeRange !== 'ALL') {
-            const latestTxDate = filteredTransactions.length > 0
-                ? new Date(Math.max(...filteredTransactions.map(t => new Date(t.date).getTime())))
-                : new Date();
+            // Find latest date in buckets
+            const latestDateStr = dailyBuckets.length > 0
+                ? dailyBuckets[dailyBuckets.length - 1].date
+                : new Date().toISOString().split('T')[0];
 
-            cutoff = new Date(latestTxDate);
+            const latest = new Date(latestDateStr);
+            cutoff = new Date(latest);
+
             if (chartTimeRange === '1W') cutoff.setDate(cutoff.getDate() - 7);
             if (chartTimeRange === '1M') cutoff.setMonth(cutoff.getMonth() - 1);
             if (chartTimeRange === '3M') cutoff.setMonth(cutoff.getMonth() - 3);
@@ -80,84 +71,52 @@ export function Cashflow() {
             if (chartTimeRange === '1Y') cutoff.setFullYear(cutoff.getFullYear() - 1);
         }
 
-        const rangeTransactions = filteredTransactions.filter(t => new Date(t.date) >= cutoff);
-
-        // 2. Aggregate
-        // If range is 1W or 1M, aggregate by day. Else by month.
+        const filteredBuckets = dailyBuckets.filter(b => new Date(b.date) >= cutoff);
         const isDaily = chartTimeRange === '1W' || chartTimeRange === '1M';
 
         if (isDaily) {
-            const dailyData: Record<string, { name: string; income: number; expenses: number; sortKey: number }> = {};
-            rangeTransactions.forEach(t => {
-                const date = new Date(t.date);
-                const key = date.toISOString().split('T')[0];
-                const name = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const sortKey = date.getTime();
-
-                if (!dailyData[key]) {
-                    dailyData[key] = { name, income: 0, expenses: 0, sortKey };
-                }
-                if (t.amount > 0) dailyData[key].income += t.amount;
-                else dailyData[key].expenses += Math.abs(t.amount);
-            });
-            return Object.values(dailyData).sort((a, b) => a.sortKey - b.sortKey);
+            return filteredBuckets.map(b => ({
+                name: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                income: b.income,
+                expenses: b.expense,
+                date: b.date
+            }));
         } else {
-            const monthlyData: Record<string, { name: string; income: number; expenses: number; sortKey: number }> = {};
-            rangeTransactions.forEach(t => {
-                const date = new Date(t.date);
-                const key = `${date.getFullYear()}-${date.getMonth()}`;
-                const name = date.toLocaleDateString('en-US', { month: 'short' });
-                const sortKey = date.getFullYear() * 100 + date.getMonth();
+            // Aggregate by month for chart
+            const monthlyMap = new Map<string, { name: string, income: number, expenses: number, sortKey: number }>();
 
-                if (!monthlyData[key]) {
-                    monthlyData[key] = { name, income: 0, expenses: 0, sortKey };
+            filteredBuckets.forEach(b => {
+                const d = new Date(b.date);
+                const key = `${d.getFullYear()}-${d.getMonth()}`;
+
+                if (!monthlyMap.has(key)) {
+                    monthlyMap.set(key, {
+                        name: d.toLocaleDateString('en-US', { month: 'short' }),
+                        income: 0,
+                        expenses: 0,
+                        sortKey: d.getFullYear() * 100 + d.getMonth()
+                    });
                 }
-                if (t.amount > 0) monthlyData[key].income += t.amount;
-                else monthlyData[key].expenses += Math.abs(t.amount);
-            });
-            return Object.values(monthlyData).sort((a, b) => a.sortKey - b.sortKey);
-        }
-    }, [filteredTransactions, chartTimeRange]);
 
-    const transactionsByDate = useMemo(() => {
-        const map: Record<string, Transaction[]> = {};
-        for (const tx of filteredTransactions) {
-            // Filter out internal transfers for cashflow
-            if (tx.kind === 'transferInternal') continue;
-
-            const key = tx.date;
-            (map[key] ||= []).push(tx);
-        }
-        return map;
-    }, [filteredTransactions]);
-
-    const cashFlowRows = useMemo(() => {
-        const dates = Object.keys(transactionsByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-        return dates.map(date => {
-            const txs = transactionsByDate[date];
-            let inflow = 0;
-            let outflow = 0;
-
-            txs.forEach(tx => {
-                if (tx.amount > 0) inflow += tx.amount;
-                else outflow += Math.abs(tx.amount);
+                const entry = monthlyMap.get(key)!;
+                entry.income += b.income;
+                entry.expenses += b.expense;
             });
 
-            return {
-                date,
-                totalInflowForThatDate: inflow,
-                totalOutflowForThatDate: outflow,
-                netForThatDate: inflow - outflow
-            };
-        });
-    }, [transactionsByDate]);
+            return Array.from(monthlyMap.values()).sort((a, b) => a.sortKey - b.sortKey);
+        }
+    }, [dailyBuckets, chartTimeRange]);
 
+    // 4. Prepare List Data (Grouped by Month)
     const cashflowMonths = useMemo(() => {
         const monthsMap = new Map<number, CashflowMonth>();
 
-        cashFlowRows.forEach(row => {
-            const d = new Date(row.date);
-            // Key by YYYYMM
+        // We use dailyBuckets (which respects global view range)
+        // Sort descending by date
+        const sortedBuckets = [...dailyBuckets].sort((a, b) => b.date.localeCompare(a.date));
+
+        sortedBuckets.forEach(bucket => {
+            const d = new Date(bucket.date);
             const key = d.getFullYear() * 100 + d.getMonth();
 
             if (!monthsMap.has(key)) {
@@ -172,21 +131,29 @@ export function Cashflow() {
             }
 
             const month = monthsMap.get(key)!;
+            const row: CashflowRow = {
+                date: bucket.date,
+                totalInflowForThatDate: bucket.income,
+                totalOutflowForThatDate: bucket.expense,
+                netForThatDate: bucket.net
+            };
+
             month.rows.push(row);
-            month.totalIn += row.totalInflowForThatDate;
-            month.totalOut += row.totalOutflowForThatDate;
-            month.totalNet += row.netForThatDate;
+            month.totalIn += bucket.income;
+            month.totalOut += bucket.expense;
+            month.totalNet += bucket.net;
         });
 
         return Array.from(monthsMap.values()).sort((a, b) => b.key - a.key);
-    }, [cashFlowRows]);
+    }, [dailyBuckets]);
 
-    // Auto-expand the first month if only one or none expanded
-    useMemo(() => {
+    // Auto-expand first month (using useEffect instead of useMemo for setState)
+    React.useEffect(() => {
         if (cashflowMonths.length > 0 && expandedMonths.size === 0) {
             setExpandedMonths(new Set([cashflowMonths[0].key]));
         }
-    }, [cashflowMonths]); // Run only when months change significantly
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cashflowMonths.length]);
 
     const toggleMonth = (key: number) => {
         setExpandedMonths(prev => {
@@ -204,6 +171,13 @@ export function Cashflow() {
         }));
     };
 
+    // Helper to get transactions for a specific date (for expanded view)
+    // We can filter filteredTransactions again or build a map. 
+    // Since this is UI interaction, filtering on demand is fine or memoize map.
+    const getTransactionsForDate = (date: string) => {
+        return filteredTransactions.filter(t => t.date === date);
+    };
+
     const TableHeader = () => (
         <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
             <span>Date</span>
@@ -215,7 +189,7 @@ export function Cashflow() {
 
     const DayRow = ({ row }: { row: CashflowRow }) => {
         const isDayExpanded = expandedDates[row.date];
-        const dayTransactions = transactionsByDate[row.date] ?? [];
+        const dayTransactions = isDayExpanded ? getTransactionsForDate(row.date) : [];
 
         return (
             <div className="text-xs sm:text-sm border-b border-zinc-800 last:border-0">
@@ -304,8 +278,8 @@ export function Cashflow() {
                             stroke="#71717a"
                             tick={{ fill: '#71717a', fontSize: 12 }}
                             tickLine={false}
-                            axisLine={false}
                             tickFormatter={(value) => `$${value}`}
+                            axisLine={false}
                             dx={-10}
                         />
                         <Tooltip

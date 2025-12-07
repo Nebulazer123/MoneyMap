@@ -1,12 +1,16 @@
 import { useDataStore } from "@/lib/store/useDataStore";
+import { useDateStore } from "@/lib/store/useDateStore";
 import { useMemo, useState, useEffect } from "react";
 import { ArrowUpRight, ArrowDownRight, Wallet, CreditCard, Activity, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NewsFeed } from "./NewsFeed";
 import { EconomicWidget } from "./EconomicWidget";
+import { getTransactionsInDateRange } from "@/lib/selectors/transactionSelectors";
+import { computeSummaryMetrics } from "@/lib/math/transactionMath";
 
 export function Dashboard() {
     const { transactions } = useDataStore();
+    const { viewStart, viewEnd } = useDateStore();
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // Update time every minute
@@ -43,38 +47,11 @@ export function Dashboard() {
         });
     };
 
+    // Phase 2.2 transaction-math: Use centralized summary metrics with view range filtering
     const stats = useMemo(() => {
-        let income = 0;
-        let spending = 0;
-        let subscriptions = 0;
-        let fees = 0;
-
-        transactions.forEach(t => {
-            const amt = t.amount;
-
-            if (amt > 0) {
-                income += amt;
-            } else {
-                spending += Math.abs(amt);
-            }
-
-            if (t.kind === 'subscription' || t.isSubscription) {
-                subscriptions += Math.abs(amt);
-            }
-
-            if (t.kind === 'fee') {
-                fees += Math.abs(amt);
-            }
-        });
-
-        return {
-            income,
-            spending,
-            net: income - spending,
-            subscriptions,
-            fees
-        };
-    }, [transactions]);
+        const filteredTransactions = getTransactionsInDateRange(transactions, viewStart, viewEnd);
+        return computeSummaryMetrics(filteredTransactions);
+    }, [transactions, viewStart, viewEnd]);
 
     const formatCurrency = (val: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -131,7 +108,7 @@ export function Dashboard() {
                 {/* Net Cashflow */}
                 <SummaryCard
                     title="Net Cashflow"
-                    value={formatCurrency(stats.net)}
+                    value={formatCurrency(stats.netCashFlow)}
                     icon={Activity}
                     iconColor="text-purple-400"
                     trend="Healthy"
@@ -141,7 +118,7 @@ export function Dashboard() {
                 {/* Subscriptions */}
                 <SummaryCard
                     title="Subscriptions"
-                    value={formatCurrency(stats.subscriptions)}
+                    value={formatCurrency(stats.subscriptionTotal)}
                     icon={CreditCard}
                     iconColor="text-amber-400"
                     trend="3 active"
@@ -151,7 +128,7 @@ export function Dashboard() {
                 {/* Fees */}
                 <SummaryCard
                     title="Fees"
-                    value={formatCurrency(stats.fees)}
+                    value={formatCurrency(stats.feeTotal)}
                     icon={Wallet}
                     iconColor="text-pink-400"
                     trend="Low"
@@ -180,7 +157,7 @@ export function Dashboard() {
 interface SummaryCardProps {
     title: string;
     value: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     iconColor: string;
     trend: string;
     trendColor: string;

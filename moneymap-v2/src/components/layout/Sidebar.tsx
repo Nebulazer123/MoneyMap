@@ -38,7 +38,7 @@ export function Sidebar() {
         { id: 'fees', label: 'Fees', icon: Wallet },
         { id: 'cashflow', label: 'Cashflow', icon: Activity },
         { id: 'budget', label: 'Budget', icon: ShieldCheck },
-        { id: 'accounts', label: 'Accounts', icon: Building2 },
+        { id: 'accounts', label: 'My Money', icon: Building2 },
         { id: 'stocks', label: 'Stocks', icon: TrendingUp },
         { id: 'crypto', label: 'Crypto', icon: TrendingUp },
         { id: 'review', label: 'Review', icon: ShieldCheck },

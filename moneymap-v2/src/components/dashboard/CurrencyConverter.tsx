@@ -192,17 +192,9 @@ export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterPro
 // Crypto Currency Converter (for Crypto page)
 export function CryptoCurrencyConverter({ detectedCurrency }: CurrencyConverterProps) {
     const [cryptoAmount, setCryptoAmount] = useState<string>('1');
-    const [cryptoFromCurrency, setCryptoFromCurrency] = useState('USD');
+    // Use detected currency as initial value if provided
+    const [cryptoFromCurrency, setCryptoFromCurrency] = useState(detectedCurrency || 'USD');
     const [cryptoToCrypto, setCryptoToCrypto] = useState('BTC');
-    const [hasAutoSet, setHasAutoSet] = useState(false);
-
-    // Auto-set currency based on detected location
-    useEffect(() => {
-        if (detectedCurrency && !hasAutoSet) {
-            setCryptoFromCurrency(detectedCurrency);
-            setHasAutoSet(true);
-        }
-    }, [detectedCurrency, hasAutoSet]);
 
     // Placeholder crypto conversion (Phase 2 will wire real API)
     const convertedCrypto = cryptoAmount

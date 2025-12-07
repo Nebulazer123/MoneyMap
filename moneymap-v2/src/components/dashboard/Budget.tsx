@@ -2,28 +2,39 @@
 
 import React, { useMemo } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
-import { cn, isDateInRange } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import { calculateSummaryStats, calculateBudgetGuidance } from "../../lib/logic/metrics";
+import { getTransactionsInDateRange } from "../../lib/selectors/transactionSelectors";
+import { computeCarInsuranceMonthlySpend } from "../../lib/math/transactionMath";
+import { CAR_INSURANCE } from "../../lib/data/merchantPools";
 
 export function Budget() {
     const { transactions, ownershipModes } = useDataStore();
-    const { dateRange } = useUIStore();
+    const { viewStart, viewEnd } = useDateStore();
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
     });
 
-    // Filter transactions by date range
+    // Phase 2.1 view-range: Filter ALL transactions through centralized helper
+    // This ensures consistent month-based filtering across the entire Budget tab
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(t => isDateInRange(t.date, dateRange));
-    }, [transactions, dateRange]);
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
 
+    // Use the centralized filtered transactions for all calculations (no legacy dateRange)
     const stats = useMemo(() => calculateSummaryStats(filteredTransactions, ownershipModes), [filteredTransactions, ownershipModes]);
     const budgetGuidance = useMemo(() => calculateBudgetGuidance(filteredTransactions, stats.totalIncome), [filteredTransactions, stats.totalIncome]);
+
+    // Phase 2.3 car-insurance-box: Calculate car insurance monthly spend
+    const CAR_INSURANCE_BENCHMARK_MONTHLY = 150;
+    const yourCarInsuranceMonthly = useMemo(() => {
+        return computeCarInsuranceMonthlySpend(filteredTransactions, viewStart, viewEnd, CAR_INSURANCE);
+    }, [filteredTransactions, viewStart, viewEnd]);
 
     return (
         <GlassCard intensity="medium" tint="emerald" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -114,6 +125,63 @@ export function Budget() {
                             </div>
                         </GlassCard>
                     ))}
+                </div>
+            </div>
+
+            {/* Phase 2.3 car-insurance-box: Car Insurance Box */}
+            <div className="mt-8">
+                <h3 className="text-lg font-semibold text-white mb-4">Insurance</h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <GlassCard className="p-5 hover:ring-2 hover:ring-white/10 transition">
+                        <div className="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 className="font-semibold text-white text-lg">Car insurance</h4>
+                                <p className="text-xs text-zinc-500">Monthly Estimate</p>
+                            </div>
+                            <span className="text-xl">🚗</span>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-zinc-400">Your car insurance</span>
+                                    <span className="text-white font-semibold">{currency.format(yourCarInsuranceMonthly)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm mb-2">
+                                    <span className="text-zinc-400">Typical in your area</span>
+                                    <span className="text-zinc-300">{currency.format(CAR_INSURANCE_BENCHMARK_MONTHLY)}/mo</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-white/5">
+                                {(() => {
+                                    const delta = yourCarInsuranceMonthly - CAR_INSURANCE_BENCHMARK_MONTHLY;
+                                    const absDelta = Math.abs(delta);
+                                    const isNearEqual = absDelta < 10;
+
+                                    if (isNearEqual) {
+                                        return (
+                                            <p className="text-sm font-medium text-center text-emerald-400">
+                                                ✓ About typical for your area
+                                            </p>
+                                        );
+                                    } else if (delta > 0) {
+                                        return (
+                                            <p className="text-sm font-medium text-center text-rose-400">
+                                                ▲ {currency.format(absDelta)} more than typical
+                                            </p>
+                                        );
+                                    } else {
+                                        return (
+                                            <p className="text-sm font-medium text-center text-emerald-400">
+                                                ▼ {currency.format(absDelta)} less than typical
+                                            </p>
+                                        );
+                                    }
+                                })()}
+                            </div>
+                        </div>
+                    </GlassCard>
                 </div>
             </div>
 

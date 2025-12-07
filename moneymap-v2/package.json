@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "qa:bucketC": "npx tsx scripts/qaBucketC.ts"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.12",

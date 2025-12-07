@@ -1,21 +1,32 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
+import { getTransactionsInDateRange, getRecurringCandidates } from "../../lib/selectors/transactionSelectors";
+import { getSurroundingContext, getSuspiciousTypeLabel } from "../../lib/derived/suspiciousSummary";
 import { GlassCard } from "../ui/GlassCard";
-import { cn, isDateInRange } from "../../lib/utils";
-import { isBillLikeCategory, isSubscriptionCategory, isBillishDescription } from "../../lib/categoryRules";
-import { analyzeDuplicateCharges } from "../../lib/fakeData";
-import { Loader2 } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { isBillLikeCategory } from "../../lib/categoryRules";
+import { ChevronDown, ChevronUp, AlertTriangle, X, Info } from "lucide-react";
 import { Transaction } from "../../lib/types";
 
+// Group transactions by merchant
+type MerchantGroup = {
+    merchant: string;
+    category: string;
+    transactions: Transaction[];
+    total: number;
+    hasSuspicious: boolean;
+    unreviewedCount: number;
+};
+
 export function Recurring() {
-    const { transactions, duplicateDecisions, setDuplicateDecision } = useDataStore();
-    const { dateRange } = useUIStore();
-    const [showDuplicates, setShowDuplicates] = useState(false);
-    const [showConfirmed, setShowConfirmed] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(true);
+    const { transactions, setDuplicateDecision, duplicateDecisions } = useDataStore();
+    const { viewStart, viewEnd } = useDateStore();
+    const [showSuspiciousDetails, setShowSuspiciousDetails] = useState(false);
+    const [expandedMerchants, setExpandedMerchants] = useState<Set<string>>(new Set());
+    const [selectedSuspiciousTx, setSelectedSuspiciousTx] = useState<Transaction | null>(null);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -27,69 +38,83 @@ export function Recurring() {
         day: "numeric",
     });
 
-    // Filter for recurring transactions in the current date range
-    const recurringRows = useMemo(() => {
-        return transactions.filter(t => {
-            if (!isDateInRange(t.date, dateRange)) return false;
+    // 1. Filter transactions by date range
+    const filteredTransactions = useMemo(() => {
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
 
-            const isSubscription = t.kind === "subscription" || isSubscriptionCategory(t.category);
-            const isBill = isBillLikeCategory(t.category) || isBillishDescription(t.description);
-            return isSubscription || isBill;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, dateRange]);
+    // 2. Get recurring candidates
+    const recurringTxns = useMemo(() => {
+        return getRecurringCandidates(filteredTransactions);
+    }, [filteredTransactions]);
 
-    // Analyze duplicates on ALL transactions
-    const duplicateAnalysis = useMemo(() => {
-        return analyzeDuplicateCharges(transactions);
-    }, [transactions]);
+    // 3. Group by merchant
+    const merchantGroups = useMemo(() => {
+        const groups = new Map<string, MerchantGroup>();
 
-    const duplicateClusters = useMemo(() => {
-        return duplicateAnalysis.clusters.filter(cluster => {
-            // Only show clusters with recurring/bill transactions
-            return cluster.category === "Subscriptions" ||
-                cluster.category === "Bills and services" ||
-                isSubscriptionCategory(cluster.category) ||
-                isBillLikeCategory(cluster.category);
-        });
-    }, [duplicateAnalysis]);
+        recurringTxns.forEach(tx => {
+            const merchant = tx.merchantName || tx.description.split(' ')[0];
 
-    const flaggedIds = useMemo(() => duplicateAnalysis.flaggedTransactionIds, [duplicateAnalysis]);
+            if (!groups.has(merchant)) {
+                groups.set(merchant, {
+                    merchant,
+                    category: tx.category,
+                    transactions: [],
+                    total: 0,
+                    hasSuspicious: false,
+                    unreviewedCount: 0
+                });
+            }
 
-    // Simulate analysis delay
-    useEffect(() => {
-        const startId = setTimeout(() => setIsAnalyzing(true), 0);
-        const timer = setTimeout(() => {
-            setIsAnalyzing(false);
-        }, 800);
-        return () => {
-            clearTimeout(startId);
-            clearTimeout(timer);
-        };
-    }, [transactions]);
+            const group = groups.get(merchant)!;
+            group.transactions.push(tx);
+            group.total += Math.abs(tx.amount);
 
-    // Check if all suspicious transactions have been reviewed
-    const unresolvedClusters = useMemo(() => {
-        return duplicateClusters.filter(cluster => {
-            return cluster.suspiciousTransactionIds.some(id => !duplicateDecisions[id]);
-        });
-    }, [duplicateClusters, duplicateDecisions]);
-
-    // Get confirmed suspicious transactions
-    const confirmedSuspicious = useMemo(() => {
-        const confirmed: Transaction[] = [];
-        duplicateClusters.forEach(cluster => {
-            cluster.suspiciousTransactionIds.forEach(id => {
-                if (duplicateDecisions[id] === "confirmed") {
-                    const tx = transactions.find(t => t.id === id);
-                    if (tx) confirmed.push(tx);
+            if (tx.isSuspicious) {
+                group.hasSuspicious = true;
+                if (!duplicateDecisions[tx.id]) {
+                    group.unreviewedCount++;
                 }
-            });
+            }
         });
-        return confirmed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [duplicateClusters, duplicateDecisions, transactions]);
 
-    const allResolved = unresolvedClusters.length === 0 && duplicateClusters.length > 0;
-    const hasConfirmedSuspicious = confirmedSuspicious.length > 0;
+        // Sort transactions within each group by date descending
+        groups.forEach(group => {
+            group.transactions.sort((a, b) =>
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+        });
+
+        // Return sorted by merchant name
+        return Array.from(groups.values()).sort((a, b) =>
+            a.merchant.localeCompare(b.merchant)
+        );
+    }, [recurringTxns, duplicateDecisions]);
+
+    // 4. Suspicious Transactions (ONLY in view range)
+    const suspiciousTransactions = useMemo(() => {
+        return recurringTxns.filter(t => t.isSuspicious && !duplicateDecisions[t.id]);
+    }, [recurringTxns, duplicateDecisions]);
+
+    const hasSuspicious = suspiciousTransactions.length > 0;
+
+    // Get surrounding context for More Info modal (D13)
+    const surroundingContext = useMemo(() => {
+        if (!selectedSuspiciousTx) return [];
+        return getSurroundingContext(selectedSuspiciousTx, filteredTransactions);
+    }, [selectedSuspiciousTx, filteredTransactions]);
+
+    const toggleMerchant = (merchant: string) => {
+        setExpandedMerchants(prev => {
+            const next = new Set(prev);
+            if (next.has(merchant)) {
+                next.delete(merchant);
+            } else {
+                next.add(merchant);
+            }
+            return next;
+        });
+    };
 
     return (
         <GlassCard intensity="medium" tint="amber" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -98,279 +123,247 @@ export function Recurring() {
                 <p className="text-zinc-400">Subscriptions, bills, and auto payments for this period.</p>
             </div>
 
-            {/* Loading State */}
-            {isAnalyzing && (
-                <GlassCard className="mb-6 p-6 bg-zinc-900/50 border-zinc-700">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                        <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                        <p className="text-sm text-zinc-400">Analyzing transactions...</p>
+            {/* Suspicious Detection Banner - D12: Improved contrast */}
+            {hasSuspicious && (
+                <GlassCard className="mb-6 p-4 bg-amber-900/40 border-amber-500/50">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold mb-1 text-amber-100">
+                                Suspicious charges detected
+                            </p>
+                            <p className="text-xs mb-3 text-amber-200">
+                                We found {suspiciousTransactions.length} transaction{suspiciousTransactions.length > 1 ? 's' : ''} that look like duplicates or overcharges.
+                            </p>
+                            <button
+                                onClick={() => setShowSuspiciousDetails(!showSuspiciousDetails)}
+                                className="text-xs bg-amber-500 text-black font-medium px-3 py-1.5 rounded-full hover:bg-amber-400 transition-colors"
+                            >
+                                {showSuspiciousDetails ? 'Hide Details' : 'Review Issues'}
+                            </button>
+                        </div>
                     </div>
                 </GlassCard>
             )}
 
-            {/* Duplicate Detection Banner */}
-            {!isAnalyzing && duplicateClusters.length > 0 && (
-                <GlassCard className={cn(
-                    "mb-6 p-4",
-                    allResolved ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30"
-                )}>
-                    <div className="flex items-start gap-3">
-                        <span className="text-2xl">{allResolved ? "✅" : "⚠️"}</span>
-                        <div className="flex-1">
-                            <p className={cn(
-                                "text-sm font-semibold mb-1",
-                                allResolved ? "text-emerald-200" : "text-amber-200"
-                            )}>
-                                {allResolved
-                                    ? (hasConfirmedSuspicious ? "All suspicious charges reviewed" : "All transactions look good")
-                                    : "Possible duplicate charges detected"}
-                            </p>
-                            <p className={cn(
-                                "text-xs mb-3",
-                                allResolved ? "text-emerald-300/80" : "text-amber-300/80"
-                            )}>
-                                {allResolved
-                                    ? (hasConfirmedSuspicious
-                                        ? `You marked ${confirmedSuspicious.length} charge${confirmedSuspicious.length > 1 ? 's' : ''} as suspicious. Nice work keeping an eye on things!`
-                                        : "Everything checks out. No issues found!")
-                                    : `We spotted ${unresolvedClusters.length} merchant${unresolvedClusters.length > 1 ? 's' : ''} with charges that look off. Take a look and let us know if they're legit or not.`
-                                }
-                            </p>
-                            {!allResolved && (
+            {/* Suspicious Details Panel */}
+            {showSuspiciousDetails && hasSuspicious && (
+                <GlassCard className="mb-6 p-4 bg-zinc-900/50">
+                    <h3 className="text-sm font-semibold text-white mb-4">Review Suspicious Charges</h3>
+                    <div className="space-y-3">
+                        {suspiciousTransactions.map(tx => (
+                            <div key={tx.id} className="bg-zinc-800/50 p-3 rounded-lg border border-zinc-700">
+                                <div className="flex justify-between items-start mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-amber-500 font-bold">⚠️</span>
+                                        <span className="text-white font-medium">{tx.description}</span>
+                                    </div>
+                                    <span className="text-amber-400 font-semibold">{currency.format(tx.amount)}</span>
+                                </div>
+                                <div className="text-zinc-400 text-xs ml-6 mb-1">{dateFormatter.format(new Date(tx.date))}</div>
+                                <div className="text-amber-300 text-xs ml-6 italic mb-2">
+                                    {tx.suspiciousReason || "Unusual activity detected"}
+                                </div>
+                                <div className="flex gap-2 ml-6">
+                                    <button
+                                        onClick={() => setSelectedSuspiciousTx(tx)}
+                                        className="text-xs bg-zinc-700 text-white px-2 py-1 rounded hover:bg-zinc-600 transition flex items-center gap-1"
+                                    >
+                                        <Info className="h-3 w-3" />
+                                        More Info
+                                    </button>
+                                    <button
+                                        onClick={() => setDuplicateDecision(tx.id, "confirmed")}
+                                        className="text-xs bg-rose-600 text-white px-2 py-1 rounded hover:bg-rose-500 transition"
+                                    >
+                                        Mark Suspicious
+                                    </button>
+                                    <button
+                                        onClick={() => setDuplicateDecision(tx.id, "dismissed")}
+                                        className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-500 transition"
+                                    >
+                                        All Good
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </GlassCard>
+            )}
+
+            {/* Grouped Merchant List */}
+            <div className="space-y-2">
+                {merchantGroups.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-zinc-400">
+                        No recurring transactions found for this period.
+                    </div>
+                ) : (
+                    merchantGroups.map((group) => {
+                        const isExpanded = expandedMerchants.has(group.merchant);
+                        const displayCategory = isBillLikeCategory(group.category)
+                            ? "Bills and services"
+                            : group.category;
+
+                        return (
+                            <GlassCard key={group.merchant} className="overflow-hidden p-0">
+                                {/* Merchant Header */}
                                 <button
-                                    onClick={() => setShowDuplicates(!showDuplicates)}
-                                    className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-400 transition-colors"
+                                    onClick={() => toggleMerchant(group.merchant)}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-800/60 focus:outline-none",
+                                        group.hasSuspicious && "border-l-2 border-amber-500"
+                                    )}
                                 >
-                                    {showDuplicates ? 'Hide Details' : 'Show Details'}
+                                    <div className="flex items-center gap-3">
+                                        {group.hasSuspicious && group.unreviewedCount > 0 && (
+                                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                        )}
+                                        <div>
+                                            <p className="font-semibold text-white">{group.merchant}</p>
+                                            <p className="text-xs text-zinc-400">
+                                                {displayCategory} • {group.transactions.length} charge{group.transactions.length !== 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-medium text-white">
+                                            {currency.format(group.total)}
+                                        </span>
+                                        {isExpanded ? (
+                                            <ChevronUp className="h-4 w-4 text-zinc-400" />
+                                        ) : (
+                                            <ChevronDown className="h-4 w-4 text-zinc-400" />
+                                        )}
+                                    </div>
                                 </button>
+
+                                {/* Expanded Transaction List */}
+                                {isExpanded && (
+                                    <div className="border-t border-zinc-800">
+                                        <div className="grid grid-cols-3 bg-zinc-900/80 px-4 py-2 text-xs font-semibold text-zinc-400">
+                                            <span>Description</span>
+                                            <span className="text-right">Amount</span>
+                                            <span className="text-right">Date</span>
+                                        </div>
+                                        <div className="divide-y divide-zinc-800/50">
+                                            {group.transactions.map(tx => {
+                                                const isSuspicious = tx.isSuspicious && !duplicateDecisions[tx.id];
+
+                                                return (
+                                                    <div
+                                                        key={tx.id}
+                                                        className={cn(
+                                                            "grid grid-cols-3 items-center px-4 py-2.5 text-xs",
+                                                            isSuspicious
+                                                                ? "bg-amber-500/5 text-amber-200"
+                                                                : "text-zinc-200"
+                                                        )}
+                                                    >
+                                                        <span className="flex items-center gap-2 truncate">
+                                                            {isSuspicious && (
+                                                                <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                                                            )}
+                                                            <span className="truncate" title={tx.description}>
+                                                                {tx.description}
+                                                            </span>
+                                                        </span>
+                                                        <span className="text-right font-medium">
+                                                            {currency.format(tx.amount)}
+                                                        </span>
+                                                        <span className="text-right text-zinc-400">
+                                                            {dateFormatter.format(new Date(tx.date))}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </GlassCard>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* More Info Modal for Suspicious Transaction Context (D13) */}
+            {selectedSuspiciousTx && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <GlassCard className="w-full max-w-lg p-6 relative animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+                        <button
+                            onClick={() => setSelectedSuspiciousTx(null)}
+                            className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Header */}
+                        <div className="mb-4 pb-4 border-b border-white/10">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                                <span className="text-sm font-medium text-amber-400">
+                                    {getSuspiciousTypeLabel(selectedSuspiciousTx.suspiciousType)}
+                                </span>
+                            </div>
+                            <h3 className="text-lg font-bold text-white">{selectedSuspiciousTx.description}</h3>
+                            <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span className="text-amber-400 font-medium">{currency.format(selectedSuspiciousTx.amount)}</span>
+                                <span className="text-zinc-400">{dateFormatter.format(new Date(selectedSuspiciousTx.date))}</span>
+                            </div>
+                        </div>
+
+                        {/* Reason */}
+                        <div className="bg-amber-900/30 border border-amber-500/30 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-amber-200">
+                                {selectedSuspiciousTx.suspiciousReason || "Unusual activity detected"}
+                            </p>
+                        </div>
+
+                        {/* Surrounding Context */}
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            <h4 className="text-sm font-semibold text-zinc-400 mb-3">
+                                Related Charges (±45 days)
+                            </h4>
+                            {surroundingContext.length === 0 ? (
+                                <p className="text-sm text-zinc-500 italic">No related charges found in this period.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {surroundingContext.map(tx => (
+                                        <div key={tx.id} className="flex justify-between items-center p-2 bg-zinc-900/50 rounded-lg">
+                                            <div>
+                                                <p className="text-sm text-white">{tx.description}</p>
+                                                <p className="text-xs text-zinc-500">{dateFormatter.format(new Date(tx.date))}</p>
+                                            </div>
+                                            <span className="text-sm font-medium text-white">{currency.format(tx.amount)}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
-                    </div>
-                </GlassCard>
-            )}
 
-            {/* Confirmed Suspicious Transactions Review */}
-            {!isAnalyzing && allResolved && hasConfirmedSuspicious && (
-                <GlassCard className="mb-6 p-4 bg-zinc-900/50 border-zinc-700">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-white">Confirmed Suspicious Charges</h3>
-                        <button
-                            onClick={() => setShowConfirmed(!showConfirmed)}
-                            className="text-xs text-zinc-400 hover:text-white transition"
-                        >
-                            {showConfirmed ? 'Hide' : 'Review'}
-                        </button>
-                    </div>
-
-                    {showConfirmed && (
-                        <div className="space-y-2 mt-3">
-                            {confirmedSuspicious.map(tx => (
-                                <div key={tx.id} className="bg-zinc-800/50 border border-zinc-700 p-3 rounded text-xs">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="flex items-center gap-2 flex-1">
-                                            <span className="text-zinc-400">🔍</span>
-                                            <span className="text-white font-medium">{tx.description}</span>
-                                        </div>
-                                        <span className="text-zinc-300 font-semibold ml-2">{currency.format(tx.amount)}</span>
-                                    </div>
-                                    <div className="text-zinc-500 ml-6 mb-2">{dateFormatter.format(new Date(tx.date))}</div>
-                                    <div className="flex gap-2 ml-6">
-                                        <button
-                                            onClick={() => setDuplicateDecision(tx.id, "dismissed")}
-                                            className="text-xs bg-zinc-700 text-white px-2 py-1 rounded hover:bg-zinc-600 transition"
-                                        >
-                                            Mark as Good
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Actions */}
+                        <div className="flex gap-3 mt-4 pt-4 border-t border-white/10">
+                            <button
+                                onClick={() => {
+                                    setDuplicateDecision(selectedSuspiciousTx.id, "confirmed");
+                                    setSelectedSuspiciousTx(null);
+                                }}
+                                className="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-lg font-medium transition"
+                            >
+                                Mark Suspicious
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setDuplicateDecision(selectedSuspiciousTx.id, "dismissed");
+                                    setSelectedSuspiciousTx(null);
+                                }}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-medium transition"
+                            >
+                                All Good
+                            </button>
                         </div>
-                    )}
-                </GlassCard>
-            )}
-
-            {/* Duplicate Details */}
-            {!isAnalyzing && showDuplicates && unresolvedClusters.length > 0 && (
-                <GlassCard className="mb-6 p-4 bg-zinc-900/50">
-                    <h3 className="text-sm font-semibold text-white mb-4">Suspected Duplicates</h3>
-                    <div className="space-y-3">
-                        {unresolvedClusters.map(cluster => {
-                            const clusterTransactions = transactions.filter(t =>
-                                cluster.suspiciousTransactionIds.includes(t.id)
-                            ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                            // Calculate reason for each transaction
-                            const getTransactionReason = (tx: Transaction) => {
-                                const txDate = new Date(tx.date);
-
-                                // Check for double charge (same day or within 3 days)
-                                const nearbyCharges = clusterTransactions.filter(t => {
-                                    if (t.id === tx.id) return false;
-                                    const otherDate = new Date(t.date);
-                                    const daysDiff = Math.abs((txDate.getTime() - otherDate.getTime()) / (1000 * 60 * 60 * 24));
-                                    return daysDiff <= 3;
-                                });
-
-                                if (nearbyCharges.length > 0) {
-                                    const nearestDate = nearbyCharges[0].date;
-                                    const daysDiff = Math.abs((txDate.getTime() - new Date(nearestDate).getTime()) / (1000 * 60 * 60 * 24));
-                                    return `Double charge - also charged ${Math.round(daysDiff)} day${Math.round(daysDiff) === 1 ? '' : 's'} ${txDate > new Date(nearestDate) ? 'after' : 'before'} on ${new Date(nearestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                                }
-
-                                // Check for unusual frequency - only if multiple charges are outside the expected window
-                                if (cluster.medianIntervalDays > 0 && cluster.medianIntervalDays < 40) {
-                                    // Get all transaction dates sorted
-                                    const allClusterTxs = transactions.filter(t => cluster.transactionIds.includes(t.id))
-                                        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-                                    const txIndex = allClusterTxs.findIndex(t => t.id === tx.id);
-                                    if (txIndex > 0) {
-                                        const prevTx = allClusterTxs[txIndex - 1];
-                                        const actualDays = (txDate.getTime() - new Date(prevTx.date).getTime()) / (1000 * 60 * 60 * 24);
-                                        const expectedDays = cluster.medianIntervalDays;
-                                        const tolerance = 3;
-
-                                        // Only flag if significantly outside the expected range
-                                        if (Math.abs(actualDays - expectedDays) > tolerance) {
-                                            return `Unusual frequency - normally charged every ${Math.round(expectedDays)} days, but this was ${Math.round(actualDays)} days`;
-                                        }
-                                    }
-                                }
-
-                                // Check for unusual amount
-                                const amountDiff = Math.abs(Math.abs(tx.amount) - cluster.medianAmount);
-                                if (amountDiff > cluster.medianAmount * 0.15) {
-                                    return `Unusual amount - normally ${currency.format(cluster.medianAmount)}`;
-                                }
-
-                                return `Doesn't match usual pattern`;
-                            };
-
-                            return (
-                                <div key={cluster.key} className="bg-zinc-800/50 p-3 rounded-lg border border-zinc-700">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <p className="text-sm font-medium text-white">{cluster.label}</p>
-                                            <p className="text-xs text-zinc-400">{clusterTransactions.filter(tx => !duplicateDecisions[tx.id]).length} suspicious charge(s)</p>
-                                        </div>
-                                        <span className="text-xs text-amber-400 font-medium">
-                                            ~{currency.format(cluster.medianAmount)} each
-                                        </span>
-                                    </div>
-
-                                    {/* Suspicious Transactions */}
-                                    <div className="space-y-2 mt-3">
-                                        {clusterTransactions.map((tx) => {
-                                            const decision = duplicateDecisions[tx.id];
-                                            if (decision) return null; // Hide resolved transactions
-
-                                            return (
-                                                <div key={tx.id} className="bg-amber-500/10 border border-amber-500/30 p-2 rounded text-xs">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <div className="flex items-center gap-2 flex-1">
-                                                            <span className="text-amber-500 font-bold">⚠️</span>
-                                                            <span className="text-white font-medium">{tx.description}</span>
-                                                        </div>
-                                                        <span className="text-amber-400 font-semibold ml-2">{currency.format(tx.amount)}</span>
-                                                    </div>
-                                                    <div className="text-zinc-400 ml-5">{dateFormatter.format(new Date(tx.date))}</div>
-                                                    <div className="text-amber-300 text-xs mt-1 ml-5 italic">
-                                                        {getTransactionReason(tx)}
-                                                    </div>
-                                                    <div className="flex gap-2 mt-2 ml-5">
-                                                        <button
-                                                            onClick={() => setDuplicateDecision(tx.id, "confirmed")}
-                                                            className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-500 transition"
-                                                        >
-                                                            Confirm
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setDuplicateDecision(tx.id, "dismissed")}
-                                                            className="text-xs bg-zinc-700 text-white px-2 py-1 rounded hover:bg-zinc-600 transition"
-                                                        >
-                                                            Dismiss
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-700">
-                                        <button
-                                            onClick={() => {
-                                                cluster.suspiciousTransactionIds.forEach((id: string) => {
-                                                    if (!duplicateDecisions[id]) {
-                                                        setDuplicateDecision(id, "confirmed");
-                                                    }
-                                                });
-                                            }}
-                                            className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-500 transition"
-                                        >
-                                            Confirm All Remaining
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                cluster.suspiciousTransactionIds.forEach((id: string) => {
-                                                    if (!duplicateDecisions[id]) {
-                                                        setDuplicateDecision(id, "dismissed");
-                                                    }
-                                                });
-                                            }}
-                                            className="text-xs bg-zinc-700 text-white px-2 py-1 rounded hover:bg-zinc-600 transition"
-                                        >
-                                            Dismiss All Remaining
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </GlassCard>
-            )}
-
-            <div className="overflow-x-auto rounded-lg border border-zinc-800">
-                <div className="min-w-[520px]">
-                    <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                        <span>Name</span>
-                        <span>Category</span>
-                        <span className="text-right">Amount</span>
-                        <span className="text-right">Date</span>
-                    </div>
-                    {recurringRows.length === 0 ? (
-                        <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">
-                            No recurring transactions found for this period.
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-zinc-800">
-                            {recurringRows.map((row) => {
-                                const displayCategory = isBillLikeCategory(row.category)
-                                    ? "Bills and services"
-                                    : row.category;
-                                const isSuspicious = flaggedIds.has(row.id) && !duplicateDecisions[row.id];
-
-                                return (
-                                    <div
-                                        key={row.id}
-                                        className={cn(
-                                            "grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm",
-                                            isSuspicious && "bg-amber-500/5 border-l-2 border-amber-500"
-                                        )}
-                                    >
-                                        <span className="flex items-center gap-2 truncate" title={row.description}>
-                                            {isSuspicious && <span className="text-amber-500">⚠</span>}
-                                            {row.description}
-                                        </span>
-                                        <span className="text-zinc-400">{displayCategory}</span>
-                                        <span className="text-right font-medium">{currency.format(row.amount)}</span>
-                                        <span className="text-right text-zinc-400">{dateFormatter.format(new Date(row.date))}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                    </GlassCard>
                 </div>
-            </div>
+            )}
         </GlassCard>
     );
 }

@@ -1,4 +1,4 @@
-import { categoryEmojis } from "./fakeData";
+
 
 export type TabId = "overview" | "recurring" | "fees" | "cashflow" | "review";
 
@@ -80,6 +80,21 @@ export const overviewGroupOrder: OverviewGroupKey[] = [
     "other_fees",
 ];
 
+export const categoryEmojis: Record<string, string> = {
+    Rent: "🏠",
+    Groceries: "🏪",
+    Dining: "🍽",
+    Transport: "🚌",
+    Subscriptions: "📺",
+    Utilities: "💡",
+    "Bills & services": "🧾",
+    Fees: "💸",
+    Insurance: "🛡️",
+    Education: "🛍️",
+    Transfer: "💸",
+    Other: "📦",
+};
+
 export const overviewGroupMeta: Record<
     OverviewGroupKey,
     { label: string; categories: string[]; color: string; emoji: string }
@@ -91,7 +106,7 @@ export const overviewGroupMeta: Record<
         emoji: categoryEmojis.Rent,
     },
     groceries_dining: {
-        label: "Groceries and dining",
+        label: "Stores and dining",
         categories: ["Groceries", "Dining"],
         color: "#2dd4bf", // Teal-400
         emoji: categoryEmojis.Groceries,
@@ -121,7 +136,7 @@ export const overviewGroupMeta: Record<
         emoji: categoryEmojis["Bills & services"],
     },
     education: {
-        label: "Education",
+        label: "Online Shopping",
         categories: ["Education"],
         color: "#818cf8", // Indigo-400
         emoji: categoryEmojis.Education,
@@ -142,5 +157,3 @@ export const overviewGroupMeta: Record<
 
 export const transportGuideline = 15;
 export const internetGuideline = 5;
-
-export { categoryEmojis };

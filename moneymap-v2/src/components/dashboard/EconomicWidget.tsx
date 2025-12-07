@@ -17,18 +17,37 @@ export function EconomicWidget() {
     const [indicators, setIndicators] = useState<EconomicIndicator[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+    const [isDemo, setIsDemo] = useState(false);
+
+    // Demo data fallback when FRED API is unavailable
+    const DEMO_INDICATORS: EconomicIndicator[] = [
+        { id: 'FEDFUNDS', name: 'Fed Funds Rate', value: 5.33, date: '2024-12-01', unit: '%' },
+        { id: 'CPIAUCSL', name: 'Inflation (CPI)', value: 314.5, date: '2024-11-01', unit: 'Index' },
+        { id: 'UNRATE', name: 'Unemployment', value: 4.2, date: '2024-11-01', unit: '%' },
+        { id: 'DGS10', name: '10-Year Treasury', value: 4.25, date: '2024-12-01', unit: '%' },
+    ];
 
     const fetchEconomicData = async () => {
         setIsLoading(true);
         try {
             const response = await fetch('/api/economy');
             const data = await response.json();
-            if (data.indicators) {
+            if (data.indicators && data.indicators.length > 0) {
                 setIndicators(data.indicators);
+                setIsDemo(false);
+                setLastRefresh(new Date());
+            } else {
+                // Fall back to demo data
+                setIndicators(DEMO_INDICATORS);
+                setIsDemo(true);
                 setLastRefresh(new Date());
             }
         } catch (error) {
             console.error('Failed to fetch economic data:', error);
+            // Fall back to demo data
+            setIndicators(DEMO_INDICATORS);
+            setIsDemo(true);
+            setLastRefresh(new Date());
         } finally {
             setIsLoading(false);
         }
@@ -97,7 +116,10 @@ export function EconomicWidget() {
 
             <div className="mt-4 pt-4 border-t border-zinc-800/60">
                 <p className="text-xs text-zinc-500 text-center">
-                    Data provided by Federal Reserve Economic Data (FRED)
+                    {isDemo
+                        ? "Demo economic indicators (sample only)"
+                        : "Data provided by Federal Reserve Economic Data (FRED)"
+                    }
                 </p>
             </div>
         </GlassCard>

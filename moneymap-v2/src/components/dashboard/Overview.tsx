@@ -3,16 +3,18 @@
 import React, { useMemo, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
 import { overviewGroupMeta, categoryEmojis, OverviewGroupKey, overviewGroupOrder } from "../../lib/config";
-import { categoryToGroups } from "../../lib/categoryRules";
-import { getSpendingByCategory, getTransactionsByCategory, getTotalIncome, getTotalSpending, getTotalSubscriptions, getTotalFees } from "../../lib/fakeData";
-import { GlassCard, AccentColor } from "../ui/GlassCard";
+import {
+    getTransactionsInDateRange,
+    getCategoryTotals
+} from "../../lib/selectors/transactionSelectors";
+import { computeSummaryMetrics } from "../../lib/math/transactionMath";
+import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
-import { cn, isDateInRange } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import { TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Search } from "lucide-react";
 import { EconomicWidget } from "./EconomicWidget";
-
 import { Transaction } from "../../lib/types";
 
 // Helper to get categories for a group
@@ -22,7 +24,7 @@ const getCategoriesForGroup = (groupId: OverviewGroupKey): string[] => {
 
 // Helper to get display category
 const getTransactionDisplayCategory = (tx: Transaction): string => {
-    return tx.category; // Simplified for now
+    return tx.category;
 };
 
 export type SpendingGroup = {
@@ -48,24 +50,21 @@ const detailCardsConfig: DetailCardConfig[] = [
     { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
     { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
     { label: "Bills and services", categories: ["Bills & services"], groupId: "bills_services", emoji: categoryEmojis["Bills & services"] },
-    { label: "Groceries", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
+    { label: "Stores", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
     { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
     { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
     { label: "Insurance", categories: ["Insurance"], groupId: "insurance", emoji: categoryEmojis.Insurance },
     { label: "Transfers", categories: ["Transfer"], groupId: "transfers", emoji: categoryEmojis.Transfer },
-    { label: "Education", categories: ["Education"], groupId: "education", emoji: categoryEmojis.Education },
+    { label: "Online Shopping", categories: ["Education"], groupId: "education", emoji: categoryEmojis.Education },
     { label: "Other", categories: ["Other", "Loans"], groupId: "other_fees", emoji: categoryEmojis.Other },
 ];
 
 export function Overview() {
-    const { transactions, ownershipModes, accountOverrides } = useDataStore();
-    // We don't have date filtering in the store actions yet, but we have dateRange in UI store.
-    // For now, we'll use all transactions or implement date filtering here.
-    const { dateRange } = useUIStore();
+    const { transactions } = useDataStore();
+    const { viewStart, viewEnd } = useDateStore();
 
     const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
     const [chartInteractive, setChartInteractive] = useState(false);
-    const [detectedCurrency, setDetectedCurrency] = useState<string | undefined>(undefined);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -77,14 +76,26 @@ export function Overview() {
         day: "numeric",
     });
 
-    // Filter transactions by date range
+    // Filter transactions by date range using new selector
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(t => isDateInRange(t.date, dateRange));
-    }, [transactions, dateRange]);
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
+
+    // Phase 2.2 transaction-math: Compute summary metrics using centralized logic
+    const stats = useMemo(() => {
+        return computeSummaryMetrics(filteredTransactions);
+    }, [filteredTransactions]);
 
     // Calculate spending data
     const groupedSpendingData = useMemo(() => {
-        const spendingByCategory = getSpendingByCategory(filteredTransactions, {}, ownershipModes);
+        const categoryTotalsMap = getCategoryTotals(filteredTransactions);
+
+        // Convert Map to array format expected by logic below
+        const spendingByCategory = Array.from(categoryTotalsMap.entries()).map(([category, amount]) => ({
+            category,
+            amount
+        }));
+
         const totalSpending = spendingByCategory.reduce((sum, item) => sum + item.amount, 0);
 
         if (totalSpending === 0) return [];
@@ -99,8 +110,6 @@ export function Overview() {
 
         // Distribute categories to groups
         spendingByCategory.forEach(item => {
-            // Find which group this category belongs to
-            // We need a reverse lookup or iterate config
             let foundGroup: OverviewGroupKey | null = null;
             for (const [groupKey, meta] of Object.entries(overviewGroupMeta)) {
                 if (meta.categories.includes(item.category)) {
@@ -109,7 +118,6 @@ export function Overview() {
                 }
             }
 
-            // Fallback if not found in meta (shouldn't happen with correct config)
             if (!foundGroup) return;
 
             const group = groupMap.get(foundGroup);
@@ -135,7 +143,7 @@ export function Overview() {
         });
 
         return groups.sort((a, b) => b.value - a.value);
-    }, [filteredTransactions, ownershipModes]);
+    }, [filteredTransactions]);
 
     const activeGroupId = useMemo(() => {
         if (activeCategoryIds.length === 0) return null;
@@ -172,7 +180,6 @@ export function Overview() {
     }, [filteredTransactions, activeCategoryIds]);
 
     const onSelectGroup = (categories: string[]) => {
-        // Toggle: if same categories selected, clear selection
         if (
             categories.length === activeCategoryIds.length &&
             categories.every((c) => activeCategoryIds.includes(c))
@@ -196,8 +203,6 @@ export function Overview() {
                 <p className="text-zinc-400">Where your money went this month.</p>
             </div>
 
-
-
             {groupedSpendingData.length > 0 && (
                 <GlassCard className="p-6 mb-6 bg-zinc-900/50 backdrop-blur-xl">
                     <div className="flex items-center justify-between mb-4">
@@ -212,7 +217,7 @@ export function Overview() {
                                     nameKey="label"
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={80}
+                                    innerRadius={0}
                                     outerRadius={130}
                                     paddingAngle={2}
                                     cornerRadius={4}
@@ -297,7 +302,7 @@ export function Overview() {
                 </GlassCard>
             )}
 
-            {/* Summary Metric Cards (Moved) */}
+            {/* Summary Metric Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
                 <GlassCard accent="green" tint="emerald" intensity="light" hoverEffect className="p-4">
                     <div className="flex items-center justify-between mb-1">
@@ -308,7 +313,7 @@ export function Overview() {
                         <InfoTooltip text="Total earnings from all sources before taxes." />
                     </div>
                     <p className="text-lg font-bold text-white">
-                        {currency.format(getTotalIncome(filteredTransactions))}
+                        {currency.format(stats.income)}
                     </p>
                 </GlassCard>
                 <GlassCard accent="orange" tint="rose" intensity="light" hoverEffect className="p-4">
@@ -320,7 +325,7 @@ export function Overview() {
                         <InfoTooltip text="Total expenses excluding transfers and savings." />
                     </div>
                     <p className="text-lg font-bold text-white">
-                        {currency.format(getTotalSpending(filteredTransactions))}
+                        {currency.format(stats.spending)}
                     </p>
                 </GlassCard>
                 <GlassCard accent="cyan" tint="cyan" intensity="light" hoverEffect className="p-4">
@@ -332,7 +337,7 @@ export function Overview() {
                         <InfoTooltip text="What's left after all spending is deducted from income." />
                     </div>
                     <p className="text-lg font-bold text-white">
-                        {currency.format(getTotalIncome(filteredTransactions) - getTotalSpending(filteredTransactions))}
+                        {currency.format(stats.netCashFlow)}
                     </p>
                 </GlassCard>
                 <GlassCard accent="purple" tint="purple" intensity="light" hoverEffect className="p-4">
@@ -344,7 +349,7 @@ export function Overview() {
                         <InfoTooltip text="Recurring payments identified as subscriptions." />
                     </div>
                     <p className="text-lg font-bold text-white">
-                        {currency.format(getTotalSubscriptions(filteredTransactions))}
+                        {currency.format(stats.subscriptionTotal)}
                     </p>
                 </GlassCard>
                 <GlassCard accent="yellow" tint="yellow" intensity="light" hoverEffect className="p-4">
@@ -356,7 +361,7 @@ export function Overview() {
                         <InfoTooltip text="Bank fees, service charges, and other costs." />
                     </div>
                     <p className="text-lg font-bold text-white">
-                        {currency.format(getTotalFees(filteredTransactions))}
+                        {currency.format(stats.feeTotal)}
                     </p>
                 </GlassCard>
             </div>
@@ -375,7 +380,8 @@ export function Overview() {
                             }}
                             className={cn(
                                 "w-full px-4 py-3 text-left transition transform hover:-translate-y-0.5 cursor-pointer",
-                                isActive ? "ring-2 ring-purple-400" : "hover:ring-1 hover:ring-white/20"
+                                "hover:ring-1 hover:ring-white/20",
+                                isActive ? "ring-2 ring-purple-400" : ""
                             )}
                         >
                             <p className="flex items-center gap-2 text-sm text-zinc-400">
@@ -440,13 +446,10 @@ export function Overview() {
                 </div>
             </div>
 
-
-
             {/* Economic Indicators Widget */}
             <div className="mb-8">
                 <EconomicWidget />
             </div>
-
 
         </GlassCard>
     );

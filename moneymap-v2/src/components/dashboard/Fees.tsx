@@ -1,14 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useUIStore } from "../../lib/store/useUIStore";
+import { useDateStore } from "../../lib/store/useDateStore";
+import { getTransactionsInDateRange, getFeeTransactions, getFeeTotals } from "../../lib/selectors/transactionSelectors";
 import { GlassCard } from "../ui/GlassCard";
-import { isDateInRange } from "../../lib/utils";
 
 export function Fees() {
     const { transactions } = useDataStore();
-    const { dateRange } = useUIStore();
+    const { viewStart, viewEnd } = useDateStore();
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -20,13 +20,22 @@ export function Fees() {
         day: "numeric",
     });
 
-    // Filter for fee transactions in the current date range
-    const feeRows = transactions.filter(t => {
-        if (!isDateInRange(t.date, dateRange)) return false;
-        return t.kind === "fee";
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 1. Filter transactions by date range
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+    const filteredTransactions = useMemo(() => {
+        return getTransactionsInDateRange(transactions, viewStart, viewEnd);
+    }, [transactions, viewStart, viewEnd]);
 
-    const totalFees = feeRows.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    // 2. Get fee transactions
+    const feeRows = useMemo(() => {
+        return getFeeTransactions(filteredTransactions)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [filteredTransactions]);
+
+    // 3. Calculate total fees
+    const totalFees = useMemo(() => {
+        return getFeeTotals(filteredTransactions);
+    }, [filteredTransactions]);
 
     return (
         <GlassCard intensity="medium" tint="pink" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { Upload, X, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { useDataStore } from '@/lib/store/useDataStore';
 import { useRouter } from 'next/navigation';
-import { generateSampleStatement } from '@/lib/fakeData';
 
 interface UploadModalProps {
     isOpen: boolean;
@@ -17,7 +16,7 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
     const [error, setError] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const { loadUploadedData } = useDataStore();
+    const { generateData } = useDataStore();
     const router = useRouter();
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -32,11 +31,6 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
     const validateAndSetFile = useCallback((incomingFile: File) => {
         // For now, accept any file, but we could restrict to .csv, .pdf later
-        // const validTypes = ['text/csv', 'application/pdf'];
-        // if (!validTypes.includes(file.type)) {
-        //   setError('Please upload a CSV or PDF file.');
-        //   return;
-        // }
         setFile(incomingFile);
         setError(null);
     }, []);
@@ -66,22 +60,8 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
         // Simulate processing delay
         setTimeout(() => {
-            // TODO: Actual parsing logic would go here.
-            // For now, we'll just load an empty set or maybe trigger the demo data 
-            // but with a flag saying it's "uploaded" (mocking the result).
-            // Since we don't have a parser yet, let's just use the store's action 
-            // to initialize with empty/mock data for the "uploaded" state.
-
-            // We'll pass an empty array for now, effectively clearing the dashboard 
-            // or showing a "No transactions found" state if we had one.
-            // Or better, let's just mock it by loading the sample data but pretending it came from the file
-            // so the user sees *something* working.
-
-            // Actually, the plan said "loadUploadedData(transactions)".
-            // Let's just mock it with the sample data for now to verify the flow works.
-            const mockParsedData = generateSampleStatement();
-
-            loadUploadedData(mockParsedData);
+            // Use the new engine to generate data, simulating a successful parse
+            generateData('full');
 
             setIsProcessing(false);
             onClose();

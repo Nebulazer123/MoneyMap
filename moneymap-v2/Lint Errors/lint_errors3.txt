@@ -1,0 +1,118 @@
+﻿
+> moneymap-v2@0.1.0 lint
+> eslint
+
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\app\api\stocks\route.ts
+  237:25  warning  'screenerQuery' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\app\dashboard\crypto\page.tsx
+    9:5   warning  'TrendingUp' is defined but never used                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   10:5   warning  'TrendingDown' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   23:5   warning  'Clock' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  219:33  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  354:29  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  512:54  warning  'name' is defined but never used                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\app\dashboard\stocks\page.tsx
+   20:5   warning  'DollarSign' is defined but never used                @typescript-eslint/no-unused-vars
+   26:5   warning  'Target' is defined but never used                    @typescript-eslint/no-unused-vars
+   27:5   warning  'Calendar' is defined but never used                  @typescript-eslint/no-unused-vars
+  112:15  warning  'daysUntilMonday' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\Accounts.tsx
+   8:14  warning  'isDateInRange' is defined but never used          @typescript-eslint/no-unused-vars
+   9:78  warning  'ChevronRight' is defined but never used           @typescript-eslint/no-unused-vars
+  41:13  warning  'transactions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  42:13  warning  'dateRange' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\Crypto.tsx
+  1138:77  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\CurrencyConverter.tsx
+   74:8   warning  React Hook useEffect has a missing dependency: 'fetchRates'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  200:5   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  203:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\CurrencyConverter.tsx:203:13
+  201 |     useEffect(() => {
+  202 |         if (detectedCurrency && !hasAutoSet) {
+> 203 |             setCryptoFromCurrency(detectedCurrency);
+      |             ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  204 |             setHasAutoSet(true);
+  205 |         }
+  206 |     }, [detectedCurrency, hasAutoSet]);  react-hooks/set-state-in-effect
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\EconomicWidget.tsx
+  5:10  warning  'TrendingUp' is defined but never used    @typescript-eslint/no-unused-vars
+  5:22  warning  'TrendingDown' is defined but never used  @typescript-eslint/no-unused-vars
+  5:56  warning  'DollarSign' is defined but never used    @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\LocationWidget.tsx
+   69:8   warning  React Hook useEffect has a missing dependency: 'fetchLocation'. Either include it or remove the dependency array                                                                                                                                                                         react-hooks/exhaustive-deps
+  130:29  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\NewsFeed.tsx
+   88:8   warning  React Hook useEffect has a missing dependency: 'fetchNews'. Either include it or remove the dependency array                                                                                                                                                                             react-hooks/exhaustive-deps
+  245:37  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\Review.tsx
+  25:12  warning  'isSubscriptionsOverlayOpen' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\dashboard\Stocks.tsx
+  1211:77  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\debug\DebugPanel.tsx
+  8:10  warning  'ChevronUp' is defined but never used   @typescript-eslint/no-unused-vars
+  8:73  warning  'Info' is defined but never used        @typescript-eslint/no-unused-vars
+  8:79  warning  'PlayCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\layout\Sidebar.tsx
+   8:74  warning  'X' is defined but never used                   @typescript-eslint/no-unused-vars
+  17:11  warning  'tabColors' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\onboarding\UploadModal.tsx
+  4:31  warning  'CheckCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\components\ui\Ticker.tsx
+   13:5   warning  'AlertCircle' is defined but never used        @typescript-eslint/no-unused-vars
+   14:5   warning  'Activity' is defined but never used           @typescript-eslint/no-unused-vars
+   15:5   warning  'BarChart3' is defined but never used          @typescript-eslint/no-unused-vars
+  221:5   warning  'type' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  234:11  warning  'changeBg' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\cache\useCrypto.ts
+  276:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\cache\useStocks.ts
+  345:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\cache\useUtilities.ts
+    9:20  warning  'usePrefetch' is defined but never used                         @typescript-eslint/no-unused-vars
+  514:1   warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\generators\suspiciousDetection.ts
+  273:7  warning  'SUSPICIOUS_MERCHANT_CANDIDATES' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\generators\transactionEngine.ts
+  44:5  warning  'descriptor' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\logic\accounts.ts
+  1:23  warning  'Account' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Corbin\Documents\MoneyMapProject\dev\moneymap\moneymap-v2\src\lib\logic\metrics.ts
+    1:23  warning  'Category' is defined but never used              @typescript-eslint/no-unused-vars
+    2:10  warning  'isBillLikeCategory' is defined but never used    @typescript-eslint/no-unused-vars
+    2:54  warning  'isBillishDescription' is defined but never used  @typescript-eslint/no-unused-vars
+   18:5   warning  'ownershipModes' is defined but never used        @typescript-eslint/no-unused-vars
+  132:5   warning  'totalIncome' is defined but never used           @typescript-eslint/no-unused-vars
+
+Γ£û 51 problems (1 error, 50 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

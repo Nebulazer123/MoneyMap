@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Account, Category, OwnershipMode } from '../types';
-import { generateSampleStatement, getBaseAccounts } from '../fakeData';
+import { Transaction, Account, Category, OwnershipMode, LifestyleProfile } from '../types';
+import { generateTransactions } from '../generators/transactionEngine';
+import { generateLifestyleProfile } from '../generators/lifestyleProfile';
+import { useDateStore } from './useDateStore';
 
 interface DataState {
     transactions: Transaction[];
@@ -12,11 +14,14 @@ interface DataState {
     hiddenAccountIds: string[];
     duplicateDecisions: Record<string, "confirmed" | "dismissed">;
     isLoading: boolean;
+    currentProfile: LifestyleProfile | null;
 
     // Actions
+    generateData: (mode?: 'full' | 'extend') => void;
     loadDemoData: () => void;
-    loadUploadedData: (transactions: Transaction[]) => void;
     clearData: () => void;
+
+    // CRUD
     setTransactions: (transactions: Transaction[]) => void;
     setAccounts: (accounts: Account[]) => void;
     setCategories: (categories: Category[]) => void;
@@ -28,11 +33,30 @@ interface DataState {
     deleteAccount: (id: string) => void;
     setOwnershipMode: (accountId: string, mode: OwnershipMode) => void;
     toggleAccountVisibility: (accountId: string) => void;
+    toggleAccountIncluded: (accountId: string) => void;
     setDuplicateDecision: (id: string, decision: "confirmed" | "dismissed") => void;
 
     // Helpers
     getAccountById: (id: string) => Account | undefined;
 }
+
+// Default demo accounts with realistic balances for My Money page
+const DEFAULT_DEMO_ACCOUNTS: Account[] = [
+    { id: 'demo-1', name: 'Primary Checking', type: 'checking', balance: 4521.33, institution: 'Chase', last4: '4521', includeInNetWorth: true },
+    { id: 'demo-2', name: 'Emergency Fund', type: 'savings', balance: 12500.00, institution: 'Ally Bank', last4: '8832', includeInNetWorth: true },
+    { id: 'demo-3', name: 'Travel Rewards Card', type: 'credit', balance: -2341.50, institution: 'Capital One', last4: '7291', includeInNetWorth: true },
+    { id: 'demo-4', name: 'Roth IRA', type: 'investment', balance: 28750.00, institution: 'Fidelity', last4: '3341', includeInNetWorth: true },
+    { id: 'demo-5', name: 'Brokerage', type: 'investment', balance: 15200.00, institution: 'Schwab', last4: '9912', includeInNetWorth: true },
+    { id: 'demo-6', name: 'Bitcoin Wallet', type: 'wallet', balance: 8500.00, institution: 'Coinbase', last4: 'BTC1', includeInNetWorth: true },
+    { id: 'demo-7', name: 'Ethereum Wallet', type: 'wallet', balance: 3200.00, institution: 'Coinbase', last4: 'ETH1', includeInNetWorth: true },
+    { id: 'demo-8', name: 'Auto Loan', type: 'loan', balance: -18500.00, institution: 'Capital One Auto', last4: '5544', includeInNetWorth: true },
+];
+
+// Helper to generate accounts from profile (extended with demo accounts if empty)
+const generateAccountsFromProfile = (profile: LifestyleProfile): Account[] => {
+    // Return demo accounts for consistent display
+    return DEFAULT_DEMO_ACCOUNTS;
+};
 
 export const useDataStore = create<DataState>()(
     persist(
@@ -45,61 +69,56 @@ export const useDataStore = create<DataState>()(
             hiddenAccountIds: [],
             duplicateDecisions: {},
             isLoading: false,
+            currentProfile: null,
 
-            loadDemoData: () => {
+            generateData: (mode = 'full') => {
                 set({ isLoading: true });
-                // Simulate async load
+
+                const { datasetStart, datasetEnd, profileId } = useDateStore.getState();
+                const profile = generateLifestyleProfile(profileId);
+                const existing = mode === 'extend' ? get().transactions : [];
+
                 setTimeout(() => {
-                    const baseAccounts = getBaseAccounts().map(acc => ({
-                        id: acc.id,
-                        name: acc.label,
-                        type: acc.id === 'checking' ? 'checking' : 'savings',
-                        balance: 0, // Not used in demo
-                        last4: acc.last4,
-                        institution: 'Bank',
-                        ownershipMode: 'spending' as OwnershipMode
-                    } as Account));
+                    const newTransactions = generateTransactions(
+                        profile,
+                        datasetStart,
+                        datasetEnd,
+                        mode,
+                        existing
+                    );
 
-                    const transactions = generateSampleStatement();
-
-                    // Reset everything to defaults for a clean demo restart
                     set({
-                        transactions,
-                        accounts: baseAccounts,
-                        categories: [], // Or default categories if you have them
-                        ownershipModes: {},
-                        accountOverrides: {},
-                        hiddenAccountIds: [],
-                        duplicateDecisions: {},
+                        transactions: newTransactions,
+                        accounts: generateAccountsFromProfile(profile),
+                        currentProfile: profile,
                         isLoading: false
                     });
-                }, 800);
+                }, 100);
             },
 
-            loadUploadedData: (transactions) => {
+            // Alias for backward compatibility
+            loadDemoData: () => {
                 set({ isLoading: true });
-                // Simulate processing
-                setTimeout(() => {
-                    // Ensure we have base accounts at minimum
-                    const baseAccounts = getBaseAccounts().map(acc => ({
-                        id: acc.id,
-                        name: acc.label,
-                        type: acc.id === 'checking' ? 'checking' : 'savings',
-                        balance: 0,
-                        last4: acc.last4,
-                        institution: 'Bank',
-                        ownershipMode: 'spending' as OwnershipMode
-                    } as Account));
 
-                    const currentAccounts = get().accounts;
-                    const customAccounts = currentAccounts.filter(a => !['checking', 'savings'].includes(a.id));
+                const { datasetStart, datasetEnd, profileId } = useDateStore.getState();
+                const profile = generateLifestyleProfile(profileId);
+
+                setTimeout(() => {
+                    const newTransactions = generateTransactions(
+                        profile,
+                        datasetStart,
+                        datasetEnd,
+                        'full',
+                        []
+                    );
 
                     set({
-                        transactions,
-                        accounts: [...baseAccounts, ...customAccounts],
+                        transactions: newTransactions,
+                        accounts: generateAccountsFromProfile(profile),
+                        currentProfile: profile,
                         isLoading: false
                     });
-                }, 500);
+                }, 100);
             },
 
             clearData: () => {
@@ -111,6 +130,7 @@ export const useDataStore = create<DataState>()(
                     accountOverrides: {},
                     hiddenAccountIds: [],
                     duplicateDecisions: {},
+                    currentProfile: null
                 });
             },
 
@@ -138,7 +158,6 @@ export const useDataStore = create<DataState>()(
             deleteAccount: (id) =>
                 set((state) => ({
                     accounts: state.accounts.filter((a) => a.id !== id),
-                    // Also remove from overrides and ownership modes
                     ownershipModes: Object.fromEntries(
                         Object.entries(state.ownershipModes).filter(([key]) => key !== id)
                     ),
@@ -150,7 +169,6 @@ export const useDataStore = create<DataState>()(
             setOwnershipMode: (accountId, mode) =>
                 set((state) => ({
                     ownershipModes: { ...state.ownershipModes, [accountId]: mode },
-                    // Also update the account object itself for easier access
                     accounts: state.accounts.map(a =>
                         a.id === accountId ? { ...a, ownershipMode: mode } : a
                     )
@@ -166,6 +184,15 @@ export const useDataStore = create<DataState>()(
                     };
                 }),
 
+            toggleAccountIncluded: (accountId) =>
+                set((state) => ({
+                    accounts: state.accounts.map(a =>
+                        a.id === accountId
+                            ? { ...a, includeInNetWorth: !(a.includeInNetWorth ?? true) }
+                            : a
+                    )
+                })),
+
             setDuplicateDecision: (id, decision) =>
                 set((state) => ({
                     duplicateDecisions: { ...state.duplicateDecisions, [id]: decision }
@@ -176,16 +203,13 @@ export const useDataStore = create<DataState>()(
         {
             name: 'moneymap-data-storage',
             partialize: (state) => ({
-                // Persist these fields
                 accounts: state.accounts,
                 ownershipModes: state.ownershipModes,
                 accountOverrides: state.accountOverrides,
                 hiddenAccountIds: state.hiddenAccountIds,
                 duplicateDecisions: state.duplicateDecisions,
-                // Do not persist transactions (re-generated on load for demo)
-                // or maybe we SHOULD persist them if we allow editing categories?
-                // Legacy persisted everything. Let's persist transactions too for now.
                 transactions: state.transactions,
+                currentProfile: state.currentProfile
             }),
         }
     )

@@ -79,6 +79,10 @@ function Sparkline({
     width?: number;
     height?: number;
 }) {
+    // useId must be called before any early returns (rules of hooks)
+    const baseId = React.useId();
+    const gradientId = `spark-${isPositive ? "up" : "down"}-${baseId}`;
+
     if (!data || data.length < 2) return null;
 
     const min = Math.min(...data);
@@ -95,7 +99,6 @@ function Sparkline({
         .join(" ");
 
     const color = isPositive ? "#22c55e" : "#ef4444";
-    const gradientId = `spark-${isPositive ? "up" : "down"}-${Math.random().toString(36).substr(2, 9)}`;
 
     return (
         <svg
