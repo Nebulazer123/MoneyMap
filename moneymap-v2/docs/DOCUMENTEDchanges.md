@@ -6,6 +6,173 @@
 
 ---
 
+## 2025-12-07 – Phase 3 Overview Spending Pie "Onyx Gem Wheel" Redesign
+
+### Overview
+Complete visual redesign of the spending pie chart with the **"Onyx Gem Wheel"** theme. Removed center text, implemented richer colors, and enhanced depth effects.
+
+### Changes
+- **Removed** center "TOTAL SPENDING" text overlay - pie is now clean
+- **New palette:** 9 vibrant, high-contrast colors (Ember Orange, Cyan Brilliant, Sapphire Blue, etc.)
+- **Linear gradients:** Diagonal gradients create gem-like beveled depth
+- **Enhanced glow:** Dual drop-shadow with indigo tint + deep shadow
+- **Stronger hover:** Active slices brighten to 110%, inactive dim to 50%
+- **Tooltip:** Now has slice-colored border for visual connection
+
+### Files Changed
+- `src/lib/config.ts` - Onyx Gem Wheel palette
+- `src/components/dashboard/Overview.tsx` - Pie styling overhaul
+- `docs/Phase3_OverviewPiePolish.md` - Updated spec
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
+## 2025-12-07 – Phase 3 Dashboard Economic Indicators "Macro Pulse Tiles"
+
+### Overview
+Complete visual redesign of the Economic Indicators widget from plain dark boxes into a cohesive, colorful macro dashboard panel with the **"Macro Pulse Tiles"** theme.
+
+### Theme Design
+**4 Colored Metric Tiles:**
+- **Fed Funds Rate** - Cyan theme with TrendingUp icon
+- **Inflation (CPI)** - Amber theme with BarChart3 icon  
+- **Unemployment** - Violet theme with Briefcase icon
+- **10-Year Treasury** - Teal theme with LineChart icon
+
+**Visual Features:**
+- Each tile has unique accent color + 3-stop gradient background
+- Contextual icons in tinted containers
+- Large, scannable values in accent colors
+- Optional status badges ("Elevated", "Normal", "Low") based on thresholds
+- Subtle hover effects with inner glow
+- Responsive layout: 4 cols → 2 cols → 1 col
+
+### Files Changed
+- `src/components/dashboard/EconomicWidget.tsx` - Complete redesign
+- `docs/Phase3_EconIndicators_Styling.md` - New spec document
+- `docs/Phase2_QA_Checklist.md` - Updated A6 to DONE
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
+## 2025-12-07 – Phase 3 Overview Layout Cleanup
+
+### Overview
+Removed Economic Indicators widget from Overview tab. By Phase 3 design decision, Economic Indicators are now **Dashboard-only** to keep Overview focused on spending category breakdown and transaction details.
+
+### Changes Made
+- **Removed** `<EconomicWidget />` from `src/components/dashboard/Overview.tsx`
+- **Removed** import statement for `EconomicWidget`
+- **Updated** `docs/Phase2_QA_Checklist.md` to reflect Dashboard-only placement
+
+### Rationale
+- Overview tab should focus on: spending pie chart, category cards, and transaction table
+- Economic Indicators (GDP, unemployment, inflation, etc.) are macro-level data more appropriate for the main Dashboard view
+- This creates clearer separation of concerns: Dashboard = high-level metrics, Overview = personal spending breakdown
+
+### Verification
+- ✅ Economic Indicators still visible and working on Dashboard tab
+- ✅ Overview tab ends cleanly with transaction table
+- ✅ Spending pie chart unaffected, still shows Midnight Ledger Wheel theme
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
+## 2025-12-07 – Phase 3 Overview Pie "Midnight Ledger Wheel" Theme
+
+### Overview
+Implemented a deliberately themed color system for the spending pie chart. The **Midnight Ledger Wheel** palette provides semantic, cohesive colors optimized for dark backgrounds with professional financial visualization.
+
+### Theme Details
+**9 Curated Colors:**
+- Coral Ember (#ff8a65) - Rent & Utilities
+- Cyan Tide (#26c6da) - Stores & Dining  
+- Azure Drive (#42a5f5) - Auto
+- Violet Stream (#ab47bc) - Subscriptions
+- Emerald Shield (#66bb6a) - Insurance
+- Indigo Pulse (#5c6bc0) - Bills & Services
+- Amethyst (#7e57c2) - Education/Shopping
+- Amber Flow (#ffa726) - Transfers
+- Rose Quartz (#ec407a) - Other/Fees
+
+### Visual Enhancements
+- **3-stop radial gradients** (0%, 60%, 100% opacity) for soft depth
+- **Subtle cyan outer glow** (`drop-shadow`) for "rounded token" effect
+- **Themed center label** with cyan accent and glow
+- **Refined hover states**: Active slices get saturation boost, inactive dim to 65% brightness
+- **Tooltip** with cyan border and text accents
+
+### Files Changed
+- `src/lib/config.ts` - Midnight Ledger Wheel palette
+- `src/components/dashboard/Overview.tsx` - Gradients, glow, themed typography
+- `docs/Phase3_OverviewPiePolish.md` - Updated with full theme spec
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
+## 2025-12-07 – Phase 3 Stocks Baseline Fixes
+
+### Overview
+Brought the Stocks tab up to solid baseline per QA checklist items G1, G3, G4, G12, G14. Deferred rich features (G5-G11) for future slices.
+
+### Changes Made
+- **G1 - Converter Position**: Moved `FiatCurrencyConverter` from top to bottom of page
+- **G3 - Search Suggestions**: Added popular stock suggestions (AAPL, MSFT, NVDA, etc.) shown when search is focused but empty
+- **G4 - Relevance Sorting**: Search results now sorted by exact match → symbol starts with → name starts with → alphabetical
+- **G12 - Watchlist Visibility**: Confirmed Watchlist section exists and is functional (shows watched stocks with prices, expandable details)
+- **G14 - Auto-Refresh**: Changed interval from 60s to 5 minutes (300000ms)
+
+### Files Changed
+- `src/components/dashboard/Stocks.tsx` - All baseline fixes
+- `docs/Phase3_StocksSpec.md` - New spec document
+- `docs/Phase2_QA_Checklist.md` - Marked G1, G3, G4, G12, G14 as DONE
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
+## 2025-12-07 – Overview Spending Pie Premium Polish
+
+### Overview
+Transformed the "Spending by group" pie chart into a premium, gapless disc with subtle gradients and refined interactions.
+
+### Visual Improvements
+- **Gapless Disc**: Removed all padding and borders (`paddingAngle={0}`, `stroke="none"`) for a seamless, premium appearance
+- **Subtle Radial Gradients**: Each slice features a soft radial gradient (100% → 85% opacity) for depth
+- **Smart Active States**: Selected slices remain bright while others dim to 70% brightness—no layout jitter
+- **Center Label**: Added "Total Spending" display with current view range amount
+- **Enhanced Tooltip**: Darker, more premium glass tooltip with stronger shadow
+
+### Files Changed
+- `src/components/dashboard/Overview.tsx` - Complete pie chart visual redesign
+- `docs/Phase3_OverviewPiePolish.md` - Comprehensive design documentation
+
+### Build Status
+```
+npm run build: ✅ Exit code 0
+```
+
+---
+
 ## Table of Contents
 
 1. [Phase 1 – UI Migration & Foundation](#phase-1--ui-migration--foundation)

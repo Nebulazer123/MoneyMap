@@ -203,6 +203,18 @@ const DEFAULT_SYMBOLS = [
     'SPY', 'QQQ', 'VOO', 'COIN', 'PLTR', 'BA', 'HD', 'WMT'
 ];
 
+// Popular stock suggestions for empty search (G3)
+const POPULAR_SUGGESTIONS: SearchResult[] = [
+    { symbol: 'AAPL', name: 'Apple Inc.' },
+    { symbol: 'MSFT', name: 'Microsoft Corporation' },
+    { symbol: 'NVDA', name: 'NVIDIA Corporation' },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+    { symbol: 'TSLA', name: 'Tesla Inc.' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+    { symbol: 'META', name: 'Meta Platforms Inc.' },
+    { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust' },
+];
+
 // Initial holdings (will fetch real prices from Yahoo Finance)
 const INITIAL_HOLDINGS: Omit<StockHolding, 'currentPrice'>[] = [
     { id: '1', symbol: 'AAPL', name: 'Apple Inc.', shares: 25, avgCost: 175.50, addedAt: new Date('2024-06-15') },
@@ -274,6 +286,7 @@ export function Stocks() {
     const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchFocused, setSearchFocused] = useState(false); // G3: Track focus for suggestions
     const [showAddHoldingModal, setShowAddHoldingModal] = useState(false);
     const [showAddCustomStockModal, setShowAddCustomStockModal] = useState(false);
     const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -338,7 +351,7 @@ export function Stocks() {
         }
     }, []);
 
-    // Search stocks via Yahoo Finance
+    // Search stocks via Yahoo Finance (G4: Relevance sorting)
     const searchStocks = useCallback(async (query: string) => {
         if (query.length < 1) {
             setSearchResults([]);
@@ -351,7 +364,33 @@ export function Stocks() {
             if (!response.ok) throw new Error('Search failed');
 
             const data = await response.json();
-            setSearchResults(data.quotes || []);
+            const results = data.quotes || [];
+
+            // Apply relevance sorting (G4)
+            const sortedResults = results.sort((a: SearchResult, b: SearchResult) => {
+                const queryLower = query.toLowerCase();
+                const aSymbol = a.symbol.toLowerCase();
+                const bSymbol = b.symbol.toLowerCase();
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+
+                // Exact symbol match comes first
+                if (aSymbol === queryLower && bSymbol !== queryLower) return -1;
+                if (bSymbol === queryLower && aSymbol !== queryLower) return 1;
+
+                // Symbol starts with query
+                if (aSymbol.startsWith(queryLower) && !bSymbol.startsWith(queryLower)) return -1;
+                if (bSymbol.startsWith(queryLower) && !aSymbol.startsWith(queryLower)) return 1;
+
+                // Name starts with query
+                if (aName.startsWith(queryLower) && !bName.startsWith(queryLower)) return -1;
+                if (bName.startsWith(queryLower) && !aName.startsWith(queryLower)) return 1;
+
+                // Alphabetical by symbol
+                return aSymbol.localeCompare(bSymbol);
+            });
+
+            setSearchResults(sortedResults);
         } catch (err) {
             console.error('Search error:', err);
             // Fallback to local search
@@ -466,7 +505,7 @@ export function Stocks() {
         })));
     }, [quotes]);
 
-    // Auto-refresh every 60 seconds
+    // Auto-refresh every 5 minutes (G14)
     useEffect(() => {
         const interval = setInterval(() => {
             const allSymbols = [
@@ -478,7 +517,7 @@ export function Stocks() {
             if (uniqueSymbols.length > 0) {
                 fetchQuotes(uniqueSymbols);
             }
-        }, 60000);
+        }, 300000);
 
         return () => clearInterval(interval);
     }, [fetchQuotes, quotes, holdings, watchlist]);
@@ -686,10 +725,7 @@ export function Stocks() {
                 )}
             </div>
 
-            {/* Currency Converter */}
-            <div className="mb-8">
-                <FiatCurrencyConverter />
-            </div>
+
 
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -785,7 +821,7 @@ export function Stocks() {
                     <p className="text-lg font-medium text-white">
                         {lastRefresh ? lastRefresh.toLocaleTimeString() : '--:--:--'}
                     </p>
-                    <p className="text-xs text-zinc-500 mt-1">Auto-refresh every 60s</p>
+                    <p className="text-xs text-zinc-500 mt-1">Auto-refresh every 5min</p>
                 </GlassCard>
             </div>
 
@@ -826,6 +862,8 @@ export function Stocks() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                         placeholder="Search any stock (AAPL, TSLA, Bitcoin, etc...)"
                         className="w-full pl-10 pr-4 py-3 bg-zinc-900/50 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-lime-500/50"
                     />
@@ -834,6 +872,35 @@ export function Stocks() {
                     )}
                 </div>
             </GlassCard>
+
+            {/* Popular Suggestions when search is empty but focused (G3) */}
+            {searchFocused && searchQuery === '' && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40 backdrop-blur-sm" onClick={() => setSearchFocused(false)}>
+                    <GlassCard className="w-full max-w-2xl m-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-4 border-b border-white/10">
+                            <h3 className="text-base font-semibold text-white">
+                                Popular Stocks
+                                <span className="text-xs text-zinc-500 ml-2">Click to search</span>
+                            </h3>
+                        </div>
+                        <div className="p-2 grid grid-cols-2 gap-2">
+                            {POPULAR_SUGGESTIONS.map(stock => (
+                                <button
+                                    key={stock.symbol}
+                                    onClick={() => {
+                                        setSearchQuery(stock.symbol);
+                                        setSearchFocused(false);
+                                    }}
+                                    className="p-3 text-left hover:bg-white/5 rounded-lg transition-colors border border-white/5"
+                                >
+                                    <p className="text-sm font-medium text-white">{stock.symbol}</p>
+                                    <p className="text-xs text-zinc-500 truncate">{stock.name}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
 
             {/* Search Results Modal */}
             {searchResults.length > 0 && (
@@ -1760,6 +1827,11 @@ export function Stocks() {
                     </GlassCard>
                 </div>
             )}
+
+            {/* Currency Converter - Moved to bottom (G1) */}
+            <div className="mt-8">
+                <FiatCurrencyConverter />
+            </div>
         </GlassCard>
     );
 }

@@ -566,6 +566,38 @@ export const STOCKS_ETFS = [
 ];
 
 // ============================================================================
+// 6. Fees & ATM (Added Phase 3)
+// ============================================================================
+
+export const ATM_MERCHANTS = [
+    "Chase ATM",
+    "Bank of America ATM",
+    "Wells Fargo ATM",
+    "Citibank ATM",
+    "Allpoint ATM",
+    "PNC Bank ATM",
+    "U.S. Bank ATM",
+    "Cardtronics ATM",
+    "LibertyX Bitcoin ATM",
+    "ATM Network",
+];
+
+export const BANK_FEE_TYPES = [
+    "Monthly Service Fee",
+    "Overdraft Fee",
+    "Wire Transfer Fee",
+    "Paper Statement Fee",
+    "Late Payment Fee",
+    "Returned Item Fee",
+    "Card Replacement Fee",
+    "Express Delivery Fee",
+    "Stop Payment Fee",
+    "Insufficient Funds Fee",
+    "Foreign Transaction Fee",
+    "Account Maintenance Fee",
+];
+
+// ============================================================================
 // Legacy Aliases (for backward compatibility)
 // ============================================================================
 
@@ -635,6 +667,10 @@ export const MERCHANT_POOLS = {
     // Assets
     crypto: CRYPTO_ASSETS,
     stocks: STOCKS_ETFS,
+
+    // Fees & ATM
+    atm: ATM_MERCHANTS,
+    bankFees: BANK_FEE_TYPES,
 
     // Legacy aliases (for backward compatibility)
     wallet: P2P_SERVICES,

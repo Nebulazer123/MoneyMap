@@ -1,6 +1,7 @@
 import { Transaction, LifestyleProfile, TransactionKind } from '../types';
 import { generateTransactionId, generateMonthSeed, GenerationPhase } from './idGenerator';
 import { injectSuspiciousCharges, runDetectionPass } from './suspiciousDetection';
+import { ATM_MERCHANTS, BANK_FEE_TYPES } from '../data/merchantPools';
 
 /**
  * Transaction Generation Engine
@@ -71,20 +72,15 @@ const formatDescription = (
 };
 
 // --- Fee Types Pool (PLAN.md §5.5) ---
-const FEE_TYPES = [
-    { name: 'ATM Fee', amount: 3.50, merchant: 'ATM Withdrawal Fee' },
-    { name: 'Foreign Transaction Fee', amount: 2.99, merchant: 'Foreign Transaction' },
-    { name: 'Monthly Service Fee', amount: 12.00, merchant: 'Monthly Account Fee' },
-    { name: 'Overdraft Fee', amount: 35.00, merchant: 'Overdraft Protection' },
-    { name: 'Wire Transfer Fee', amount: 25.00, merchant: 'Wire Transfer Fee' },
-    { name: 'Paper Statement Fee', amount: 2.00, merchant: 'Paper Statement' },
-    { name: 'Late Payment Fee', amount: 29.00, merchant: 'Late Payment Fee' },
-    { name: 'Returned Item Fee', amount: 15.00, merchant: 'Returned Item' },
-    { name: 'Card Replacement Fee', amount: 5.00, merchant: 'Card Replacement' },
-    { name: 'Express Delivery Fee', amount: 25.00, merchant: 'Express Delivery' },
-    { name: 'Out-of-Network ATM', amount: 2.50, merchant: 'Non-Network ATM' },
-    { name: 'Stop Payment Fee', amount: 30.00, merchant: 'Stop Payment' },
-];
+// --- Fee Configuration (Phase 3) ---
+// ATM fees are consistent per merchant. Non-ATM fees are whole dollars.
+const getAtmFeeAmount = (merchant: string, rng: EngineRNG): number => {
+    // Deterministic fee based on merchant name length/chars to keep it consistent per merchant
+    const seed = merchant.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    // Range $2.50 - $4.50
+    const raw = (seed % 200) / 100 + 2.50;
+    return Math.round(raw * 2) / 2; // Round to nearest 0.50 for clean numbers
+};
 
 // --- Main Generator ---
 
@@ -109,9 +105,32 @@ export const generateTransactions = (
     const subscriptionAmounts = new Map<string, number>();
 
     // Pre-determine fee types for this profile (3-6 types)
+    // Pre-determine fee profile (3-6 types mixed ATM and Bank)
     const profileRng = new EngineRNG(generateMonthSeed(profile.id, startYear, 0));
-    const numFeeTypes = profileRng.range(3, 6);
-    const profileFeeTypes = profileRng.pickN(FEE_TYPES, numFeeTypes);
+
+    // Select 1-2 ATM merchants and 2-4 Bank Fee types
+    const myAtms = profileRng.pickN(ATM_MERCHANTS, profileRng.range(1, 2));
+    const myBankFees = profileRng.pickN(BANK_FEE_TYPES, profileRng.range(2, 4));
+
+    // Combine and structure them for reuse
+    const profileFees = [
+        ...myAtms.map(name => ({
+            type: 'atm' as const,
+            name: `${name} Fee`,
+            merchant: name,
+            amount: getAtmFeeAmount(name, profileRng) // Consistent per ATM
+        })),
+        ...myBankFees.map(name => {
+            // Whole dollar amounts for bank fees ($10 - $50)
+            const amount = profileRng.range(10, 50);
+            return {
+                type: 'bank' as const,
+                name: name,
+                merchant: 'Bank Fee', // Generic merchant for non-ATM fees, or use the fee name
+                amount: amount
+            };
+        })
+    ];
 
     while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
         const monthSeed = generateMonthSeed(profile.id, currentYear, currentMonth);
@@ -482,11 +501,30 @@ export const generateTransactions = (
         // --- Stage 8: Fees (2-8 per month) ---
         const numFeesThisMonth = rng.range(2, 8);
         for (let i = 0; i < numFeesThisMonth; i++) {
-            const feeType = rng.pick(profileFeeTypes);
+            const feeConfig = rng.pick(profileFees);
             const day = rng.range(1, daysInMonth);
-            const variance = 0.8 + rng.next() * 0.4;
-            const amount = -(feeType.amount * variance);
-            createTx(day, amount, feeType.name, 'Fees', 'fee', 'F', feeType.merchant);
+
+            // ATM fees are fixed. Bank fees are fixed (whole dollar). 
+            // Phase 3 Spec: "Majority of non-ATM amounts are whole-dollar" -> we use fixed whole dollar from profile gen.
+
+            const amount = -feeConfig.amount;
+
+            // Description formatting
+            // ATM: "Chase ATM Fee" or similar
+            // Bank: "Overdraft Fee"
+            const desc = feeConfig.type === 'atm'
+                ? `${feeConfig.merchant.toUpperCase()} FEE`
+                : feeConfig.name.toUpperCase();
+
+            createTx(
+                day,
+                amount,
+                desc,
+                'Fees',
+                'fee',
+                'F',
+                feeConfig.merchant // ATM name or "Bank Fee"
+            );
         }
 
         // Add to main list (without suspicious injection per-month)

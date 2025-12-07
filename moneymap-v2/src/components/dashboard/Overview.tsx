@@ -14,7 +14,6 @@ import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn } from "../../lib/utils";
 import { TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Search } from "lucide-react";
-import { EconomicWidget } from "./EconomicWidget";
 import { Transaction } from "../../lib/types";
 
 // Helper to get categories for a group
@@ -45,17 +44,17 @@ type DetailCardConfig = {
 };
 
 const detailCardsConfig: DetailCardConfig[] = [
-    { label: "Rent", categories: ["Rent"], groupId: "rent_utils", emoji: categoryEmojis.Rent },
+    { label: "Rent", categories: ["Rent", "Mortgage"], groupId: "rent_utils", emoji: categoryEmojis.Rent },
     { label: "Utilities", categories: ["Utilities"], groupId: "rent_utils", emoji: categoryEmojis.Utilities },
     { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
     { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
-    { label: "Bills and services", categories: ["Bills & services"], groupId: "bills_services", emoji: categoryEmojis["Bills & services"] },
+    { label: "Phone", categories: ["Phone"], groupId: "bills_services", emoji: "📱" },
     { label: "Stores", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
     { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
     { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
     { label: "Insurance", categories: ["Insurance"], groupId: "insurance", emoji: categoryEmojis.Insurance },
     { label: "Transfers", categories: ["Transfer"], groupId: "transfers", emoji: categoryEmojis.Transfer },
-    { label: "Online Shopping", categories: ["Education"], groupId: "education", emoji: categoryEmojis.Education },
+    { label: "Shopping", categories: ["Shopping"], groupId: "education", emoji: "🛒" },
     { label: "Other", categories: ["Other", "Loans"], groupId: "other_fees", emoji: categoryEmojis.Other },
 ];
 
@@ -160,19 +159,27 @@ export function Overview() {
         [activeGroupId, groupedSpendingData],
     );
 
-    const groupCategoryAmountMap = useMemo(() => {
-        const map = new Map<OverviewGroupKey, Map<string, number>>();
-        groupedSpendingData.forEach((group) => {
-            map.set(group.id, new Map(group.categories.map((cat) => [cat.name, cat.amount])));
+    // Compute category totals directly from filtered transactions for detail cards
+    const categoryTotalsForDetails = useMemo(() => {
+        const totals = new Map<string, number>();
+        filteredTransactions.forEach(tx => {
+            if (tx.amount < 0) { // Only count expenses
+                const cat = tx.category;
+                totals.set(cat, (totals.get(cat) ?? 0) + Math.abs(tx.amount));
+            }
         });
-        return map;
-    }, [groupedSpendingData]);
+        return totals;
+    }, [filteredTransactions]);
 
-    const detailCards = detailCardsConfig.map((card) => {
-        const amountsForGroup = groupCategoryAmountMap.get(card.groupId);
-        const amount = card.categories.reduce((sum, name) => sum + (amountsForGroup?.get(name) ?? 0), 0);
-        return { ...card, amount };
-    });
+    const detailCards = useMemo(() => {
+        return detailCardsConfig.map((card) => {
+            // Sum amounts for all categories this card covers
+            const amount = card.categories.reduce((sum, catName) => {
+                return sum + (categoryTotalsForDetails.get(catName) ?? 0);
+            }, 0);
+            return { ...card, amount };
+        });
+    }, [categoryTotalsForDetails]);
 
     const overviewTransactions = useMemo(() => {
         if (activeCategoryIds.length === 0) return [];
@@ -208,9 +215,32 @@ export function Overview() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-white">Spending by group</h3>
                     </div>
-                    <div className="h-80 w-full" style={{ pointerEvents: chartInteractive ? "auto" : "none" }}>
+                    {/* HERO PIE - Large, dimensional, premium */}
+                    <div className="h-[420px] w-full relative flex items-center justify-center" style={{
+                        pointerEvents: chartInteractive ? "auto" : "none"
+                    }}>
+                        {/* Multi-layer glow effect */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-[340px] h-[340px] rounded-full" style={{
+                                background: 'radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 40%, transparent 70%)',
+                                filter: 'blur(40px)'
+                            }} />
+                        </div>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
+                                <defs>
+                                    {/* Enhanced linear gradients for gem-like depth - Onyx Gem Wheel theme */}
+                                    {groupedSpendingData.map((entry) => {
+                                        const gradientId = `gradient-${entry.id}`;
+                                        return (
+                                            <linearGradient key={gradientId} id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor={entry.color} stopOpacity={1.0} />
+                                                <stop offset="50%" stopColor={entry.color} stopOpacity={0.85} />
+                                                <stop offset="100%" stopColor={entry.color} stopOpacity={0.65} />
+                                            </linearGradient>
+                                        );
+                                    })}
+                                </defs>
                                 <Pie
                                     data={groupedSpendingData}
                                     dataKey="value"
@@ -218,9 +248,8 @@ export function Overview() {
                                     cx="50%"
                                     cy="50%"
                                     innerRadius={0}
-                                    outerRadius={130}
-                                    paddingAngle={2}
-                                    cornerRadius={4}
+                                    outerRadius={165}
+                                    paddingAngle={0}
                                     stroke="none"
                                     onMouseEnter={() => setChartInteractive(true)}
                                     onMouseLeave={() => setChartInteractive(false)}
@@ -232,11 +261,16 @@ export function Overview() {
                                         }
                                     }}
                                 >
-                                    {groupedSpendingData.map((entry) => (
+                                    {groupedSpendingData.map((entry, index) => (
                                         <Cell
                                             key={entry.id}
-                                            fill={entry.color}
-                                            className="transition-all duration-300 hover:opacity-80 cursor-pointer stroke-zinc-900 stroke-2"
+                                            fill={`url(#gradient-${entry.id})`}
+                                            className="transition-all duration-300 cursor-pointer"
+                                            style={{
+                                                filter: activeCategoryIds.length === 0 || entry.id === activeGroupId
+                                                    ? 'brightness(1.1) saturate(1.15)' // Brightens and saturates on active
+                                                    : 'brightness(0.5) saturate(0.7)', // Strong dimming for contrast
+                                            }}
                                         />
                                     ))}
                                 </Pie>
@@ -245,16 +279,23 @@ export function Overview() {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
                                             return (
-                                                <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-xl">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-xl">{data.emoji}</span>
-                                                        <span className="font-medium text-white">{data.label}</span>
+                                                <div
+                                                    className="bg-zinc-900/95 backdrop-blur-xl p-4 rounded-xl shadow-2xl"
+                                                    style={{
+                                                        borderWidth: 1,
+                                                        borderStyle: 'solid',
+                                                        borderColor: data.color + '40'
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-2xl">{data.emoji}</span>
+                                                        <span className="font-semibold text-white text-lg">{data.label}</span>
                                                     </div>
-                                                    <div className="text-2xl font-bold text-white">
+                                                    <div className="text-3xl font-bold text-white">
                                                         {currency.format(data.value)}
                                                     </div>
-                                                    <div className="text-xs text-zinc-400 mt-1">
-                                                        {data.percent.toFixed(1)}% of spending
+                                                    <div className="text-sm text-zinc-400 mt-2">
+                                                        {data.percent.toFixed(1)}% of total spending
                                                     </div>
                                                 </div>
                                             );
@@ -266,7 +307,8 @@ export function Overview() {
                         </ResponsiveContainer>
                     </div>
 
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {/* Legend cards with liquid glass pills matching pie slices */}
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         {groupedSpendingData.map((item) => {
                             const isActive = item.id === activeGroupId;
                             return (
@@ -278,23 +320,55 @@ export function Overview() {
                                         onSelectGroup(categories);
                                     }}
                                     className={cn(
-                                        "flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition transform focus:outline-none",
+                                        "group relative flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-all duration-300",
+                                        "border backdrop-blur-sm",
                                         isActive
-                                            ? "border-zinc-500 bg-zinc-800"
-                                            : "border-zinc-800 bg-zinc-900 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800"
+                                            ? "border-white/20 bg-white/10 shadow-lg"
+                                            : "border-zinc-800/80 bg-zinc-900/60 hover:border-zinc-700 hover:bg-zinc-800/70"
                                     )}
+                                    style={{
+                                        boxShadow: isActive
+                                            ? `0 4px 20px ${item.color}25, 0 0 0 1px ${item.color}30`
+                                            : undefined
+                                    }}
                                 >
-                                    <div className="flex items-center gap-3 text-zinc-200">
-                                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                        <span className="flex items-center gap-1">
-                                            <span aria-hidden="true">{item.emoji}</span>
-                                            <span>{item.label}</span>
-                                        </span>
+                                    {/* Liquid Glass Color Pill - matches pie slice exactly */}
+                                    <div
+                                        className="relative flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${item.color}ee 0%, ${item.color}aa 50%, ${item.color}66 100%)`,
+                                            boxShadow: `0 2px 12px ${item.color}40, inset 0 1px 2px rgba(255,255,255,0.2)`
+                                        }}
+                                    >
+                                        {/* Inner glass highlight */}
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent" />
+                                        <span className="relative text-lg drop-shadow-sm">{item.emoji}</span>
                                     </div>
-                                    <div className="text-right text-xs text-zinc-400">
-                                        <div className="text-base font-semibold text-white">{`${item.percent}%`}</div>
-                                        <div className="text-[11px] text-zinc-500">{currency.format(item.value)}</div>
+
+                                    {/* Category info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium text-white truncate">{item.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span
+                                                className="text-sm font-bold"
+                                                style={{ color: item.color }}
+                                            >
+                                                {item.percent.toFixed(1)}%
+                                            </span>
+                                            <span className="text-xs text-zinc-500">•</span>
+                                            <span className="text-xs text-zinc-400">{currency.format(item.value)}</span>
+                                        </div>
                                     </div>
+
+                                    {/* Hover glow effect */}
+                                    <div
+                                        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                                        style={{
+                                            boxShadow: `inset 0 0 20px ${item.color}15`
+                                        }}
+                                    />
                                 </button>
                             );
                         })}
@@ -366,30 +440,77 @@ export function Overview() {
                 </GlassCard>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+            {/* CATEGORY DETAIL TILES - Rich liquid-glass with strong color linkage */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
                 {detailCards.map((card) => {
                     const isActive = card.categories.some((cat) => activeCategoryIds.includes(cat));
+                    const groupMeta = overviewGroupMeta[card.groupId as OverviewGroupKey];
+                    const cardColor = groupMeta?.color || '#6366f1';
+
                     return (
-                        <GlassCard
+                        <button
                             key={card.label}
-                            role="button"
-                            tabIndex={0}
+                            type="button"
                             onClick={() => {
                                 const categoriesInGroup = getCategoriesForGroup(card.groupId);
                                 onSelectGroup(categoriesInGroup);
                             }}
                             className={cn(
-                                "w-full px-4 py-3 text-left transition transform hover:-translate-y-0.5 cursor-pointer",
-                                "hover:ring-1 hover:ring-white/20",
-                                isActive ? "ring-2 ring-purple-400" : ""
+                                "group relative w-full text-left rounded-2xl p-5 transition-all duration-300 overflow-hidden",
+                                "border backdrop-blur-sm",
+                                isActive
+                                    ? "border-white/30 scale-[1.02]"
+                                    : "border-zinc-800/60 hover:border-zinc-700 hover:scale-[1.01]"
                             )}
+                            style={{
+                                background: isActive
+                                    ? `linear-gradient(135deg, ${cardColor}20 0%, ${cardColor}10 50%, rgba(24,24,27,0.9) 100%)`
+                                    : 'linear-gradient(135deg, rgba(39,39,42,0.8) 0%, rgba(24,24,27,0.95) 100%)',
+                                boxShadow: isActive
+                                    ? `0 8px 32px ${cardColor}30, 0 0 0 1px ${cardColor}40, inset 0 1px 0 rgba(255,255,255,0.1)`
+                                    : '0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
+                            }}
                         >
-                            <p className="flex items-center gap-2 text-sm text-zinc-400">
-                                <span aria-hidden="true">{card.emoji}</span>
-                                <span>{card.label}</span>
+                            {/* Color accent bar */}
+                            <div
+                                className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
+                                style={{
+                                    background: `linear-gradient(90deg, ${cardColor} 0%, ${cardColor}80 100%)`,
+                                    opacity: isActive ? 1 : 0.6
+                                }}
+                            />
+
+                            {/* Glass pill icon */}
+                            <div
+                                className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 relative overflow-hidden"
+                                style={{
+                                    background: `linear-gradient(135deg, ${cardColor}dd 0%, ${cardColor}88 50%, ${cardColor}55 100%)`,
+                                    boxShadow: `0 4px 12px ${cardColor}40, inset 0 1px 2px rgba(255,255,255,0.3)`
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent" />
+                                <span className="relative text-2xl drop-shadow-sm">{card.emoji}</span>
+                            </div>
+
+                            {/* Label */}
+                            <p className="text-sm font-medium text-zinc-300 mb-1">{card.label}</p>
+
+                            {/* Amount with color accent */}
+                            <p
+                                className="text-2xl font-bold"
+                                style={{ color: isActive ? cardColor : 'white' }}
+                            >
+                                {currency.format(card.amount)}
                             </p>
-                            <p className="mt-1 text-lg font-semibold text-white">{currency.format(card.amount)}</p>
-                        </GlassCard>
+
+                            {/* Hover glow */}
+                            <div
+                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                                style={{
+                                    boxShadow: `inset 0 0 30px ${cardColor}15`
+                                }}
+                            />
+                        </button>
                     );
                 })}
             </div>
@@ -444,11 +565,6 @@ export function Overview() {
                         )}
                     </div>
                 </div>
-            </div>
-
-            {/* Economic Indicators Widget */}
-            <div className="mb-8">
-                <EconomicWidget />
             </div>
 
         </GlassCard>

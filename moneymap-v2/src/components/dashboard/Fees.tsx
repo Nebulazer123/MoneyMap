@@ -37,6 +37,13 @@ export function Fees() {
         return getFeeTotals(filteredTransactions);
     }, [filteredTransactions]);
 
+    // 4. Split fees
+    const { atmFees, otherFees } = useMemo(() => {
+        const atm = feeRows.filter(f => f.description.includes('ATM') || f.merchantName?.includes('ATM'));
+        const other = feeRows.filter(f => !f.description.includes('ATM') && !f.merchantName?.includes('ATM'));
+        return { atmFees: atm, otherFees: other };
+    }, [feeRows]);
+
     return (
         <GlassCard intensity="medium" tint="pink" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="text-center mb-8">
@@ -54,32 +61,62 @@ export function Fees() {
                 </div>
             </GlassCard>
 
-            <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
-                <div className="min-w-[480px]">
-                    <div className="grid grid-cols-3 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                        <span>Name</span>
-                        <span className="text-right">Amount</span>
-                        <span className="text-right">Date</span>
-                    </div>
-                    {feeRows.length === 0 ? (
-                        <div className="px-3 py-3 text-xs text-zinc-400 sm:px-4 sm:text-sm">
-                            No fees detected for this period.
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-zinc-800">
-                            {feeRows.map((row) => (
-                                <div key={row.id} className="grid grid-cols-3 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm">
-                                    <span className="truncate" title={row.description}>
-                                        {row.description}
-                                    </span>
-                                    <span className="text-right font-medium">{currency.format(row.amount)}</span>
-                                    <span className="text-right text-zinc-400">{dateFormatter.format(new Date(row.date))}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+            {/* 4. Fee Listings Grouped */}
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+                {/* ATM Fees */}
+                <FeeGroup
+                    title="ATM Fees"
+                    fees={atmFees}
+                    icon="🏧"
+                    emptyText="No ATM fees this period."
+                    currency={currency}
+                    dateFormatter={dateFormatter}
+                />
+
+                {/* Service Fees */}
+                <FeeGroup
+                    title="Service & Bank Fees"
+                    fees={otherFees}
+                    icon="🏦"
+                    emptyText="No service fees this period."
+                    currency={currency}
+                    dateFormatter={dateFormatter}
+                />
             </div>
         </GlassCard>
+    );
+}
+
+function FeeGroup({ title, fees, icon, emptyText, currency, dateFormatter }: any) {
+    return (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+                <span className="text-xl">{icon}</span>
+                <h3 className="font-medium text-zinc-200">{title}</h3>
+                <span className="ml-auto text-xs text-zinc-500">{fees.length} txns</span>
+            </div>
+
+            {fees.length === 0 ? (
+                <div className="py-4 text-center text-xs text-zinc-500">{emptyText}</div>
+            ) : (
+                <div className="space-y-3">
+                    {fees.map((fee: any) => (
+                        <div key={fee.id} className="flex items-center justify-between">
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="truncate text-xs font-medium text-zinc-300" title={fee.description}>
+                                    {fee.description}
+                                </span>
+                                <span className="truncate text-[10px] text-zinc-500">
+                                    {fee.merchantName} • {dateFormatter.format(new Date(fee.date))}
+                                </span>
+                            </div>
+                            <span className="font-mono text-sm font-medium text-zinc-200">
+                                {currency.format(Math.abs(fee.amount))}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

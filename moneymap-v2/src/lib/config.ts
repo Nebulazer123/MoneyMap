@@ -101,56 +101,56 @@ export const overviewGroupMeta: Record<
 > = {
     rent_utils: {
         label: "Rent and utilities",
-        categories: ["Rent", "Utilities"],
-        color: "#fb923c", // Orange-400
+        categories: ["Rent", "Mortgage", "Utilities"],
+        color: "#f97316", // Ember Orange - warm essential spending
         emoji: categoryEmojis.Rent,
     },
     groceries_dining: {
         label: "Stores and dining",
         categories: ["Groceries", "Dining"],
-        color: "#2dd4bf", // Teal-400
+        color: "#06b6d4", // Cyan Brilliant - vibrant daily spending
         emoji: categoryEmojis.Groceries,
     },
     auto: {
         label: "Auto",
-        categories: ["Transport", "Auto"],
-        color: "#38bdf8", // Sky-400
+        categories: ["Transport"],
+        color: "#3b82f6", // Sapphire Blue - clear transportation
         emoji: categoryEmojis.Transport,
     },
     subscriptions: {
         label: "Subscriptions",
         categories: ["Subscriptions"],
-        color: "#c084fc", // Purple-400
+        color: "#a855f7", // Vivid Purple - digital services
         emoji: categoryEmojis.Subscriptions,
     },
     insurance: {
         label: "Insurance",
-        categories: ["Insurance", "Health"],
-        color: "#4ade80", // Green-400
+        categories: ["Insurance"],
+        color: "#22c55e", // Emerald Green - protective
         emoji: categoryEmojis.Insurance,
     },
     bills_services: {
-        label: "Bills and services",
-        categories: ["Bills & services"],
-        color: "#60a5fa", // Blue-400
-        emoji: categoryEmojis["Bills & services"],
+        label: "Phone",
+        categories: ["Phone"],
+        color: "#6366f1", // Indigo Glow - steady obligations
+        emoji: "📱",
     },
     education: {
-        label: "Online Shopping",
-        categories: ["Education"],
-        color: "#818cf8", // Indigo-400
-        emoji: categoryEmojis.Education,
+        label: "Shopping",
+        categories: ["Shopping"],
+        color: "#c026d3", // Magenta Pulse - retail
+        emoji: "🛒",
     },
     transfers: {
         label: "Transfers",
         categories: ["Transfer"],
-        color: "#facc15", // Yellow-400
+        color: "#eab308", // Gold Stream - money movement
         emoji: categoryEmojis.Transfer,
     },
     other_fees: {
         label: "Other including fees",
         categories: ["Fees", "Other", "Loans"],
-        color: "#e879f9", // Fuchsia-400
+        color: "#f43f5e", // Rose Fire - miscellaneous
         emoji: categoryEmojis.Other,
     },
 };

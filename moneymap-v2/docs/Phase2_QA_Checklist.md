@@ -14,8 +14,8 @@
 2. Then scroll from the **absolute top** of the page to the **absolute bottom** at least once.
 
 ### Tabs that verify "Below the Fold" content:
-- **Dashboard:** Check full height.
-- **Overview:** Scroll to bottom for **Economic Indicators**.
+- **Dashboard:** Check full height for Economic Indicators.
+- **Overview:** Scroll to bottom for transaction table.
 - **Accounts:** Scroll to bottom for any **Detected Accounts** card.
 - **Stocks/Crypto:** Scroll for **Watchlists**.
 - **Budget:** Check for extra rows.
@@ -36,7 +36,7 @@ If something is declared "NOT FOUND" or "MISSING ❌", the checklist/findings mu
 | A3 | Digital clock (time, AM/PM, timezone) | DONE ✅ | UI | Dashboard header | Shows time like "10:17 AM CST" |
 | A4 | Greeting (Good Morning/Afternoon/Evening) | DONE ✅ | UI | Dashboard header | Working correctly |
 | A5 | Recent News section with working news categories | DONE ✅ | UI+API | Dashboard | Fixed 2025-12-07: Now uses valid NewsAPI categories (business, technology, general, science) + debounced search |
-| A6 | Economic Indicators section (FRED data) | PARTIAL ⚠️ | UI+API | Dashboard | Box exists, says "Data provided by FRED" but NO DATA VALUES shown |
+| A6 | Economic Indicators section (FRED data) | DONE ✅ | UI+API | Dashboard | Phase 3: Redesigned as "Macro Pulse Tiles" - 4 colored tiles with icons, badges, values. Fed=cyan, CPI=amber, Unemployment=violet, Treasury=teal |
 | A7 | Currency converter NOT on Dashboard | DONE ✅ | UI | Dashboard | Correctly absent from Dashboard |
 | A8 | IP/Location moved to Debug Panel | PARTIAL ⚠️ | DEBUG | DebugPanel | Not visibly shown in either debug panel |
 
@@ -49,12 +49,11 @@ If something is declared "NOT FOUND" or "MISSING ❌", the checklist/findings mu
 | B1 | 5 summary boxes matching Dashboard | DONE ✅ (CODE) / ⏳ (MANUAL QA) | MATH | `Overview.tsx` | Both use computeSummaryMetrics() + getTransactionsInDateRange; **user must verify values match in browser** |
 | B2 | Pie chart as full circle (not donut) | DONE ✅ | UI | Overview | Fixed 2025-12-07: innerRadius 80→0 |
 | B3 | "Select a category group..." prominent text | PARTIAL ⚠️ | UI | Overview | Text exists but still subtle |
-| B4 | Economics box NOT on Overview (v1) | DONE ✅ | UI | Overview | Correction: Box IS at bottom (no data) |
+| B4 | Economics box NOT on Overview | DONE ✅ | UI | Overview | Phase 3: Economic Indicators moved to Dashboard-only; Overview focuses on spending breakdown |
 | B5 | Transfers category shows real value | MISSING ❌ | MATH | Overview | Shows $0.00 always |
 | B6 | Education → Online Shopping rename | DONE ✅ | UI+DATA | Overview | Fixed 2025-12-07: Display labels + emoji 🎓→🛍️ |
 | B7 | Groceries → Stores rename | DONE ✅ | UI+DATA | Overview | Fixed 2025-12-07: Display labels + emoji 🛒→🏪 |
 | B8 | No API branding text | DONE ✅ | UI | Overview | No "Real-time exchange rates • Free API" text |
-| B9 | Economic Indicators at BOTTOM | PARTIAL ⚠️ | UI+API | Overview | Box at bottom, NO DATA |
 
 ---
 
@@ -97,10 +96,10 @@ If something is declared "NOT FOUND" or "MISSING ❌", the checklist/findings mu
 
 | # | Requirement | Status | Type | Location | Notes |
 |---|------------|--------|------|----------|-------|
-| E1 | 3-6 different fee types per generation | PARTIAL ⚠️ | DATA_GEN | `Fees.tsx` | **QA helper added** - run `npm run qa:bucketC` to verify |
-| E2 | ATM fees with bank name visible | MISSING ❌ | DATA_GEN | Fees | ATM Fees NOT FOUND |
-| E3 | Non-ATM fees as whole dollars | MISSING ❌ | DATA_GEN | Fees | Found non-ATM with cents; depends on E2 |
-| E4 | ATM fees consistent per bank | MISSING ❌ | DATA_GEN | Fees | Depends on E2 |
+| E1 | 3-6 different fee types per generation | DONE ✅ | DATA_GEN | `Fees.tsx` | Verifiable via `npm run qa:fees` |
+| E2 | ATM fees with bank name visible | DONE ✅ | DATA_GEN | Fees | ATM Fees grouped separately |
+| E3 | Non-ATM fees as whole dollars | DONE ✅ | DATA_GEN | Fees | Verified via script |
+| E4 | ATM fees consistent per bank | DONE ✅ | DATA_GEN | Fees | Verified via script |
 |---|------------|--------|------|----------|-------|
 | F1 | Page title "My Money" / Sidebar "My Money" | DONE ✅ | UI | Accounts | Sidebar + page header now say "My Money" |
 | F2 | Edit preloaded accounts | DONE ✅ | UI | Accounts | Inline edit for name + balance, edit icon on hover |
@@ -122,10 +121,10 @@ If something is declared "NOT FOUND" or "MISSING ❌", the checklist/findings mu
 
 | # | Requirement | Status | Type | Location | Notes |
 |---|------------|--------|------|----------|-------|
-| G1 | Currency converter at BOTTOM | MISSING ❌ | UI | `Stocks.tsx` | Converter at TOP of page |
+| G1 | Currency converter at BOTTOM | DONE ✅ | UI | `Stocks.tsx` | Moved to bottom before closing GlassCard |
 | G2 | Trash icon no overlap with price | DONE ✅ | UI | Stocks | Layout looks correct |
-| G3 | Search suggestions on click (before typing) | MISSING ❌ | UI+LOGIC | Stocks | Suggestions only appear after typing |
-| G4 | Relevance-sorted search results | MISSING ❌ | LOGIC | Stocks | No visible relevance logic |
+| G3 | Search suggestions on click (before typing) | DONE ✅ | UI+LOGIC | Stocks | Shows POPULAR_SUGGESTIONS modal when focused+empty |
+| G4 | Relevance-sorted search results | DONE ✅ | LOGIC | Stocks | Exact→starts with→alphabetical sorting |
 | G5 | "Average Cost Per Share" with $ prefix | PARTIAL ⚠️ | UI | Add dialog | Need to verify |
 | G6 | "Date purchased" field with info bubble | MISSING ❌ | UI | Add dialog | Not implemented |
 | G7 | Multiple purchase lots | MISSING ❌ | UI | Add dialog | Not implemented |
@@ -133,9 +132,9 @@ If something is declared "NOT FOUND" or "MISSING ❌", the checklist/findings mu
 | G9 | Motley Fool article link | MISSING ❌ | UI | Stock detail | Not implemented |
 | G10 | Compare stocks feature (2-3 stocks) | MISSING ❌ | UI | Stocks | Not implemented |
 | G11 | Overnight/pre-market tab | MISSING ❌ | UI | Stocks | Not implemented |
-| G12 | Watchlist (stocks + articles) | MISSING ❌ | UI | Stocks | Not visible (even after scroll) |
+| G12 | Watchlist (stocks + articles) | DONE ✅ | UI | Stocks | Watchlist section visible at line ~1317, fully functional |
 | G13 | Browse All button | DONE ✅ | UI | Stocks | Button present |
-| G14 | Auto-refresh 5-minute default | MISSING ❌ | LOGIC | Stocks | Currently 60 seconds |
+| G14 | Auto-refresh 5-minute default | DONE ✅ | LOGIC | Stocks | Changed to 300000ms (5 min) |
 
 ---
 
