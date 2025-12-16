@@ -46,16 +46,16 @@ type DetailCardConfig = {
 const detailCardsConfig: DetailCardConfig[] = [
     { label: "Rent", categories: ["Rent", "Mortgage"], groupId: "rent_utils", emoji: categoryEmojis.Rent },
     { label: "Utilities", categories: ["Utilities"], groupId: "rent_utils", emoji: categoryEmojis.Utilities },
+    { label: "Phone", categories: ["Phone"], groupId: "rent_utils", emoji: "📱" },
+    { label: "Stores & shopping", categories: ["Groceries", "Shopping"], groupId: "stores_shopping", emoji: categoryEmojis.Shopping },
+    { label: "Dining", categories: ["Dining"], groupId: "dining", emoji: categoryEmojis.Dining },
     { label: "Auto", categories: ["Transport"], groupId: "auto", emoji: categoryEmojis.Transport },
+    { label: "Credit / Loans", categories: ["Loans"], groupId: "credit_loans", emoji: categoryEmojis.Loans },
     { label: "Subscriptions", categories: ["Subscriptions"], groupId: "subscriptions", emoji: categoryEmojis.Subscriptions },
-    { label: "Phone", categories: ["Phone"], groupId: "bills_services", emoji: "📱" },
-    { label: "Stores", categories: ["Groceries"], groupId: "groceries_dining", emoji: categoryEmojis.Groceries },
-    { label: "Dining", categories: ["Dining"], groupId: "groceries_dining", emoji: categoryEmojis.Dining ?? categoryEmojis.Groceries },
-    { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
     { label: "Insurance", categories: ["Insurance"], groupId: "insurance", emoji: categoryEmojis.Insurance },
     { label: "Transfers", categories: ["Transfer"], groupId: "transfers", emoji: categoryEmojis.Transfer },
-    { label: "Shopping", categories: ["Shopping"], groupId: "education", emoji: "🛒" },
-    { label: "Other", categories: ["Other", "Loans"], groupId: "other_fees", emoji: categoryEmojis.Other },
+    { label: "Fees", categories: ["Fees"], groupId: "other_fees", emoji: categoryEmojis.Fees },
+    { label: "Other", categories: ["Other"], groupId: "other_fees", emoji: categoryEmojis.Other },
 ];
 
 export function Overview() {

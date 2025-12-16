@@ -91,10 +91,6 @@ export default function Home() {
             Upload Statement
           </Button>
         </div>
-
-        <p className="mt-8 text-xs text-zinc-600">
-          v2.0 • Local Data Only • Privacy First
-        </p>
       </div>
     </div>
   );

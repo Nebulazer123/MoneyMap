@@ -59,23 +59,23 @@ export const accountTypeOptions = [
 
 export type OverviewGroupKey =
     | "rent_utils"
-    | "groceries_dining"
+    | "stores_shopping"
+    | "dining"
     | "auto"
     | "subscriptions"
     | "insurance"
-    | "bills_services"
-    | "education"
+    | "credit_loans"
     | "transfers"
     | "other_fees";
 
 export const overviewGroupOrder: OverviewGroupKey[] = [
     "rent_utils",
-    "groceries_dining",
+    "stores_shopping",
+    "dining",
     "auto",
     "subscriptions",
     "insurance",
-    "bills_services",
-    "education",
+    "credit_loans",
     "transfers",
     "other_fees",
 ];
@@ -87,12 +87,13 @@ export const categoryEmojis: Record<string, string> = {
     Transport: "🚌",
     Subscriptions: "📺",
     Utilities: "💡",
-    "Bills & services": "🧾",
+    Phone: "📱",
     Fees: "💸",
     Insurance: "🛡️",
-    Education: "🛍️",
+    Shopping: "🛒",
     Transfer: "💸",
     Other: "📦",
+    Loans: "💳",
 };
 
 export const overviewGroupMeta: Record<
@@ -101,56 +102,56 @@ export const overviewGroupMeta: Record<
 > = {
     rent_utils: {
         label: "Rent and utilities",
-        categories: ["Rent", "Mortgage", "Utilities"],
-        color: "#f97316", // Ember Orange - warm essential spending
+        categories: ["Rent", "Mortgage", "Utilities", "Phone"],
+        color: "#f97316", // Ember Orange
         emoji: categoryEmojis.Rent,
     },
-    groceries_dining: {
-        label: "Stores and dining",
-        categories: ["Groceries", "Dining"],
-        color: "#06b6d4", // Cyan Brilliant - vibrant daily spending
-        emoji: categoryEmojis.Groceries,
+    stores_shopping: {
+        label: "Stores & shopping",
+        categories: ["Groceries", "Shopping"],
+        color: "#06b6d4", // Cyan Brilliant
+        emoji: categoryEmojis.Shopping,
+    },
+    dining: {
+        label: "Dining",
+        categories: ["Dining"],
+        color: "#db2777", // Pink/Magenta - distinct from Shopping
+        emoji: categoryEmojis.Dining,
     },
     auto: {
         label: "Auto",
         categories: ["Transport"],
-        color: "#3b82f6", // Sapphire Blue - clear transportation
+        color: "#3b82f6", // Sapphire Blue
         emoji: categoryEmojis.Transport,
     },
     subscriptions: {
         label: "Subscriptions",
         categories: ["Subscriptions"],
-        color: "#a855f7", // Vivid Purple - digital services
+        color: "#a855f7", // Vivid Purple
         emoji: categoryEmojis.Subscriptions,
     },
     insurance: {
         label: "Insurance",
         categories: ["Insurance"],
-        color: "#22c55e", // Emerald Green - protective
+        color: "#22c55e", // Emerald Green
         emoji: categoryEmojis.Insurance,
     },
-    bills_services: {
-        label: "Phone",
-        categories: ["Phone"],
-        color: "#6366f1", // Indigo Glow - steady obligations
-        emoji: "📱",
-    },
-    education: {
-        label: "Shopping",
-        categories: ["Shopping"],
-        color: "#c026d3", // Magenta Pulse - retail
-        emoji: "🛒",
+    credit_loans: {
+        label: "Credit / Loan payments",
+        categories: ["Loans"],
+        color: "#6366f1", // Indigo Glow
+        emoji: categoryEmojis.Loans,
     },
     transfers: {
         label: "Transfers",
         categories: ["Transfer"],
-        color: "#eab308", // Gold Stream - money movement
+        color: "#eab308", // Gold Stream
         emoji: categoryEmojis.Transfer,
     },
     other_fees: {
-        label: "Other including fees",
-        categories: ["Fees", "Other", "Loans"],
-        color: "#f43f5e", // Rose Fire - miscellaneous
+        label: "Other & fees",
+        categories: ["Fees", "Other"],
+        color: "#f43f5e", // Rose Fire
         emoji: categoryEmojis.Other,
     },
 };

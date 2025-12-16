@@ -316,7 +316,6 @@ export function EconomicWidget() {
                     {isDemo ? (
                         <>
                             <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                            <span>Demo economic indicators (sample data only)</span>
                         </>
                     ) : (
                         <>
