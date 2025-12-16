@@ -22,6 +22,10 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
+  // params and searchParams are Promises in Next.js 16 but we don't use them
+  // They're typed here to prevent Next.js serialization errors in dev tools
+  params?: Promise<Record<string, string | string[]>>;
+  searchParams?: Promise<Record<string, string | string[]>>;
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
