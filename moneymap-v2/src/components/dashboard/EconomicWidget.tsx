@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import {
     RefreshCw,
@@ -216,7 +216,7 @@ export function EconomicWidget() {
         { id: 'DGS10', name: '10-Year Treasury', value: 4.25, date: '2024-12-01', unit: '%' },
     ];
 
-    const fetchEconomicData = async () => {
+    const fetchEconomicData = useCallback(async () => {
         // Respect global API toggle from Debug Panel
         if (!apisEnabled) {
             setIndicators(DEMO_INDICATORS);
@@ -249,7 +249,7 @@ export function EconomicWidget() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [apisEnabled]);
 
     useEffect(() => {
         fetchEconomicData();
@@ -260,7 +260,7 @@ export function EconomicWidget() {
         // Refresh every 30 minutes (economic data doesn't change often)
         const interval = setInterval(fetchEconomicData, 30 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [apisEnabled]);
+    }, [fetchEconomicData, apisEnabled]);
 
     const formatValue = (indicator: EconomicIndicator) => {
         if (indicator.unit === '%') {

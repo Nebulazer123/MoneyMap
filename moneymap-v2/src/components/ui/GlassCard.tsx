@@ -4,7 +4,7 @@ import { ReactNode, HTMLAttributes } from 'react';
 // Accent color options for metric cards
 export type AccentColor = 'green' | 'orange' | 'cyan' | 'purple' | 'yellow' | 'pink' | 'none';
 export type GlassIntensity = 'light' | 'medium' | 'heavy' | 'ultra';
-export type GlassTint = 'purple' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'orange' | 'yellow' | 'pink' | 'blue' | 'white' | 'zinc' | 'slate' | 'teal' | 'lime' | 'none';
+export type GlassTint = 'purple' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'orange' | 'yellow' | 'pink' | 'blue' | 'white' | 'zinc' | 'slate' | 'teal' | 'lime' | 'indigo' | 'none';
 
 const accentStyles: Record<AccentColor, string> = {
     green: 'border-l-4 border-l-emerald-500',
@@ -38,6 +38,7 @@ const tintStyles: Record<GlassTint, string> = {
     slate: 'bg-slate-900/40 border-slate-500/25 shadow-[0_16px_48px_rgba(0,0,0,0.3)]',
     teal: 'bg-teal-950/40 border-teal-500/25 shadow-[0_16px_48px_rgba(20,184,166,0.2)]',
     lime: 'bg-lime-950/40 border-lime-500/25 shadow-[0_16px_48px_rgba(132,204,22,0.2)]',
+    indigo: 'bg-indigo-950/40 border-indigo-500/25 shadow-[0_16px_48px_rgba(79,70,229,0.15)]',
     none: '',
 };
 

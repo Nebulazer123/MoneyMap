@@ -3,10 +3,11 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useDateStore } from "../../lib/store/useDateStore";
-import { getTransactionsInDateRange, getDailyCashflow } from "../../lib/selectors/transactionSelectors";
+import { getTransactionsInDateRange, getDailyCashflow, parseTransactionLocalDate } from "../../lib/selectors/transactionSelectors";
 import { GlassCard } from "../ui/GlassCard";
 import { cn } from "../../lib/utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 
 type CashflowRow = {
     date: string;
@@ -31,6 +32,12 @@ export function Cashflow() {
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
     const [chartTimeRange, setChartTimeRange] = useState<'1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('ALL');
     const [isMounted, setIsMounted] = useState(false);
+    // Legend toggle state - all enabled by default
+    const [legendVisibility, setLegendVisibility] = useState({
+        income: true,
+        expenses: true,
+        net: true,
+    });
 
     // Delay chart render until after first paint to prevent recharts -1 dimension warning
     useEffect(() => {
@@ -84,7 +91,12 @@ export function Cashflow() {
         // For 'ALL', cutoff is epoch so it includes everything.
         const filteredBuckets = chartTimeRange === 'ALL'
             ? dailyBuckets
-            : dailyBuckets.filter(b => new Date(b.date) >= cutoff);
+            : dailyBuckets.filter(b => {
+                const bucketDate = parseTransactionLocalDate(b.date);
+                // Normalize cutoff to local midnight for fair comparison
+                const cutoffLocal = new Date(cutoff.getFullYear(), cutoff.getMonth(), cutoff.getDate());
+                return bucketDate >= cutoffLocal;
+            });
 
         // --- Aggregation Logic ---
 
@@ -100,14 +112,17 @@ export function Cashflow() {
         const isMonthly = chartTimeRange === '1Y' || chartTimeRange === 'ALL';
 
         if (isDaily) {
-            return filteredBuckets.map(b => ({
-                name: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                dateObj: new Date(b.date),
-                income: b.income,
-                expenses: b.expense,
-                net: b.income - b.expense,
-                date: b.date
-            }));
+            return filteredBuckets.map(b => {
+                const dateObj = parseTransactionLocalDate(b.date);
+                return {
+                    name: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    dateObj,
+                    income: b.income,
+                    expenses: b.expense,
+                    net: b.income - b.expense,
+                    date: b.date
+                };
+            });
         } else if (isWeekly) {
             // Aggregate by Week
             // We'll define a week as starting on Sunday? or Monday? Let's say Monday for business logic, or standard Sunday.
@@ -115,13 +130,18 @@ export function Cashflow() {
             const weeklyMap = new Map<string, { name: string, income: number, expenses: number, dateObj: Date }>();
 
             filteredBuckets.forEach(b => {
-                const d = new Date(b.date);
+                // Use local date parsing to avoid timezone issues
+                const d = parseTransactionLocalDate(b.date);
                 // Adjust to start of week (Sunday)
                 const day = d.getDay();
                 const diff = d.getDate() - day; // adjust when day is sunday
                 const weekStart = new Date(d);
                 weekStart.setDate(diff);
-                const key = weekStart.toISOString().split('T')[0];
+                // Use local date formatting instead of ISO string to avoid timezone shifts
+                const year = weekStart.getFullYear();
+                const month = String(weekStart.getMonth() + 1).padStart(2, '0');
+                const date = String(weekStart.getDate()).padStart(2, '0');
+                const key = `${year}-${month}-${date}`;
 
                 if (!weeklyMap.has(key)) {
                     weeklyMap.set(key, {
@@ -148,7 +168,8 @@ export function Cashflow() {
             const monthlyMap = new Map<string, { name: string, income: number, expenses: number, sortKey: number }>();
 
             filteredBuckets.forEach(b => {
-                const d = new Date(b.date);
+                // Use local date parsing to avoid timezone issues
+                const d = parseTransactionLocalDate(b.date);
                 const key = `${d.getFullYear()}-${d.getMonth()}`;
 
                 if (!monthlyMap.has(key)) {
@@ -183,7 +204,8 @@ export function Cashflow() {
         const sortedBuckets = [...dailyBuckets].sort((a, b) => b.date.localeCompare(a.date));
 
         sortedBuckets.forEach(bucket => {
-            const d = new Date(bucket.date);
+            // Use local date parsing to avoid timezone issues
+            const d = parseTransactionLocalDate(bucket.date);
             const key = d.getFullYear() * 100 + d.getMonth();
 
             if (!monthsMap.has(key)) {
@@ -356,14 +378,113 @@ export function Cashflow() {
                                 formatter={(value: number) => currency.format(value)}
                                 labelStyle={{ color: '#a1a1aa', marginBottom: '0.5rem' }}
                             />
-                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                            <Legend wrapperStyle={{ display: 'none' }} />
                             {/* Changed type to linear for more jagged/volatile look */}
-                            <Line type="linear" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
-                            <Line type="linear" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
-                            <Line type="linear" dataKey="net" stroke="#3b82f6" strokeWidth={2} dot={false} name="Net" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            {legendVisibility.income && (
+                                <Line type="linear" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            )}
+                            {legendVisibility.expenses && (
+                                <Line type="linear" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            )}
+                            {legendVisibility.net && (
+                                <Line type="linear" dataKey="net" stroke="#3b82f6" strokeWidth={2} dot={false} name="Net" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            )}
                         </LineChart>
                     </ResponsiveContainer>
                 )}
+            </div>
+
+            {/* Toggle Switches */}
+            <div className="flex justify-center items-center gap-6 mt-4 mb-6">
+                {/* Income Toggle */}
+                <button
+                    onClick={() => setLegendVisibility(prev => ({ ...prev, income: !prev.income }))}
+                    className="flex items-center gap-2 group"
+                >
+                    <div className={cn(
+                        "relative w-11 h-6 rounded-full transition-all duration-200",
+                        legendVisibility.income ? "bg-emerald-500/30" : "bg-zinc-700/50"
+                    )}>
+                        <div className={cn(
+                            "absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all duration-200 shadow-md",
+                            legendVisibility.income ? "translate-x-5 bg-emerald-400" : "translate-x-0 bg-zinc-400"
+                        )} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <ArrowUpRight 
+                            className={cn(
+                                "h-4 w-4 transition-colors",
+                                legendVisibility.income ? "text-emerald-400" : "text-zinc-500"
+                            )}
+                        />
+                        <span className={cn(
+                            "text-sm font-medium transition-colors",
+                            legendVisibility.income ? "text-zinc-200" : "text-zinc-500"
+                        )}>
+                            Income
+                        </span>
+                    </div>
+                </button>
+
+                {/* Expenses Toggle */}
+                <button
+                    onClick={() => setLegendVisibility(prev => ({ ...prev, expenses: !prev.expenses }))}
+                    className="flex items-center gap-2 group"
+                >
+                    <div className={cn(
+                        "relative w-11 h-6 rounded-full transition-all duration-200",
+                        legendVisibility.expenses ? "bg-rose-500/30" : "bg-zinc-700/50"
+                    )}>
+                        <div className={cn(
+                            "absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all duration-200 shadow-md",
+                            legendVisibility.expenses ? "translate-x-5 bg-rose-400" : "translate-x-0 bg-zinc-400"
+                        )} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <ArrowDownRight 
+                            className={cn(
+                                "h-4 w-4 transition-colors",
+                                legendVisibility.expenses ? "text-rose-400" : "text-zinc-500"
+                            )}
+                        />
+                        <span className={cn(
+                            "text-sm font-medium transition-colors",
+                            legendVisibility.expenses ? "text-zinc-200" : "text-zinc-500"
+                        )}>
+                            Expenses
+                        </span>
+                    </div>
+                </button>
+
+                {/* Net Toggle */}
+                <button
+                    onClick={() => setLegendVisibility(prev => ({ ...prev, net: !prev.net }))}
+                    className="flex items-center gap-2 group"
+                >
+                    <div className={cn(
+                        "relative w-11 h-6 rounded-full transition-all duration-200",
+                        legendVisibility.net ? "bg-blue-500/30" : "bg-zinc-700/50"
+                    )}>
+                        <div className={cn(
+                            "absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all duration-200 shadow-md",
+                            legendVisibility.net ? "translate-x-5 bg-blue-400" : "translate-x-0 bg-zinc-400"
+                        )} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Activity 
+                            className={cn(
+                                "h-4 w-4 transition-colors",
+                                legendVisibility.net ? "text-blue-400" : "text-zinc-500"
+                            )}
+                        />
+                        <span className={cn(
+                            "text-sm font-medium transition-colors",
+                            legendVisibility.net ? "text-zinc-200" : "text-zinc-500"
+                        )}>
+                            Net
+                        </span>
+                    </div>
+                </button>
             </div>
 
             <div className="mt-4 space-y-3">

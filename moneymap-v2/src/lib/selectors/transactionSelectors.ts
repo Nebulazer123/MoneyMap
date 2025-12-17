@@ -10,7 +10,7 @@ const normalizeToLocalMidnight = (date: Date): Date => {
 
 // Phase 2.1 view-range: Parse transaction date string to normalized local midnight Date
 // Handles both "YYYY-MM-DD" and full ISO strings like "2025-12-01T06:00:00.000Z"
-const parseTransactionLocalDate = (txDate: string): Date => {
+export const parseTransactionLocalDate = (txDate: string): Date => {
     // For "YYYY-MM-DD" format, parse directly as local date components
     if (txDate.length === 10 && txDate.includes('-')) {
         const [year, month, day] = txDate.split('-').map(Number);

@@ -7,6 +7,7 @@ import { NewsFeed } from "./NewsFeed";
 import { EconomicWidget } from "./EconomicWidget";
 import { getTransactionsInDateRange } from "@/lib/selectors/transactionSelectors";
 import { computeSummaryMetrics } from "@/lib/math/transactionMath";
+import { GlassCard } from "../ui/GlassCard";
 
 export function Dashboard() {
     const { transactions } = useDataStore();
@@ -61,7 +62,8 @@ export function Dashboard() {
     };
 
     return (
-        <div className="p-6 space-y-8 animate-fade-in">
+        <GlassCard intensity="medium" tint="indigo" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="space-y-8">
             {/* Clock & Greeting Section */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex flex-col gap-1">
@@ -84,7 +86,7 @@ export function Dashboard() {
             </div>
 
             {/* Summary Boxes Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 min-w-0">
                 {/* Income */}
                 <SummaryCard
                     title="Income"
@@ -113,6 +115,7 @@ export function Dashboard() {
                     iconColor="text-purple-400"
                     trend="Healthy"
                     trendColor="text-purple-400"
+                    iconMarginLeft="0px"
                 />
 
                 {/* Subscriptions */}
@@ -123,6 +126,7 @@ export function Dashboard() {
                     iconColor="text-amber-400"
                     trend="3 active"
                     trendColor="text-zinc-400"
+                    iconMarginRight="10px"
                 />
 
                 {/* Fees */}
@@ -145,7 +149,8 @@ export function Dashboard() {
             <div className="mb-8">
                 <NewsFeed />
             </div>
-        </div>
+            </div>
+        </GlassCard>
     );
 }
 
@@ -156,26 +161,34 @@ interface SummaryCardProps {
     iconColor: string;
     trend: string;
     trendColor: string;
+    iconMarginRight?: string;
+    iconMarginLeft?: string;
 }
 
-function SummaryCard({ title, value, icon: Icon, iconColor, trend, trendColor }: SummaryCardProps) {
+function SummaryCard({ title, value, icon: Icon, iconColor, trend, trendColor, iconMarginRight, iconMarginLeft }: SummaryCardProps) {
     return (
-        <div className="relative group overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 backdrop-blur-xl p-5 transition-all duration-300 hover:bg-zinc-900/60 hover:border-white/10 hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-1">
-            <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors">
+        <div className="relative group overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 backdrop-blur-xl p-5 transition-all duration-300 hover:bg-zinc-900/60 hover:border-white/10 hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-1 min-w-0">
+            <div className="flex justify-between items-start mb-4 gap-2 min-w-0">
+                <div 
+                    className="p-2 rounded-full md:rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors flex-shrink-0"
+                    style={{
+                        ...(iconMarginRight && { marginRight: iconMarginRight }),
+                        ...(iconMarginLeft && { marginLeft: iconMarginLeft }),
+                    }}
+                >
                     <Icon className={cn("h-5 w-5", iconColor)} />
                 </div>
-                <span className={cn("text-xs font-medium px-2 py-1 rounded-full bg-white/5", trendColor)}>
+                <span className={cn("text-xs font-medium px-2 py-1 rounded-full bg-white/5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full", trendColor)}>
                     {trend}
                 </span>
             </div>
-            <div className="space-y-1">
-                <p className="text-sm font-medium text-zinc-400">{title}</p>
-                <h3 className="text-2xl font-bold text-white tracking-tight">{value}</h3>
+            <div className="space-y-1 min-w-0">
+                <p className="text-sm font-medium text-zinc-400 truncate">{title}</p>
+                <h3 className="text-2xl font-bold text-white tracking-tight break-words overflow-wrap-anywhere">{value}</h3>
             </div>
 
-            {/* Decorative gradient glow */}
-            <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-gradient-to-br from-white/5 to-transparent blur-2xl group-hover:from-white/10 transition-all duration-500" />
+            {/* Decorative gradient glow - responsive sizing */}
+            <div className="absolute -right-[5%] -bottom-[5%] w-[60%] h-[60%] min-w-[80px] min-h-[80px] max-w-[128px] max-h-[128px] rounded-full bg-gradient-to-br from-white/5 to-transparent blur-2xl group-hover:from-white/10 transition-all duration-500 pointer-events-none" />
         </div>
     );
 }

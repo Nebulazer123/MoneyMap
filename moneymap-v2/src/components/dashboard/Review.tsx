@@ -158,7 +158,7 @@ export function Review() {
     const detectedCandidates = useMemo(() => detectAccountCandidates(filteredTransactions, existingAccountKeys), [filteredTransactions, existingAccountKeys]);
 
     return (
-        <GlassCard intensity="medium" tint="zinc" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <GlassCard intensity="medium" tint="indigo" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="text-center mb-8">
                 <h2 className="text-2xl font-semibold text-white">Review</h2>
                 <p className="text-zinc-400">Big picture summary for this month.</p>

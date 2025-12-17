@@ -233,7 +233,8 @@ export function Overview() {
                             }} />
                         </div>
                         {isMounted && (
-                            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                                <ResponsiveContainer width={340} height={340}>
                                 <PieChart>
                                     <defs>
                                         {/* Enhanced linear gradients for gem-like depth - Onyx Gem Wheel theme */}
@@ -312,6 +313,7 @@ export function Overview() {
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
+                        </div>
                         )}
                     </div>
 

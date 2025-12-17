@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { DollarSign, RefreshCw, Loader2, ArrowRightLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -56,7 +56,7 @@ export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterPro
         }
     }, [detectedCurrency, hasAutoSet]);
 
-    const fetchRates = async () => {
+    const fetchRates = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await fetch(`/api/exchange?base=${fromCurrency}`);
@@ -67,11 +67,11 @@ export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterPro
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [fromCurrency]);
 
     useEffect(() => {
         fetchRates();
-    }, [fromCurrency]);
+    }, [fetchRates]);
 
     const convertedAmount = rates && amount
         ? (parseFloat(amount) * (rates.rates[toCurrency] || 1)).toFixed(2)
