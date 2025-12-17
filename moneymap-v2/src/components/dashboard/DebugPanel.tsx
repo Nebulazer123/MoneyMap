@@ -54,8 +54,8 @@ export function DebugPanel() {
     // Data Store
     const { generateData, transactions, isLoading, currentProfile, accounts, clearData } = useDataStore();
 
-    // UI Store (for complete state logging)
-    const { activeTab, isSidebarOpen } = useUIStore();
+    // UI Store (for complete state logging + API toggle)
+    const { activeTab, isSidebarOpen, apisEnabled, setApisEnabled } = useUIStore();
 
     // Generate month/year options based on dataset range
     const dateOptions = useMemo(() => {
@@ -320,12 +320,40 @@ export function DebugPanel() {
                             </button>
                         </div>
 
-                        {/* API Status Section */}
-                        <div className="pt-2 border-t border-white/10">
-                            <div className="flex items-center gap-2 text-xs text-zinc-400 mb-2">
-                                <Activity className="h-3 w-3" />
-                                <span>API Rate Limits</span>
+                        {/* API Status + Kill Switch */}
+                        <div className="pt-2 border-t border-white/10 space-y-3">
+                            <div className="flex items-center justify-between text-xs text-zinc-400">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="h-3 w-3" />
+                                    <span>Live APIs</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setApisEnabled(!apisEnabled)}
+                                    className={cn(
+                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all",
+                                        apisEnabled
+                                            ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                                            : "bg-red-500/15 border-red-400/40 text-red-300"
+                                    )}
+                                >
+                                    <span
+                                        className={cn(
+                                            "inline-block h-2 w-2 rounded-full",
+                                            apisEnabled ? "bg-emerald-400" : "bg-red-400"
+                                        )}
+                                    />
+                                    {apisEnabled ? "On" : "Off"}
+                                </button>
                             </div>
+
+                            {!apisEnabled && (
+                                <p className="text-[10px] text-zinc-500 leading-snug">
+                                    External API calls (news, markets, etc.) are paused. Widgets will use
+                                    cached or demo data only.
+                                </p>
+                            )}
+
                             <div className="space-y-1">
                                 {STUB_API_STATUS.map((api) => (
                                     <div

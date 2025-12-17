@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useDateStore } from "../../lib/store/useDateStore";
 import { getTransactionsInDateRange, getDailyCashflow } from "../../lib/selectors/transactionSelectors";
@@ -30,6 +30,12 @@ export function Cashflow() {
     const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
     const [chartTimeRange, setChartTimeRange] = useState<'1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('ALL');
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Delay chart render until after first paint to prevent recharts -1 dimension warning
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -263,36 +269,38 @@ export function Cashflow() {
             </div>
 
             <div className="mb-8 h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                        <XAxis
-                            dataKey="name"
-                            stroke="#71717a"
-                            tick={{ fill: '#71717a', fontSize: 12 }}
-                            tickLine={false}
-                            axisLine={false}
-                            dy={10}
-                        />
-                        <YAxis
-                            stroke="#71717a"
-                            tick={{ fill: '#71717a', fontSize: 12 }}
-                            tickLine={false}
-                            tickFormatter={(value) => `$${value}`}
-                            axisLine={false}
-                            dx={-10}
-                        />
-                        <Tooltip
-                            contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
-                            itemStyle={{ color: '#fff' }}
-                            formatter={(value: number) => currency.format(value)}
-                            labelStyle={{ color: '#a1a1aa', marginBottom: '0.5rem' }}
-                        />
-                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                        <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
-                        <Line type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
-                    </LineChart>
-                </ResponsiveContainer>
+                {isMounted && (
+                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                        <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                            <XAxis
+                                dataKey="name"
+                                stroke="#71717a"
+                                tick={{ fill: '#71717a', fontSize: 12 }}
+                                tickLine={false}
+                                axisLine={false}
+                                dy={10}
+                            />
+                            <YAxis
+                                stroke="#71717a"
+                                tick={{ fill: '#71717a', fontSize: 12 }}
+                                tickLine={false}
+                                tickFormatter={(value) => `$${value}`}
+                                axisLine={false}
+                                dx={-10}
+                            />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                                itemStyle={{ color: '#fff' }}
+                                formatter={(value: number) => currency.format(value)}
+                                labelStyle={{ color: '#a1a1aa', marginBottom: '0.5rem' }}
+                            />
+                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                            <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            <Line type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                )}
             </div>
 
             <div className="mt-4 space-y-3">

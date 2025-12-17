@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { Newspaper, RefreshCw, Loader2, ExternalLink, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../lib/store/useUIStore";
 
 interface NewsArticle {
     title: string;
@@ -27,6 +28,8 @@ export function NewsFeed() {
     const [category, setCategory] = useState<NewsCategory>('business');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
+    const { apisEnabled } = useUIStore();
+
     // Debounce search input (400ms)
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -43,6 +46,14 @@ export function NewsFeed() {
     }, [debouncedSearch]);
 
     const fetchNews = async (query?: string) => {
+        // Respect global API toggle from Debug Panel
+        if (!apisEnabled) {
+            setIsLoading(false);
+            setError("Live news API calls are disabled in the Debug Panel.");
+            setArticles([]);
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
         try {
@@ -114,8 +125,14 @@ export function NewsFeed() {
     };
 
     useEffect(() => {
+        if (!apisEnabled) {
+            setIsLoading(false);
+            setError("Live news API calls are disabled in the Debug Panel.");
+            setArticles([]);
+            return;
+        }
         fetchNews();
-    }, [category]);
+    }, [category, apisEnabled]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();

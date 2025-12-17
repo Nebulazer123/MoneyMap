@@ -145,11 +145,6 @@ export function Dashboard() {
             <div className="mb-8">
                 <NewsFeed />
             </div>
-
-            {/* Placeholder for Phase 2 Data Wiring Note */}
-            <div className="rounded-lg border border-dashed border-zinc-700 p-4 bg-zinc-900/30 text-zinc-500 text-sm text-center">
-                Phase 2: Real data wiring and deep logic will replace these simple summations.
-            </div>
         </div>
     );
 }

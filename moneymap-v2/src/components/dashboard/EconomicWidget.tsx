@@ -14,6 +14,7 @@ import {
     MinusCircle
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../lib/store/useUIStore";
 
 // ============================================================================
 // Types
@@ -205,6 +206,8 @@ export function EconomicWidget() {
     const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
     const [isDemo, setIsDemo] = useState(false);
 
+    const { apisEnabled } = useUIStore();
+
     // Demo data fallback when FRED API is unavailable
     const DEMO_INDICATORS: EconomicIndicator[] = [
         { id: 'FEDFUNDS', name: 'Fed Funds Rate', value: 5.33, date: '2024-12-01', unit: '%' },
@@ -214,6 +217,15 @@ export function EconomicWidget() {
     ];
 
     const fetchEconomicData = async () => {
+        // Respect global API toggle from Debug Panel
+        if (!apisEnabled) {
+            setIndicators(DEMO_INDICATORS);
+            setIsDemo(true);
+            setLastRefresh(new Date());
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const response = await fetch('/api/economy');
@@ -241,10 +253,14 @@ export function EconomicWidget() {
 
     useEffect(() => {
         fetchEconomicData();
+        if (!apisEnabled) {
+            // When APIs are disabled, don't set up a refresh interval
+            return;
+        }
         // Refresh every 30 minutes (economic data doesn't change often)
         const interval = setInterval(fetchEconomicData, 30 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [apisEnabled]);
 
     const formatValue = (indicator: EconomicIndicator) => {
         if (indicator.unit === '%') {

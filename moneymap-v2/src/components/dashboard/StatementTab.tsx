@@ -94,7 +94,8 @@ function getMerchantDomain(description: string): string | null {
 
     const domainMatch = description.match(/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})/);
     if (domainMatch) {
-        return domainMatch[1];
+        // Normalize to lowercase for Clearbit API compatibility
+        return domainMatch[1].toLowerCase();
     }
 
     return null;

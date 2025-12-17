@@ -138,7 +138,7 @@ export function useTimezone(
   return useCache<TimezoneData | null>(
     `time:${timezone || 'auto'}`,
     async () => {
-      const url = timezone 
+      const url = timezone
         ? `/api/time?timezone=${encodeURIComponent(timezone)}`
         : '/api/time';
       const response = await fetch(url);
@@ -177,8 +177,8 @@ export function useNews(
 ) {
   const { enabled = true, category, country = 'us' } = options;
 
-  const cacheKey = query 
-    ? `news:search:${query}` 
+  const cacheKey = query
+    ? `news:search:${query}`
     : `news:headlines:${category || 'general'}:${country}`;
 
   return useCache<NewsArticle[]>(
@@ -190,7 +190,7 @@ export function useNews(
       } else {
         url += `category=${category || 'general'}&country=${country}`;
       }
-      
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch news: ${response.statusText}`);
@@ -209,9 +209,9 @@ export function useNews(
 }
 
 export function useFinanceNews(options: { enabled?: boolean } = {}) {
-  return useNews(undefined, { 
-    ...options, 
-    category: 'business' 
+  return useNews(undefined, {
+    ...options,
+    category: 'business'
   });
 }
 
@@ -224,20 +224,24 @@ export function useMerchantLogo(
   options: { size?: number } = {}
 ) {
   const { size = 64 } = options;
+  // Normalize domain to lowercase for Clearbit API compatibility
+  const normalizedDomain = domain ? domain.toLowerCase() : '';
 
   // No need for useCache here - just generate URL
-  const logoUrl = domain 
-    ? `/api/logos?domain=${encodeURIComponent(domain)}&size=${size}`
+  const logoUrl = normalizedDomain
+    ? `/api/logos?domain=${encodeURIComponent(normalizedDomain)}&size=${size}`
     : null;
 
   return {
     logoUrl,
-    fallbackUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(domain)}&size=${size}&background=random`,
+    fallbackUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(normalizedDomain)}&size=${size}&background=random`,
   };
 }
 
 export function getMerchantLogoUrl(domain: string, size: number = 64): string {
-  return `/api/logos?domain=${encodeURIComponent(domain)}&size=${size}`;
+  // Normalize domain to lowercase for Clearbit API compatibility
+  const normalizedDomain = domain.toLowerCase();
+  return `/api/logos?domain=${encodeURIComponent(normalizedDomain)}&size=${size}`;
 }
 
 // ============================================
@@ -295,7 +299,7 @@ export function useCountries(
   return useCache<CountryData[]>(
     `countries:${region || 'all'}`,
     async () => {
-      const url = region 
+      const url = region
         ? `/api/countries?region=${encodeURIComponent(region)}`
         : '/api/countries';
       const response = await fetch(url);

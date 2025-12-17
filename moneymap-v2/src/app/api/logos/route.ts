@@ -29,7 +29,8 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'paramount': 'paramount.com',
     'crunchyroll': 'crunchyroll.com',
     'audible': 'audible.com',
-    
+    'max': 'max.com',
+
     // Shopping & Retail
     'amazon': 'amazon.com',
     'walmart': 'walmart.com',
@@ -44,6 +45,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'ebay': 'ebay.com',
     'aliexpress': 'aliexpress.com',
     'shein': 'shein.com',
+    'newegg': 'newegg.com',
     'nordstrom': 'nordstrom.com',
     'macys': 'macys.com',
     'kohls': 'kohls.com',
@@ -55,7 +57,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'rite aid': 'riteaid.com',
     'sephora': 'sephora.com',
     'ulta': 'ulta.com',
-    
+
     // Food & Delivery
     'uber eats': 'ubereats.com',
     'uber': 'uber.com',
@@ -63,6 +65,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'grubhub': 'grubhub.com',
     'postmates': 'postmates.com',
     'instacart': 'instacart.com',
+    'gopuff': 'gopuff.com',
     'chipotle': 'chipotle.com',
     'mcdonalds': 'mcdonalds.com',
     'starbucks': 'starbucks.com',
@@ -86,7 +89,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'publix': 'publix.com',
     'safeway': 'safeway.com',
     'albertsons': 'albertsons.com',
-    
+
     // Transportation
     'lyft': 'lyft.com',
     'lime': 'li.me',
@@ -103,7 +106,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'enterprise': 'enterprise.com',
     'avis': 'avis.com',
     'budget': 'budget.com',
-    
+
     // Tech & Software
     'apple': 'apple.com',
     'google': 'google.com',
@@ -126,7 +129,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'aws': 'aws.amazon.com',
     'digitalocean': 'digitalocean.com',
     'vercel': 'vercel.com',
-    
+
     // Gaming
     'steam': 'store.steampowered.com',
     'playstation': 'playstation.com',
@@ -140,7 +143,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'roblox': 'roblox.com',
     'twitch': 'twitch.tv',
     'discord': 'discord.com',
-    
+
     // Finance & Banking
     'paypal': 'paypal.com',
     'venmo': 'venmo.com',
@@ -164,7 +167,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'etrade': 'etrade.com',
     'stripe': 'stripe.com',
     'square': 'squareup.com',
-    
+
     // Utilities & Services
     'att': 'att.com',
     'verizon': 'verizon.com',
@@ -178,7 +181,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'state farm': 'statefarm.com',
     'allstate': 'allstate.com',
     'usaa': 'usaa.com',
-    
+
     // Social Media
     'facebook': 'facebook.com',
     'meta': 'meta.com',
@@ -190,7 +193,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'snapchat': 'snapchat.com',
     'pinterest': 'pinterest.com',
     'reddit': 'reddit.com',
-    
+
     // Health & Fitness
     'peloton': 'onepeloton.com',
     'planet fitness': 'planetfitness.com',
@@ -202,7 +205,7 @@ const MERCHANT_DOMAINS: Record<string, string> = {
     'headspace': 'headspace.com',
     'calm': 'calm.com',
     'noom': 'noom.com',
-    
+
     // Education
     'coursera': 'coursera.org',
     'udemy': 'udemy.com',
@@ -217,42 +220,43 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const merchant = searchParams.get('merchant');
     const domain = searchParams.get('domain');
-    
+
     if (!merchant && !domain) {
-        return NextResponse.json({ 
-            error: 'Missing merchant or domain parameter' 
+        return NextResponse.json({
+            error: 'Missing merchant or domain parameter'
         }, { status: 400 });
     }
-    
-    let targetDomain = domain;
-    
+
+    // Normalize domain to lowercase - Clearbit requires lowercase domains
+    let targetDomain = domain ? domain.toLowerCase() : null;
+
     if (merchant && !domain) {
         // Try to find domain from merchant name
         targetDomain = extractDomain(merchant);
     }
-    
+
     if (!targetDomain) {
-        return NextResponse.json({ 
+        return NextResponse.json({
             error: 'Could not determine domain',
             merchant,
             suggestion: 'Try providing the domain directly'
         }, { status: 404 });
     }
-    
+
     const logoUrl = `https://logo.clearbit.com/${targetDomain}`;
-    
+
     try {
         // Verify the logo exists
         const response = await fetch(logoUrl, { method: 'HEAD' });
-        
+
         if (!response.ok) {
-            return NextResponse.json({ 
+            return NextResponse.json({
                 error: 'Logo not found',
                 domain: targetDomain,
                 fallback: true
             }, { status: 404 });
         }
-        
+
         return NextResponse.json({
             merchant,
             domain: targetDomain,
@@ -265,9 +269,9 @@ export async function GET(request: NextRequest) {
             }
         });
     } catch {
-        return NextResponse.json({ 
+        return NextResponse.json({
             error: 'Failed to fetch logo',
-            domain: targetDomain 
+            domain: targetDomain
         }, { status: 500 });
     }
 }
@@ -280,26 +284,26 @@ function extractDomain(merchant: string): string | null {
         .replace(/[^a-z0-9\s-]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
-    
+
     // Check known mappings first
     for (const [key, domain] of Object.entries(MERCHANT_DOMAINS)) {
         if (normalized.includes(key)) {
             return domain;
         }
     }
-    
+
     // Try to guess domain from merchant name
     const words = normalized.split(' ');
     const firstWord = words[0];
-    
+
     // Skip common prefixes
     const skipWords = ['the', 'a', 'an', 'at', 'to', 'from', 'in', 'on', 'for', 'of', 'sq', 'pos', 'pp', 'tst'];
     const meaningfulWord = skipWords.includes(firstWord) && words.length > 1 ? words[1] : firstWord;
-    
+
     if (meaningfulWord && meaningfulWord.length >= 3) {
         return `${meaningfulWord}.com`;
     }
-    
+
     return null;
 }
 
@@ -309,22 +313,22 @@ function extractDomain(merchant: string): string | null {
 export async function POST(request: NextRequest) {
     try {
         const { merchants } = await request.json();
-        
+
         if (!Array.isArray(merchants)) {
-            return NextResponse.json({ 
-                error: 'merchants must be an array' 
+            return NextResponse.json({
+                error: 'merchants must be an array'
             }, { status: 400 });
         }
-        
+
         const results = await Promise.all(
             merchants.slice(0, 50).map(async (merchant: string) => {
                 const domain = extractDomain(merchant);
                 if (!domain) {
                     return { merchant, domain: null, logoUrl: null, found: false };
                 }
-                
+
                 const logoUrl = `https://logo.clearbit.com/${domain}`;
-                
+
                 try {
                     const response = await fetch(logoUrl, { method: 'HEAD' });
                     return {
@@ -338,8 +342,8 @@ export async function POST(request: NextRequest) {
                 }
             })
         );
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
             results,
             found: results.filter(r => r.found).length,
             total: results.length

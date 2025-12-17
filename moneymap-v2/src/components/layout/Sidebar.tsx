@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from 'react';
 import { useUIStore, DashboardTab } from '@/lib/store/useUIStore';
 import { useDataStore } from '@/lib/store/useDataStore';
 import Link from 'next/link';
@@ -7,11 +8,13 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, X, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, LucideIcon, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { MinigameModal } from '@/components/dashboard/MinigameModal';
 
 export function Sidebar() {
     const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useUIStore();
     const { loadDemoData } = useDataStore();
     const router = useRouter();
+    const [isMinigameOpen, setIsMinigameOpen] = useState(false);
 
     // Tab color mapping for active underline indicators
     const tabColors: Record<DashboardTab, string> = {
@@ -210,14 +213,19 @@ export function Sidebar() {
                             <span className="text-xs font-medium text-zinc-400 group-hover:text-white transition-colors">Restart Demo</span>
                         </button>
 
-                        <div className="rounded-xl bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-4 shadow-lg">
-                            <p className="text-xs font-medium text-zinc-300">Demo Mode</p>
-                            <p className="text-[10px] text-zinc-500 mt-1">Local data only. No bank connection.</p>
-                            {/* Phase 2: Will handle actual data reset logic */}
-                        </div>
+                        <button
+                            onClick={() => setIsMinigameOpen(true)}
+                            className="w-full rounded-xl bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-4 shadow-lg hover:bg-zinc-900/80 hover:border-white/20 transition-all cursor-pointer text-left group"
+                        >
+                            <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors">Demo Mode</p>
+                            <p className="text-[10px] text-zinc-500 mt-1 group-hover:text-zinc-400 transition-colors">Local data only. No bank connection.</p>
+                        </button>
                     </div>
                 </div>
             </aside>
+
+            {/* Minigame Modal */}
+            <MinigameModal isOpen={isMinigameOpen} onClose={() => setIsMinigameOpen(false)} />
         </>
     );
 }

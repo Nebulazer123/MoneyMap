@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useDateStore } from "../../lib/store/useDateStore";
@@ -64,6 +64,12 @@ export function Overview() {
 
     const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
     const [chartInteractive, setChartInteractive] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Delay chart render until after first paint to prevent recharts -1 dimension warning
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -226,85 +232,87 @@ export function Overview() {
                                 filter: 'blur(40px)'
                             }} />
                         </div>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <defs>
-                                    {/* Enhanced linear gradients for gem-like depth - Onyx Gem Wheel theme */}
-                                    {groupedSpendingData.map((entry) => {
-                                        const gradientId = `gradient-${entry.id}`;
-                                        return (
-                                            <linearGradient key={gradientId} id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" stopColor={entry.color} stopOpacity={1.0} />
-                                                <stop offset="50%" stopColor={entry.color} stopOpacity={0.85} />
-                                                <stop offset="100%" stopColor={entry.color} stopOpacity={0.65} />
-                                            </linearGradient>
-                                        );
-                                    })}
-                                </defs>
-                                <Pie
-                                    data={groupedSpendingData}
-                                    dataKey="value"
-                                    nameKey="label"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={0}
-                                    outerRadius={165}
-                                    paddingAngle={0}
-                                    stroke="none"
-                                    onMouseEnter={() => setChartInteractive(true)}
-                                    onMouseLeave={() => setChartInteractive(false)}
-                                    onClick={(data) => {
-                                        const groupId = getGroupIdFromEntry(data);
-                                        if (groupId) {
-                                            const categories = getCategoriesForGroup(groupId);
-                                            onSelectGroup(categories);
-                                        }
-                                    }}
-                                >
-                                    {groupedSpendingData.map((entry, index) => (
-                                        <Cell
-                                            key={entry.id}
-                                            fill={`url(#gradient-${entry.id})`}
-                                            className="transition-all duration-300 cursor-pointer"
-                                            style={{
-                                                filter: activeCategoryIds.length === 0 || entry.id === activeGroupId
-                                                    ? 'brightness(1.1) saturate(1.15)' // Brightens and saturates on active
-                                                    : 'brightness(0.5) saturate(0.7)', // Strong dimming for contrast
-                                            }}
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const data = payload[0].payload;
+                        {isMounted && (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                                <PieChart>
+                                    <defs>
+                                        {/* Enhanced linear gradients for gem-like depth - Onyx Gem Wheel theme */}
+                                        {groupedSpendingData.map((entry) => {
+                                            const gradientId = `gradient-${entry.id}`;
                                             return (
-                                                <div
-                                                    className="bg-zinc-900/95 backdrop-blur-xl p-4 rounded-xl shadow-2xl"
-                                                    style={{
-                                                        borderWidth: 1,
-                                                        borderStyle: 'solid',
-                                                        borderColor: data.color + '40'
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-2xl">{data.emoji}</span>
-                                                        <span className="font-semibold text-white text-lg">{data.label}</span>
-                                                    </div>
-                                                    <div className="text-3xl font-bold text-white">
-                                                        {currency.format(data.value)}
-                                                    </div>
-                                                    <div className="text-sm text-zinc-400 mt-2">
-                                                        {data.percent.toFixed(1)}% of total spending
-                                                    </div>
-                                                </div>
+                                                <linearGradient key={gradientId} id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                    <stop offset="0%" stopColor={entry.color} stopOpacity={1.0} />
+                                                    <stop offset="50%" stopColor={entry.color} stopOpacity={0.85} />
+                                                    <stop offset="100%" stopColor={entry.color} stopOpacity={0.65} />
+                                                </linearGradient>
                                             );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                                        })}
+                                    </defs>
+                                    <Pie
+                                        data={groupedSpendingData}
+                                        dataKey="value"
+                                        nameKey="label"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={0}
+                                        outerRadius={165}
+                                        paddingAngle={0}
+                                        stroke="none"
+                                        onMouseEnter={() => setChartInteractive(true)}
+                                        onMouseLeave={() => setChartInteractive(false)}
+                                        onClick={(data) => {
+                                            const groupId = getGroupIdFromEntry(data);
+                                            if (groupId) {
+                                                const categories = getCategoriesForGroup(groupId);
+                                                onSelectGroup(categories);
+                                            }
+                                        }}
+                                    >
+                                        {groupedSpendingData.map((entry, index) => (
+                                            <Cell
+                                                key={entry.id}
+                                                fill={`url(#gradient-${entry.id})`}
+                                                className="transition-all duration-300 cursor-pointer"
+                                                style={{
+                                                    filter: activeCategoryIds.length === 0 || entry.id === activeGroupId
+                                                        ? 'brightness(1.1) saturate(1.15)' // Brightens and saturates on active
+                                                        : 'brightness(0.5) saturate(0.7)', // Strong dimming for contrast
+                                                }}
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div
+                                                        className="bg-zinc-900/95 backdrop-blur-xl p-4 rounded-xl shadow-2xl"
+                                                        style={{
+                                                            borderWidth: 1,
+                                                            borderStyle: 'solid',
+                                                            borderColor: data.color + '40'
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-2xl">{data.emoji}</span>
+                                                            <span className="font-semibold text-white text-lg">{data.label}</span>
+                                                        </div>
+                                                        <div className="text-3xl font-bold text-white">
+                                                            {currency.format(data.value)}
+                                                        </div>
+                                                        <div className="text-sm text-zinc-400 mt-2">
+                                                            {data.percent.toFixed(1)}% of total spending
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
 
                     {/* Legend cards with liquid glass pills matching pie slices */}
