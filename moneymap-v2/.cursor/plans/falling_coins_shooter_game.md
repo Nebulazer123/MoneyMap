@@ -128,3 +128,4 @@ Transform the minigame into a falling coins shooter game where coins fall from t
 - **Combo streak visuals** (glowing trail effect)
 - **Near-miss indicators** (coins that almost hit bottom)
 
+

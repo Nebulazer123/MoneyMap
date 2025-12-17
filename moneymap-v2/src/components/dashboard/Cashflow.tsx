@@ -61,34 +61,90 @@ export function Cashflow() {
     const chartData = useMemo(() => {
         // Determine cutoff
         let cutoff = new Date(0);
-        if (chartTimeRange !== 'ALL') {
-            // Find latest date in buckets
-            const latestDateStr = dailyBuckets.length > 0
-                ? dailyBuckets[dailyBuckets.length - 1].date
-                : new Date().toISOString().split('T')[0];
+        const now = new Date(); // Use current date as reference for relative ranges if needed, but dailyBuckets is grounded in data.
 
-            const latest = new Date(latestDateStr);
-            cutoff = new Date(latest);
+        // Find latest date in data to anchor "relative" ranges if we wanted to anchor to data end.
+        // However, standard UI usually anchors "1W" from "today" or "latest data". 
+        // Let's stick to "latest data" or "today" logic. Existing logic used dailyBuckets last date.
 
-            if (chartTimeRange === '1W') cutoff.setDate(cutoff.getDate() - 7);
-            if (chartTimeRange === '1M') cutoff.setMonth(cutoff.getMonth() - 1);
-            if (chartTimeRange === '3M') cutoff.setMonth(cutoff.getMonth() - 3);
-            if (chartTimeRange === '6M') cutoff.setMonth(cutoff.getMonth() - 6);
-            if (chartTimeRange === '1Y') cutoff.setFullYear(cutoff.getFullYear() - 1);
-        }
+        const latestDateStr = dailyBuckets.length > 0
+            ? dailyBuckets[dailyBuckets.length - 1].date
+            : new Date().toISOString().split('T')[0];
 
-        const filteredBuckets = dailyBuckets.filter(b => new Date(b.date) >= cutoff);
-        const isDaily = chartTimeRange === '1W' || chartTimeRange === '1M';
+        const latest = new Date(latestDateStr);
+        cutoff = new Date(latest);
+
+        if (chartTimeRange === '1W') cutoff.setDate(cutoff.getDate() - 7);
+        if (chartTimeRange === '1M') cutoff.setMonth(cutoff.getMonth() - 1);
+        if (chartTimeRange === '3M') cutoff.setMonth(cutoff.getMonth() - 3);
+        if (chartTimeRange === '6M') cutoff.setMonth(cutoff.getMonth() - 6);
+        if (chartTimeRange === '1Y') cutoff.setFullYear(cutoff.getFullYear() - 1);
+
+        // Filter buckets based on date cutoff
+        // For 'ALL', cutoff is epoch so it includes everything.
+        const filteredBuckets = chartTimeRange === 'ALL'
+            ? dailyBuckets
+            : dailyBuckets.filter(b => new Date(b.date) >= cutoff);
+
+        // --- Aggregation Logic ---
+
+        // 1W, 1M, 3M -> Daily Data
+        // 3M is special: Daily data but often wants weekly ticks (handled in Axis props if possible, or we just let it be dense).
+        // The user request: "3m charted by day but only marked by week visible"
+        // 6M -> Weekly Data ("all by week")
+        // 1Y -> Monthly Data ("1 year view by month")
+        // ALL -> Monthly Data ("all view by month")
+
+        const isDaily = chartTimeRange === '1W' || chartTimeRange === '1M' || chartTimeRange === '3M';
+        const isWeekly = chartTimeRange === '6M';
+        const isMonthly = chartTimeRange === '1Y' || chartTimeRange === 'ALL';
 
         if (isDaily) {
             return filteredBuckets.map(b => ({
                 name: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                dateObj: new Date(b.date),
                 income: b.income,
                 expenses: b.expense,
+                net: b.income - b.expense,
                 date: b.date
             }));
+        } else if (isWeekly) {
+            // Aggregate by Week
+            // We'll define a week as starting on Sunday? or Monday? Let's say Monday for business logic, or standard Sunday.
+            // Let's use the start of the week for grouping.
+            const weeklyMap = new Map<string, { name: string, income: number, expenses: number, dateObj: Date }>();
+
+            filteredBuckets.forEach(b => {
+                const d = new Date(b.date);
+                // Adjust to start of week (Sunday)
+                const day = d.getDay();
+                const diff = d.getDate() - day; // adjust when day is sunday
+                const weekStart = new Date(d);
+                weekStart.setDate(diff);
+                const key = weekStart.toISOString().split('T')[0];
+
+                if (!weeklyMap.has(key)) {
+                    weeklyMap.set(key, {
+                        name: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), // e.g. "Oct 4"
+                        income: 0,
+                        expenses: 0,
+                        dateObj: weekStart
+                    });
+                }
+                const entry = weeklyMap.get(key)!;
+                entry.income += b.income;
+                entry.expenses += b.expense;
+            });
+
+            return Array.from(weeklyMap.values())
+                .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
+                .map(item => ({
+                    ...item,
+                    net: item.income - item.expenses
+                }));
+
         } else {
-            // Aggregate by month for chart
+            // Monthly Aggregation (1Y, ALL)
             const monthlyMap = new Map<string, { name: string, income: number, expenses: number, sortKey: number }>();
 
             filteredBuckets.forEach(b => {
@@ -109,7 +165,12 @@ export function Cashflow() {
                 entry.expenses += b.expense;
             });
 
-            return Array.from(monthlyMap.values()).sort((a, b) => a.sortKey - b.sortKey);
+            return Array.from(monthlyMap.values())
+                .sort((a, b) => a.sortKey - b.sortKey)
+                .map(item => ({
+                    ...item,
+                    net: item.income - item.expenses
+                }));
         }
     }, [dailyBuckets, chartTimeRange]);
 
@@ -178,8 +239,6 @@ export function Cashflow() {
     };
 
     // Helper to get transactions for a specific date (for expanded view)
-    // We can filter filteredTransactions again or build a map. 
-    // Since this is UI interaction, filtering on demand is fine or memoize map.
     const getTransactionsForDate = (date: string) => {
         return filteredTransactions.filter(t => t.date === date);
     };
@@ -280,6 +339,7 @@ export function Cashflow() {
                                 tickLine={false}
                                 axisLine={false}
                                 dy={10}
+                                minTickGap={30}
                             />
                             <YAxis
                                 stroke="#71717a"
@@ -288,6 +348,7 @@ export function Cashflow() {
                                 tickFormatter={(value) => `$${value}`}
                                 axisLine={false}
                                 dx={-10}
+                                domain={['auto', 'auto']} // Make the chart more "volatile" by not forcing 0
                             />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
@@ -296,8 +357,10 @@ export function Cashflow() {
                                 labelStyle={{ color: '#a1a1aa', marginBottom: '0.5rem' }}
                             />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                            <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
-                            <Line type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            {/* Changed type to linear for more jagged/volatile look */}
+                            <Line type="linear" dataKey="income" stroke="#10b981" strokeWidth={2} dot={false} name="Income" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            <Line type="linear" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" activeDot={{ r: 6, strokeWidth: 0 }} />
+                            <Line type="linear" dataKey="net" stroke="#3b82f6" strokeWidth={2} dot={false} name="Net" activeDot={{ r: 6, strokeWidth: 0 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 )}
