@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
 import { CACHE_TTL } from '@/lib/cache/CacheManager';
+import { retryWithBackoff } from '@/lib/utils/retry';
 
 // Using ipapi.co - FREE, no API key required!
 // Rate limit: 1,000 requests/day
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const ip = searchParams.get('ip') || '';
     const cacheKey = getServerCacheKey('location', ip || 'auto');
     
-    // Check cache first (24-hour TTL)
+    // Check cache first (48-hour TTL)
     const cached = serverCache.get<{
         ip: string;
         location: unknown;
@@ -38,14 +39,29 @@ export async function GET(request: NextRequest) {
     const endpoint = ip ? `https://ipapi.co/${ip}/json/` : 'https://ipapi.co/json/';
     
     try {
-        const response = await fetch(endpoint, {
-            headers: {
-                'User-Agent': 'MoneyMap/1.0',
+        // Retry with exponential backoff (max 2 retries: 1s, 2s) for network/5xx errors
+        const response = await retryWithBackoff(
+            async () => {
+                const res = await fetch(endpoint, {
+                    headers: {
+                        'User-Agent': 'MoneyMap/1.0',
+                    },
+                });
+                // Throw error for 5xx to trigger retry, but not for 4xx
+                if (!res.ok && res.status >= 500 && res.status < 600) {
+                    throw { status: res.status, message: `HTTP ${res.status}` };
+                }
+                return res;
             },
-        });
+            {
+                maxRetries: 2,
+                initialDelay: 1000, // 1 second
+            }
+        );
         
+        // Handle 4xx errors (don't retry)
         if (!response.ok) {
-            throw new Error('Failed to fetch geolocation data');
+            throw new Error(`Failed to fetch geolocation data: HTTP ${response.status}`);
         }
         
         const data = await response.json();
@@ -87,7 +103,7 @@ export async function GET(request: NextRequest) {
             },
         };
         
-        // Cache for 24 hours
+        // Cache for 48 hours (location rarely changes for a user)
         serverCache.set(cacheKey, result, CACHE_TTL.LOCATION);
         
         return NextResponse.json({

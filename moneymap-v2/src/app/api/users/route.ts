@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
+import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 /**
  * Random User Generator API - Generate realistic user profiles
@@ -12,16 +15,35 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Generate demo household members
  * - Create profile pictures for account owners
  * - Generate realistic contact info
+ * 
+ * Note: Currently exported but not actively used in components. Protected with rate limiting and caching.
  */
 
 const RANDOMUSER_BASE = 'https://randomuser.me/api';
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 30 requests per hour per IP (be polite)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_50);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const { searchParams } = new URL(request.url);
     
     const count = Math.min(parseInt(searchParams.get('count') || '5'), 20);
     const gender = searchParams.get('gender'); // male, female, or omit for both
     const nationality = searchParams.get('nat') || 'us'; // Country code
+    
+    const cacheKey = getServerCacheKey('users', String(count), gender || 'all', nationality);
+    
+    // Check cache first (client uses 30min, but server cache longer for consistency)
+    const cached = serverCache.get<{ users: unknown[]; count: number }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
     
     try {
         const params = new URLSearchParams({
@@ -65,10 +87,18 @@ export async function GET(request: NextRequest) {
             },
         }));
         
-        return NextResponse.json({
+        const result = {
             users,
             count: users.length,
             nationality,
+        };
+        
+        // Cache for 7 days (user profiles don't change) - reuse UUIDS TTL constant
+        serverCache.set(cacheKey, result, CACHE_TTL.UUIDS);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Random User API error:', error);
@@ -109,6 +139,12 @@ export async function GET(request: NextRequest) {
  * Generate household members for demo
  */
 export async function POST(request: NextRequest) {
+    // Rate limiting: 30 requests per hour per IP (be polite)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_50);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     try {
         const { 
             householdSize = 4,

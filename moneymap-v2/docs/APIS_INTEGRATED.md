@@ -10,9 +10,9 @@ This document contains all integrated APIs, their rate limits, API keys, and usa
 
 | API | Purpose | Rate Limit | Key Required | Status |
 |-----|---------|------------|--------------|--------|
-| CoinGecko | Crypto prices/data | 30 calls/min | Yes (optional) | ✅ Active |
-| CoinMarketCap | Crypto backup | 333 calls/day | Yes | ✅ Active |
-| Yahoo Finance | Stock data | ~2000/hour | No | ✅ Active |
+| Yahoo Finance | Stock & Crypto data | ~2000/hour | No | ✅ Active |
+| CoinGecko | Crypto (legacy, not used) | 30 calls/min | Yes (optional) | ❌ Not Used |
+| CoinMarketCap | Crypto (legacy, not used) | 333 calls/day | Yes | ❌ Not Used |
 | Frankfurter | Currency exchange (primary) | Unlimited | No | ✅ Active |
 | ExchangeRate-API | Currency exchange (backup) | 1,500/month | No | ✅ Active |
 | ipapi.co | Location detection | 1,000/day | No | ✅ Active |
@@ -26,6 +26,7 @@ This document contains all integrated APIs, their rate limits, API keys, and usa
 | Random User | Profile photos | Unlimited | No | ✅ Active |
 | REST Countries | Country/currency data | Unlimited | No | ✅ Active |
 | Abstract Email | Email verification | 100/month | Yes | ✅ Active |
+| Weather API | Weather data | N/A | Optional | ❌ Removed (unused) |
 | OCR.space | Receipt scanning | 500/month | Optional | 🔜 Future |
 
 ---
@@ -35,88 +36,23 @@ This document contains all integrated APIs, their rate limits, API keys, and usa
 ### Keys We Have (Store Securely!)
 
 ```env
-# CoinGecko (Primary Crypto) - 30 calls/min with key
-COINGECKO_API_KEY=CG-6BZouhuMK3pj4Q2HxH4jZgab
-
-# CoinMarketCap (Crypto Backup) - 333 calls/day
-COINMARKETCAP_API_KEY=e1f0879635dc4b7da3bfda68cebf2858
-
 # News API - 100 calls/day
 NEWS_API_KEY=b04754f709c4439ea8e1a4a280c737cc
 
-# IP Geolocation (OLD - replaced with ipapi.co)
-# IPGEOLOCATION_API_KEY=e47a12846018445a8b6e4eb6c6b3c84c
-
 # Abstract Email Verification - 100/month
 ABSTRACT_EMAIL_API_KEY=c06de9698fc14b549cc7ceea8ad2e6d1
+
+# Note: CoinGecko and CoinMarketCap keys exist but are NOT used.
+# Crypto API uses Yahoo Finance (same as stocks API) via yahoo-finance2 library.
+# COINGECKO_API_KEY=CG-6BZouhuMK3pj4Q2HxH4jZgab (legacy, unused)
+# COINMARKETCAP_API_KEY=e1f0879635dc4b7da3bfda68cebf2858 (legacy, unused)
 ```
 
 ---
 
 ## 🏦 Finance & Market APIs
 
-### 1. CoinGecko (Primary Crypto)
-**Endpoint:** `https://api.coingecko.com/api/v3`
-
-**Rate Limits:**
-- Without key: 10-50 calls/min
-- With key: 30 calls/min (demo tier)
-
-**Caching Strategy:** 
-- Live prices: 1 minute TTL
-- Chart data: 5-60 minutes based on timeframe
-- Trending: 15 minutes TTL
-
-**Endpoints Used:**
-```javascript
-// Search cryptos
-GET /search?query={query}
-
-// Get prices for multiple coins
-GET /coins/markets?vs_currency=usd&ids={ids}&price_change_percentage=7d,30d,1y
-
-// Get detailed coin data
-GET /coins/{id}?localization=false&tickers=false
-
-// Get chart data
-GET /coins/{id}/market_chart?vs_currency=usd&days={days}
-
-// Get trending
-GET /search/trending
-
-// With API key (append to URL)
-&x_cg_demo_api_key=CG-6BZouhuMK3pj4Q2HxH4jZgab
-```
-
----
-
-### 2. CoinMarketCap (Crypto Backup)
-**Endpoint:** `https://pro-api.coinmarketcap.com/v1`
-
-**Rate Limits:** 333 calls/day (Basic tier)
-
-**Caching Strategy:** 
-- Only use when CoinGecko fails or rate limited
-- Cache for 5 minutes minimum
-
-**Endpoints Used:**
-```javascript
-// Headers required
-Headers: { 'X-CMC_PRO_API_KEY': 'e1f0879635dc4b7da3bfda68cebf2858' }
-
-// Get quotes
-GET /cryptocurrency/quotes/latest?symbol={symbols}
-
-// Get trending
-GET /cryptocurrency/trending/latest
-
-// Get new listings
-GET /cryptocurrency/listings/latest?sort=date_added&limit=20
-```
-
----
-
-### 3. Yahoo Finance (Stocks)
+### 1. Yahoo Finance (Stocks & Crypto)
 **Library:** `yahoo-finance2` v3
 
 **Rate Limits:** ~2000 calls/hour (unofficial, be polite)
@@ -132,25 +68,29 @@ GET /cryptocurrency/listings/latest?sort=date_added&limit=20
 import YahooFinance from 'yahoo-finance2';
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
-// Get quote
-await yf.quote('AAPL');
+// Stocks
+await yf.quote('AAPL'); // Stock quote
+await yf.search('Apple', { quotesCount: 15 }); // Search stocks
+await yf.chart('AAPL', { period1: '2024-01-01', interval: '1d' }); // Chart data
+await yf.insights('AAPL'); // Analyst recommendations
+await yf.trendingSymbols('US', { count: 25 }); // Trending stocks
 
-// Search stocks
-await yf.search('Apple', { quotesCount: 15 });
-
-// Get chart data
-await yf.chart('AAPL', { period1: '2024-01-01', interval: '1d' });
-
-// Get insights (analyst recommendations)
-await yf.insights('AAPL');
-
-// Get trending
-await yf.trendingSymbols('US', { count: 25 });
+// Crypto (uses same library, different symbol format)
+await yf.quote('BTC-USD'); // Crypto quote (format: SYMBOL-USD)
+await yf.search('bitcoin', { quotesCount: 20 }); // Search cryptos
+await yf.chart('ETH-USD', { period1: '2024-01-01', interval: '1d' }); // Crypto chart
 ```
+
+**Implementation:**
+- Stocks: `/api/stocks` route
+- Crypto: `/api/crypto` route (uses Yahoo Finance, NOT CoinGecko/CoinMarketCap)
+- Both routes use same `yahoo-finance2` library instance
+
+**Note:** CoinGecko and CoinMarketCap keys exist in codebase but are NOT used. All crypto data comes from Yahoo Finance.
 
 ---
 
-### 4. FRED (Economic Data)
+### 2. FRED (Economic Data)
 **Endpoint:** `https://api.stlouisfed.org/fred`
 
 **Rate Limits:** Unlimited (with API key)

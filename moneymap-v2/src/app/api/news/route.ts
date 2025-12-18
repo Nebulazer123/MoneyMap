@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
 import { CACHE_TTL } from '@/lib/cache/CacheManager';
+import { retryWithBackoff } from '@/lib/utils/retry';
 
 type NewsApiArticle = {
     title: string;
@@ -47,9 +48,32 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-            const response = await fetch(
-                `${NEWS_BASE}/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&apiKey=${NEWS_API_KEY}&pageSize=20`
+            // Retry with exponential backoff (max 2 retries: 1s, 2s) for network/5xx errors only
+            const response = await retryWithBackoff(
+                async () => {
+                    const res = await fetch(
+                        `${NEWS_BASE}/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&apiKey=${NEWS_API_KEY}&pageSize=20`
+                    );
+                    // Throw error for 5xx to trigger retry, but not for 4xx
+                    if (!res.ok && res.status >= 500 && res.status < 600) {
+                        throw { status: res.status, message: `HTTP ${res.status}` };
+                    }
+                    return res;
+                },
+                {
+                    maxRetries: 2,
+                    initialDelay: 1000, // 1 second
+                }
             );
+
+            // Check response status (4xx errors won't be retried, handled here)
+            if (!response.ok) {
+                if (response.status === 429) {
+                    throw { status: 429, message: 'Rate limit exceeded' };
+                }
+                throw { status: response.status, message: `HTTP ${response.status}` };
+            }
+
             const data: NewsApiResponse = await response.json();
             
             if (data.status === 'ok') {
@@ -65,7 +89,7 @@ export async function GET(request: NextRequest) {
                     }))
                 };
                 
-                // Cache for 30 minutes
+                // Cache search results for 30 minutes
                 serverCache.set(cacheKey, result, CACHE_TTL.NEWS);
                 
                 return NextResponse.json({
@@ -77,7 +101,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: data.message || 'Failed to fetch news' }, { status: 400 });
         } catch (error) {
             console.error('News search error:', error);
-            // Try to return cached data on error
+            // Try to return cached data on error (preserve stale cache behavior)
             const staleCache = serverCache.get<{ articles: unknown[] }>(cacheKey);
             if (staleCache) {
                 return NextResponse.json({
@@ -105,9 +129,32 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const response = await fetch(
-            `${NEWS_BASE}/top-headlines?category=${category}&country=${country}&apiKey=${NEWS_API_KEY}&pageSize=20`
+        // Retry with exponential backoff (max 2 retries: 1s, 2s) for network/5xx errors only
+        const response = await retryWithBackoff(
+            async () => {
+                const res = await fetch(
+                    `${NEWS_BASE}/top-headlines?category=${category}&country=${country}&apiKey=${NEWS_API_KEY}&pageSize=20`
+                );
+                // Throw error for 5xx to trigger retry, but not for 4xx
+                if (!res.ok && res.status >= 500 && res.status < 600) {
+                    throw { status: res.status, message: `HTTP ${res.status}` };
+                }
+                return res;
+            },
+            {
+                maxRetries: 2,
+                initialDelay: 1000, // 1 second
+            }
         );
+
+        // Check response status (4xx errors won't be retried, handled here)
+        if (!response.ok) {
+            if (response.status === 429) {
+                throw { status: 429, message: 'Rate limit exceeded' };
+            }
+            throw { status: response.status, message: `HTTP ${response.status}` };
+        }
+
         const data: NewsApiResponse = await response.json();
         
         if (data.status === 'ok') {
@@ -123,8 +170,8 @@ export async function GET(request: NextRequest) {
                 }))
             };
             
-            // Cache for 30 minutes
-            serverCache.set(cacheKey, result, CACHE_TTL.NEWS);
+            // Cache headlines for 2 hours (they change less frequently)
+            serverCache.set(cacheKey, result, CACHE_TTL.NEWS_HEADLINES);
             
             return NextResponse.json({
                 ...result,
@@ -133,8 +180,9 @@ export async function GET(request: NextRequest) {
         }
         
         return NextResponse.json({ error: data.message || 'Failed to fetch news' }, { status: 400 });
-    } catch {
-        // Try to return cached data on error
+    } catch (error) {
+        console.error('News headlines error:', error);
+        // Try to return cached data on error (preserve stale cache behavior)
         const staleCache = serverCache.get<{ articles: unknown[] }>(cacheKey);
         if (staleCache) {
             return NextResponse.json({

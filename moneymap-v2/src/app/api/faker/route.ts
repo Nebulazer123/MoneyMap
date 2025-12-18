@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
+import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 /**
  * Faker API - Generate realistic demo data
@@ -13,16 +16,35 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Create demo user profiles
  * - Generate addresses for merchants
  * - Create fake but realistic financial data
+ * 
+ * Note: Currently exported but not actively used in components. Protected with rate limiting and caching.
  */
 
 const FAKER_BASE = 'https://fakerapi.it/api/v1';
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 50 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_50);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const { searchParams } = new URL(request.url);
     
     const type = searchParams.get('type') || 'companies';
     const quantity = Math.min(parseInt(searchParams.get('quantity') || '10'), 100);
     const locale = searchParams.get('locale') || 'en_US';
+    
+    const cacheKey = getServerCacheKey('faker', type, String(quantity), locale);
+    
+    // Check cache first (24-hour TTL)
+    const cached = serverCache.get<unknown>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
     
     try {
         let endpoint = `${FAKER_BASE}/${type}?_quantity=${quantity}&_locale=${locale}`;
@@ -48,13 +70,21 @@ export async function GET(request: NextRequest) {
         
         const data = await response.json();
         
-        return NextResponse.json({
+        const result = {
             status: data.status,
             code: data.code,
             total: data.total,
             data: data.data,
             type,
             locale,
+        };
+        
+        // Cache for 24 hours (demo data consistency)
+        serverCache.set(cacheKey, result, CACHE_TTL.FAKE_DATA);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Faker API error:', error);
@@ -68,6 +98,12 @@ export async function GET(request: NextRequest) {
  * Generate complete fake transactions for demo
  */
 export async function POST(request: NextRequest) {
+    // Rate limiting: 50 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_50);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     try {
         const { 
             count = 50, 

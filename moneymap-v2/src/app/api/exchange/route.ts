@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
 import { CACHE_TTL } from '@/lib/cache/CacheManager';
+import { retryWithBackoff } from '@/lib/utils/retry';
 
 /**
  * Currency Exchange API
@@ -35,8 +36,14 @@ export async function GET(request: NextRequest) {
     }
     
     try {
-        // Try Frankfurter first (primary)
-        const data = await fetchFromFrankfurter(base, to, date, amount);
+        // Try Frankfurter first (primary) with retry logic (max 2 retries: 1s, 2s)
+        const data = await retryWithBackoff(
+            () => fetchFromFrankfurter(base, to, date, amount),
+            {
+                maxRetries: 2,
+                initialDelay: 1000, // 1 second
+            }
+        );
         const result = {
             ...data,
             source: 'frankfurter',
@@ -99,8 +106,14 @@ async function fetchFromFrankfurter(
     
     const response = await fetch(`${endpoint}?${params.toString()}`);
     
+    // Throw error for 5xx to trigger retry, but not for 4xx (client errors)
     if (!response.ok) {
-        throw new Error(`Frankfurter API error: ${response.status}`);
+        // Don't retry 4xx errors (client errors)
+        if (response.status >= 400 && response.status < 500) {
+            throw new Error(`Frankfurter API error: ${response.status}`);
+        }
+        // Throw for 5xx to trigger retry in retryWithBackoff
+        throw { status: response.status, message: `HTTP ${response.status}` };
     }
     
     const data = await response.json();

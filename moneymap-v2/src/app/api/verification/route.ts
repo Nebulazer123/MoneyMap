@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
 
 /**
  * Abstract Email Verification API
@@ -21,6 +22,17 @@ const emailCache = new Map<string, { result: EmailVerificationResult; timestamp:
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 5 verifications per hour per IP (critical - only 100/month quota)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_5);
+    if (!rateLimitCheck.allowed) {
+        return NextResponse.json({
+            error: 'Rate limit exceeded',
+            message: 'Too many verification requests. Please try again later.',
+            retryAfter: rateLimitCheck.response?.headers.get('Retry-After'),
+            suggestion: 'Email format validation is still available without API verification.',
+        }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     
@@ -41,8 +53,10 @@ export async function GET(request: NextRequest) {
         });
     }
     
-    // Check cache first
-    const cached = emailCache.get(email.toLowerCase());
+    const emailLower = email.toLowerCase();
+    
+    // Check cache first (aggressive caching to prevent quota burn)
+    const cached = emailCache.get(emailLower);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         return NextResponse.json({
             ...cached.result,
@@ -57,13 +71,28 @@ export async function GET(request: NextRequest) {
         );
         
         if (!response.ok) {
-            // Check if rate limited
+            // Check if quota exhausted (429 from API) or other errors
             if (response.status === 429) {
-                return NextResponse.json({
-                    error: 'Rate limit exceeded',
-                    message: 'Monthly API limit reached. Try again next month.',
-                    suggestion: 'Email format appears valid based on pattern matching.',
+                // Quota exhausted - cache format validation result to avoid repeated API calls
+                const formatValidResult = {
+                    email: emailLower,
+                    valid: isValidEmailFormat(email),
+                    reason: 'Monthly API quota exhausted. Using format validation only.',
                     formatValid: isValidEmailFormat(email),
+                    cached: false,
+                    quotaExhausted: true,
+                };
+                
+                // Cache format-only result for shorter period (1 hour) to prevent repeated quota checks
+                emailCache.set(emailLower, {
+                    result: formatValidResult as EmailVerificationResult,
+                    timestamp: Date.now(),
+                });
+                
+                return NextResponse.json({
+                    ...formatValidResult,
+                    message: 'Monthly API limit reached (100/month). Quota will reset next month.',
+                    suggestion: 'Email format appears valid based on pattern matching. Full verification unavailable.',
                 }, { status: 429 });
             }
             throw new Error(`Abstract API error: ${response.status}`);
@@ -86,8 +115,8 @@ export async function GET(request: NextRequest) {
             cached: false,
         };
         
-        // Cache the result
-        emailCache.set(email.toLowerCase(), {
+        // Cache the result aggressively (30 days) to prevent repeated API calls for same email
+        emailCache.set(emailLower, {
             result,
             timestamp: Date.now(),
         });

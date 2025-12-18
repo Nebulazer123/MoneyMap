@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
 
 /**
  * UUIDTools API - Generate consistent UUIDs
@@ -9,11 +10,20 @@ import { NextRequest, NextResponse } from 'next/server';
  * Cache: Generate batch of 100, cache for 7 days
  * 
  * Use case: Consistent transaction IDs for demo data
+ * 
+ * Note: Currently exported but not actively used in components. Protected with rate limiting.
+ * Consider using browser crypto.randomUUID() directly instead.
  */
 
 const UUIDTOOLS_BASE = 'https://www.uuidtools.com/api';
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 200 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_100);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const { searchParams } = new URL(request.url);
     
     const version = searchParams.get('version') || 'v4';
@@ -65,6 +75,12 @@ export async function GET(request: NextRequest) {
  * Generate UUIDs for specific purposes
  */
 export async function POST(request: NextRequest) {
+    // Rate limiting: 200 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_100);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     try {
         const { type, count = 10 } = await request.json();
         

@@ -28,11 +28,11 @@ export function NewsFeed() {
 
     const { apisEnabled } = useUIStore();
 
-    // Debounce search input (400ms)
+    // Debounce search input (500ms) - prevents API call storms for News API (100/day limit)
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchQuery);
-        }, 400);
+        }, 500);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 

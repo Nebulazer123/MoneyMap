@@ -51,7 +51,8 @@ export const CACHE_TTL = {
     CHART_1Y: 60 * 60 * 1000,         // 1 hour
     
     // News and content
-    NEWS: 30 * 60 * 1000,             // 30 minutes
+    NEWS: 30 * 60 * 1000,             // 30 minutes (for search results)
+    NEWS_HEADLINES: 2 * 60 * 60 * 1000, // 2 hours (for headlines - they change less frequently)
     SEARCH_RESULTS: 10 * 60 * 1000,   // 10 minutes
     
     // Exchange/Currency (stable data)
@@ -60,7 +61,7 @@ export const CACHE_TTL = {
     // Static-ish data (rarely changes)
     LOGOS: 7 * 24 * 60 * 60 * 1000,   // 7 days
     TIMEZONE: 24 * 60 * 60 * 1000,    // 24 hours
-    LOCATION: 24 * 60 * 60 * 1000,    // 24 hours
+    LOCATION: 48 * 60 * 60 * 1000,    // 48 hours (location rarely changes for a user)
     COUNTRIES: 7 * 24 * 60 * 60 * 1000, // 7 days
     COMPANY_INFO: 24 * 60 * 60 * 1000, // 24 hours
     

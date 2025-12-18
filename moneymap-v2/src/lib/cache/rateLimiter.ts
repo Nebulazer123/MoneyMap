@@ -27,6 +27,7 @@ export const RATE_LIMITS = {
     PER_MINUTE_50: { maxRequests: 50, windowMs: 60 * 1000 },
     
     // Per-hour limits
+    PER_HOUR_5: { maxRequests: 5, windowMs: 60 * 60 * 1000 }, // For email verification (100/month quota)
     PER_HOUR_50: { maxRequests: 50, windowMs: 60 * 60 * 1000 },
     PER_HOUR_100: { maxRequests: 100, windowMs: 60 * 60 * 1000 },
     

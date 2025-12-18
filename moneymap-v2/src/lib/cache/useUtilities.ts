@@ -121,7 +121,7 @@ export function useLocation(options: { enabled?: boolean } = {}) {
       return response.json();
     },
     {
-      ttl: CACHE_TTL.TIMEZONE, // 24 hours
+      ttl: CACHE_TTL.LOCATION, // 48 hours (location rarely changes for a user)
       storage: 'local',
       enabled,
       staleWhileRevalidate: true,
@@ -199,10 +199,10 @@ export function useNews(
       return data.articles || [];
     },
     {
-      ttl: CACHE_TTL.NEWS,
+      ttl: query ? CACHE_TTL.NEWS : CACHE_TTL.NEWS_HEADLINES, // Search: 30min, Headlines: 2h
       storage: 'session',
       enabled,
-      staleWhileRevalidate: true,
+      staleWhileRevalidate: false, // Disabled to prevent background refresh storms (P0 fix)
       fallbackData: [],
     }
   );

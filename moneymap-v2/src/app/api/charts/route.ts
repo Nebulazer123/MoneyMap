@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
 
 /**
  * QuickChart API - Generate chart images
@@ -6,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * 
  * Docs: https://quickchart.io/documentation/
  * Rate limit: Unlimited (be reasonable)
+ * 
+ * Note: Currently exported but not actively used in components. Protected with rate limiting.
  * 
  * Perfect for:
  * - Exporting dashboard charts as images
@@ -35,6 +38,12 @@ interface ChartConfig {
 }
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 100 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_100);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const { searchParams } = new URL(request.url);
     
     const preset = searchParams.get('preset');
@@ -66,6 +75,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    // Rate limiting: 100 requests per hour per IP (prevent abuse)
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_100);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     try {
         const body = await request.json();
         const { config, width = 600, height = 400, format = 'png', background = 'transparent' } = body;
