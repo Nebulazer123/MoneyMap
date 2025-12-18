@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useUIStore, DashboardTab } from '@/lib/store/useUIStore';
 import { useDataStore } from '@/lib/store/useDataStore';
 import Link from 'next/link';
@@ -11,51 +11,10 @@ import { Button } from '../ui/Button';
 import { MinigameModal } from '@/components/dashboard/MinigameModal';
 
 export function Sidebar() {
-    const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
+    const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useUIStore();
     const { loadDemoData } = useDataStore();
     const router = useRouter();
     const [isMinigameOpen, setIsMinigameOpen] = useState(false);
-
-    // Auto-close/expand sidebar based on viewport size
-    useEffect(() => {
-        let resizeTimeout: NodeJS.Timeout;
-
-        const handleResize = () => {
-            // Debounce resize events
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                const width = window.innerWidth;
-                // Only auto-manage sidebar on resize, not on manual toggles
-                // Close sidebar if viewport width is less than 1024px (lg breakpoint)
-                if (width < 1024) {
-                    setSidebarOpen(false);
-                }
-                // Auto-expand sidebar if viewport width is >= 1024px
-                else if (width >= 1024) {
-                    setSidebarOpen(true);
-                }
-            }, 150);
-        };
-
-        // Check on mount - only set initial state, don't force if user preference exists
-        if (typeof window !== 'undefined') {
-            const width = window.innerWidth;
-            // On initial load, respect viewport size
-            if (width < 1024) {
-                setSidebarOpen(false);
-            } else if (width >= 1024) {
-                setSidebarOpen(true);
-            }
-        }
-
-        // Listen for resize events
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            clearTimeout(resizeTimeout);
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [setSidebarOpen]); // Removed isSidebarOpen from deps to prevent interference with manual toggles
 
     // Tab color mapping for active underline indicators
     const tabColors: Record<DashboardTab, string> = {
@@ -90,26 +49,15 @@ export function Sidebar() {
 
     return (
         <>
-            {/* Toggle Button (Always visible in same position) */}
-            <div className="fixed top-4 left-4 z-50">
-                <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleSidebar();
-                    }}
-                    className="bg-zinc-900/80 backdrop-blur-md border border-white/20 hover:bg-zinc-800 hover:border-white/30 shadow-lg"
-                    aria-label={isSidebarOpen ? "Close sidebar menu" : "Open sidebar menu"}
-                >
-                    {isSidebarOpen ? (
-                        <ChevronsLeft className="h-5 w-5 text-white" />
-                    ) : (
-                        <Menu className="h-5 w-5 text-white" />
-                    )}
-                </Button>
-            </div>
+            {/* Mobile Toggle */}
+            {/* Toggle Button (Visible when sidebar is closed) */}
+            {!isSidebarOpen && (
+                <div className="fixed top-4 left-4 z-50">
+                    <Button variant="secondary" size="icon" onClick={toggleSidebar} className="bg-zinc-900/50 border border-white/10 hover:bg-zinc-800">
+                        <Menu className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             {/* Sidebar Container */}
             <aside
@@ -168,6 +116,12 @@ export function Sidebar() {
                                 <span className="text-[10px] text-purple-300/60 -mt-0.5 tracking-widest uppercase">Financing for Powerusers</span>
                             </div>
                         </Link>
+                        <button
+                            onClick={toggleSidebar}
+                            className="text-zinc-400 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg"
+                        >
+                            <ChevronsLeft className="h-5 w-5" />
+                        </button>
                     </div>
 
                     {/* Navigation */}

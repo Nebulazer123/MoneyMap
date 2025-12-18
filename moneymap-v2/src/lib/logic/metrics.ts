@@ -1,6 +1,8 @@
 import { Transaction, Category, OwnershipMode } from '../types';
 import { isBillLikeCategory, isSubscriptionCategory, isBillishDescription, categoryToGroups } from '../categoryRules';
 import { transportGuideline, internetGuideline } from '../config';
+import { computeSummaryMetrics } from '../math/transactionMath';
+import { getInternalTransferTotals } from '../selectors/transactionSelectors';
 
 export interface SummaryStats {
     totalIncome: number;
@@ -17,37 +19,23 @@ export const calculateSummaryStats = (
     transactions: Transaction[],
     ownershipModes: Record<string, OwnershipMode>
 ): SummaryStats => {
-    let totalIncome = 0;
-    let totalSpending = 0;
+    // Use centralized computeSummaryMetrics for core calculations
+    const metrics = computeSummaryMetrics(transactions);
+    
+    // Calculate Budget-specific fields
     let subscriptionCount = 0;
-    let totalSubscriptions = 0;
-    let totalFees = 0;
-    let internalTransfersTotal = 0;
-
+    const internalTransfersTotal = getInternalTransferTotals(transactions);
     let largestSingleExpense: { amount: number; description: string; category: string; date: string } | null = null;
 
     transactions.forEach(tx => {
-        // Skip internal transfers for income/spending
-        if (tx.kind === 'transferInternal') {
-            internalTransfersTotal += Math.abs(tx.amount);
-            return;
+        // Count subscriptions (using same comprehensive logic)
+        if (tx.amount < 0 && (tx.kind === 'subscription' || tx.isSubscription || isSubscriptionCategory(tx.category))) {
+            subscriptionCount++;
         }
 
-        if (tx.amount > 0) {
-            totalIncome += tx.amount;
-        } else {
+        // Find largest single expense
+        if (tx.amount < 0 && tx.kind !== 'transferInternal') {
             const amount = Math.abs(tx.amount);
-            totalSpending += amount;
-
-            if (tx.kind === 'subscription' || isSubscriptionCategory(tx.category)) {
-                subscriptionCount++;
-                totalSubscriptions += amount;
-            }
-
-            if (tx.kind === 'fee') {
-                totalFees += amount;
-            }
-
             if (!largestSingleExpense || amount > largestSingleExpense.amount) {
                 largestSingleExpense = {
                     amount,
@@ -60,12 +48,12 @@ export const calculateSummaryStats = (
     });
 
     return {
-        totalIncome,
-        totalSpending,
-        net: totalIncome - totalSpending,
+        totalIncome: metrics.income,
+        totalSpending: metrics.spending,
+        net: metrics.netCashFlow,
         subscriptionCount,
-        totalSubscriptions,
-        totalFees,
+        totalSubscriptions: metrics.subscriptionTotal,
+        totalFees: metrics.feeTotal,
         internalTransfersTotal,
         largestSingleExpense
     };

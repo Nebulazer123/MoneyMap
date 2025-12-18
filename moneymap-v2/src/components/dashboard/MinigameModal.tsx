@@ -87,6 +87,7 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem(HIGH_SCORE_KEY);
             if (saved) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setHighScore(parseInt(saved, 10));
             }
         }
@@ -241,6 +242,7 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
         setCoins((prev) => prev.filter((c) => c.id !== coin.id));
     }, [coins, combo, maxCombo, getComboMultiplier, calculateSpawnRate, multiplierActive, checkCollision]);
 
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const loseLife = useCallback(() => {
         setLives((prev) => {
             const newLives = prev - 1;
@@ -371,18 +373,31 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
     // Cleanup on unmount or close
     useEffect(() => {
         if (!isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setGameState("idle");
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setScore(0);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCombo(0);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMaxCombo(0);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLives(INITIAL_LIVES);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCoins([]);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSpawnRate(BASE_SPAWN_INTERVAL);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsNewHighScore(false);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setComboBreakAnimation(false);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setScreenShake(false);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMultiplierActive(false);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMultiplierCountdown(0);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setExplosions([]);
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);

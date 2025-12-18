@@ -13,7 +13,6 @@ interface UIState {
     setActiveTab: (tab: DashboardTab) => void;
     setDateRange: (range: DateRange) => void;
     toggleSidebar: () => void;
-    setSidebarOpen: (open: boolean) => void;
     setApisEnabled: (enabled: boolean) => void;
 }
 
@@ -41,7 +40,6 @@ export const useUIStore = create<UIState>()(
             setActiveTab: (tab) => set({ activeTab: tab }),
             setDateRange: (range) => set({ dateRange: range }),
             toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-            setSidebarOpen: (open) => set({ isSidebarOpen: open }),
             setApisEnabled: (enabled) => set({ apisEnabled: enabled }),
         }),
         {

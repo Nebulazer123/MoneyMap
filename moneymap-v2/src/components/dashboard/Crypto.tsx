@@ -24,6 +24,42 @@ function getMarketStatus() {
     };
 }
 
+// Map common tickers to nicer glyphs for the avatar badge
+function getCryptoGlyph(symbol: string) {
+    switch (symbol.toUpperCase()) {
+        case "BTC":
+            return "₿";
+        case "ETH":
+            return "Ξ";
+        case "SOL":
+            return "◎";
+        default:
+            return symbol.slice(0, 3).toUpperCase();
+    }
+}
+
+// Give each major coin a distinct, bright badge style
+function getCryptoBadgeClasses(symbol: string, isPositive: boolean) {
+    const base = "rounded-2xl flex items-center justify-center font-black tracking-tight transition-all shadow-lg";
+    const upper = symbol.toUpperCase();
+
+    if (upper.startsWith("BTC")) {
+        return `${base} bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 text-black border border-amber-300/80`;
+    }
+    if (upper.startsWith("ETH")) {
+        return `${base} bg-gradient-to-br from-sky-500 via-indigo-500 to-violet-700 text-white border border-sky-300/70`;
+    }
+    if (upper.startsWith("SOL")) {
+        return `${base} bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600 text-black border border-emerald-300/80`;
+    }
+
+    // Fallback: tie color slightly to gain/loss so it still feels alive
+    if (isPositive) {
+        return `${base} bg-emerald-500/20 text-emerald-300 border border-emerald-400/60`;
+    }
+    return `${base} bg-rose-500/15 text-rose-300 border border-rose-400/60`;
+}
+
 // Types
 interface CryptoQuote {
     id: string;
@@ -888,13 +924,13 @@ export function Crypto() {
                                             <div className="flex items-center justify-between mb-4">
                                                 {/* Left: id & Name */}
                                                 <div className="flex items-center gap-3">
-                                                    <div className={cn(
-                                                        "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm transition-all",
-                                                        isPositive
-                                                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                                                            : "bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
-                                                    )}>
-                                                        {cryptoInfo.symbol.slice(0, 3)}
+                                                    <div
+                                                        className={cn(
+                                                            "w-14 h-14 text-2xl",
+                                                            getCryptoBadgeClasses(cryptoInfo.symbol, isPositive)
+                                                        )}
+                                                    >
+                                                        {getCryptoGlyph(cryptoInfo.symbol)}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
@@ -910,8 +946,8 @@ export function Crypto() {
                                                     </div>
                                                 </div>
 
-                                                {/* Right: Current Price & Change */}
-                                                <div className="text-right">
+                                                {/* Right: Current Price & Change (leave room for delete button) */}
+                                                <div className="text-right pr-8 sm:pr-10">
                                                     <div className="text-xl font-bold text-white mb-1">
                                                         {currency.format(quote?.price || holding.currentPrice)}
                                                     </div>
@@ -965,12 +1001,13 @@ export function Crypto() {
                                                 </div>
                                             </div>
 
-                                            {/* Delete Button */}
+                                            {/* Delete Button - docked in top-right, without covering text */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteHolding(holding.id); }}
-                                                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-2 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/20"
+                                                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 bg-rose-500/15 hover:bg-rose-500/30 rounded-full transition-all border border-rose-500/40 shadow-lg"
+                                                aria-label={`Remove ${cryptoInfo.displayName} from holdings`}
                                             >
-                                                <Trash2 className="h-4 w-4 text-rose-400" />
+                                                <Trash2 className="h-3.5 w-3.5 text-rose-300" />
                                             </button>
                                         </div>
                                     </div>

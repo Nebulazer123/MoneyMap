@@ -1,5 +1,18 @@
 import { Transaction } from '../types';
 import * as MathLogic from '../math/transactionMath';
+import { isSubscriptionCategory } from '../categoryRules';
+
+/**
+ * Transaction Selectors - Public API Layer
+ * 
+ * This module provides the public API for filtering and aggregating transactions.
+ * Components should import from this module for consistency.
+ * 
+ * Architecture:
+ * - Selectors layer: Public API (this file) - filtering, grouping, aggregations
+ * - Math layer: Pure calculation functions (transactionMath.ts) - implementation details
+ * - Components should use selectors, not math functions directly
+ */
 
 // --- Core Filtering ---
 
@@ -86,8 +99,12 @@ export const getExpenseTransactions = (transactions: Transaction[]): Transaction
     return transactions.filter(t => t.kind === 'expense');
 };
 
+/**
+ * Get all subscription transactions using comprehensive detection.
+ * Matches the logic used in getTotalSubscriptions for consistency.
+ */
 export const getSubscriptionTransactions = (transactions: Transaction[]): Transaction[] => {
-    return transactions.filter(t => t.kind === 'subscription');
+    return transactions.filter(t => t.kind === 'subscription' || t.isSubscription || isSubscriptionCategory(t.category));
 };
 
 export const getFeeTransactions = (transactions: Transaction[]): Transaction[] => {
@@ -124,9 +141,13 @@ export const getFeeTotals = (transactions: Transaction[]): number => {
     return MathLogic.getFeeTotals(transactions);
 };
 
+/**
+ * Comprehensive subscription detection: checks kind, isSubscription flag, and category.
+ * This is the canonical way to identify subscription transactions.
+ */
 export const getTotalSubscriptions = (transactions: Transaction[]): number => {
     return transactions
-        .filter(t => t.kind === 'subscription')
+        .filter(t => t.kind === 'subscription' || t.isSubscription || isSubscriptionCategory(t.category))
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 };
 

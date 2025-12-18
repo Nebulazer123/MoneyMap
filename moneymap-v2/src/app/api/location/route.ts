@@ -1,14 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
+import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 // Using ipapi.co - FREE, no API key required!
 // Rate limit: 1,000 requests/day
 // Docs: https://ipapi.co/api/
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 50 requests per hour per IP
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_HOUR_50);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const { searchParams } = new URL(request.url);
     
     // Get IP from query or use client IP (empty = auto-detect)
     const ip = searchParams.get('ip') || '';
+    const cacheKey = getServerCacheKey('location', ip || 'auto');
+    
+    // Check cache first (24-hour TTL)
+    const cached = serverCache.get<{
+        ip: string;
+        location: unknown;
+        timezone: unknown;
+        currency: unknown;
+        network: unknown;
+    }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
+
     const endpoint = ip ? `https://ipapi.co/${ip}/json/` : 'https://ipapi.co/json/';
     
     try {
@@ -29,7 +55,7 @@ export async function GET(request: NextRequest) {
             throw new Error(data.reason || 'IP lookup failed');
         }
         
-        return NextResponse.json({
+        const result = {
             ip: data.ip,
             location: {
                 country: data.country_name,
@@ -59,9 +85,34 @@ export async function GET(request: NextRequest) {
                 asn: data.asn,
                 org: data.org,
             },
+        };
+        
+        // Cache for 24 hours
+        serverCache.set(cacheKey, result, CACHE_TTL.LOCATION);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('ipapi.co error:', error);
+        
+        // Try to return cached data on error
+        const staleCache = serverCache.get<{
+            ip: string;
+            location: unknown;
+            timezone: unknown;
+            currency: unknown;
+            network: unknown;
+        }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
+        
         return NextResponse.json({ 
             error: 'Failed to fetch location data',
             // Fallback to US defaults

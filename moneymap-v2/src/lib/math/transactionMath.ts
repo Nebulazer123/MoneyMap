@@ -1,4 +1,5 @@
 import { Transaction } from '../types';
+import { isSubscriptionCategory } from '../categoryRules';
 
 /**
  * Pure math functions for transaction calculations.
@@ -197,8 +198,9 @@ export interface SummaryMetrics {
 export const computeSummaryMetrics = (transactions: Transaction[]): SummaryMetrics => {
     const income = getNetIncome(transactions);
     const spending = getTotalSpending(transactions);
+    // Comprehensive subscription detection: kind, flag, or category
     const subscriptionTotal = transactions
-        .filter(t => t.kind === 'subscription' || t.isSubscription)
+        .filter(t => t.kind === 'subscription' || t.isSubscription || isSubscriptionCategory(t.category))
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const feeTotal = getFeeTotals(transactions);
 

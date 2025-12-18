@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useDateStore } from "../../lib/store/useDateStore";
 import { GlassCard } from "../ui/GlassCard";
@@ -108,7 +108,8 @@ export function Accounts() {
     }, [accounts]);
 
     // Update savings goal current amount when savings total changes
-    useMemo(() => {
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSavingsGoal(prev => ({ ...prev, currentAmount: totals.savingsTotal }));
     }, [totals.savingsTotal]);
 

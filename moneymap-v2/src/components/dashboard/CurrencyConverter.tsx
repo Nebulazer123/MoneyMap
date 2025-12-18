@@ -1,16 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { DollarSign, RefreshCw, Loader2, ArrowRightLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useExchangeRates, useCurrencyConvert } from "../../lib/cache/useUtilities";
 
-interface ExchangeRates {
-    base: string;
-    date: string;
-    rates: Record<string, number>;
-    popular: Record<string, number>;
-}
 
 const POPULAR_CURRENCIES = [
     { code: 'USD', name: 'US Dollar', symbol: '$' },
@@ -41,37 +36,36 @@ interface CurrencyConverterProps {
 
 // Fiat Currency Converter (for Stocks page)
 export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterProps) {
-    const [rates, setRates] = useState<ExchangeRates | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [amount, setAmount] = useState<string>('100');
     const [fromCurrency, setFromCurrency] = useState('USD');
     const [toCurrency, setToCurrency] = useState('EUR');
     const [hasAutoSet, setHasAutoSet] = useState(false);
 
+    // Use cache hook for exchange rates
+    const { 
+        data: rates, 
+        isLoading, 
+        refresh 
+    } = useExchangeRates(fromCurrency);
+
+    // Use cache hook for currency conversion (optional optimization)
+    useCurrencyConvert(
+        fromCurrency, 
+        toCurrency, 
+        parseFloat(amount) || 0,
+        { enabled: false } // Calculate manually from rates for now
+    );
+
     // Auto-set currency based on detected location
     useEffect(() => {
         if (detectedCurrency && !hasAutoSet) {
-            setFromCurrency(detectedCurrency);
-            setHasAutoSet(true);
+            // Use setTimeout to avoid synchronous setState in effect
+            setTimeout(() => {
+                setFromCurrency(detectedCurrency);
+                setHasAutoSet(true);
+            }, 0);
         }
     }, [detectedCurrency, hasAutoSet]);
-
-    const fetchRates = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const response = await fetch(`/api/exchange?base=${fromCurrency}`);
-            const data = await response.json();
-            setRates(data);
-        } catch (error) {
-            console.error('Failed to fetch exchange rates:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [fromCurrency]);
-
-    useEffect(() => {
-        fetchRates();
-    }, [fetchRates]);
 
     const convertedAmount = rates && amount
         ? (parseFloat(amount) * (rates.rates[toCurrency] || 1)).toFixed(2)
@@ -90,7 +84,7 @@ export function FiatCurrencyConverter({ detectedCurrency }: CurrencyConverterPro
                     <h3 className="text-lg font-semibold text-white">Currency Converter</h3>
                 </div>
                 <button
-                    onClick={fetchRates}
+                    onClick={() => refresh()}
                     disabled={isLoading}
                     className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                 >

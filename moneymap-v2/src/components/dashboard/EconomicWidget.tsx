@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
 import { GlassCard } from "../ui/GlassCard";
 import {
     RefreshCw,
@@ -10,11 +10,11 @@ import {
     Briefcase,
     LineChart,
     AlertCircle,
-    CheckCircle,
-    MinusCircle
+    CheckCircle
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../lib/store/useUIStore";
+import { useEconomicIndicators, type EconomicIndicator as EconomicIndicatorType } from "../../lib/cache/useUtilities";
 
 // ============================================================================
 // Types
@@ -68,7 +68,7 @@ const INDICATOR_CONFIG: Record<string, IndicatorConfig> = {
         bgGradient: "from-amber-950/40 via-amber-900/20 to-zinc-900/40",
         borderColor: "border-amber-500/30",
         iconBg: "bg-amber-500/20",
-        getBadge: (value) => {
+        getBadge: () => {
             // CPI is an index, so we don't show badges for it
             return null;
         }
@@ -201,12 +201,18 @@ function IndicatorCard({ indicator, config, formatValue }: IndicatorCardProps) {
 // ============================================================================
 
 export function EconomicWidget() {
-    const [indicators, setIndicators] = useState<EconomicIndicator[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-    const [isDemo, setIsDemo] = useState(false);
-
     const { apisEnabled } = useUIStore();
+
+    // Use cache hook for economic indicators
+    const { 
+        data: indicators = [], 
+        isLoading, 
+        error,
+        refresh,
+        lastUpdated 
+    } = useEconomicIndicators({ 
+        enabled: apisEnabled 
+    });
 
     // Demo data fallback when FRED API is unavailable
     const DEMO_INDICATORS: EconomicIndicator[] = [
@@ -216,51 +222,9 @@ export function EconomicWidget() {
         { id: 'DGS10', name: '10-Year Treasury', value: 4.25, date: '2024-12-01', unit: '%' },
     ];
 
-    const fetchEconomicData = useCallback(async () => {
-        // Respect global API toggle from Debug Panel
-        if (!apisEnabled) {
-            setIndicators(DEMO_INDICATORS);
-            setIsDemo(true);
-            setLastRefresh(new Date());
-            setIsLoading(false);
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const response = await fetch('/api/economy');
-            const data = await response.json();
-            if (data.indicators && data.indicators.length > 0) {
-                setIndicators(data.indicators);
-                setIsDemo(false);
-                setLastRefresh(new Date());
-            } else {
-                // Fall back to demo data
-                setIndicators(DEMO_INDICATORS);
-                setIsDemo(true);
-                setLastRefresh(new Date());
-            }
-        } catch (error) {
-            console.error('Failed to fetch economic data:', error);
-            // Fall back to demo data
-            setIndicators(DEMO_INDICATORS);
-            setIsDemo(true);
-            setLastRefresh(new Date());
-        } finally {
-            setIsLoading(false);
-        }
-    }, [apisEnabled]);
-
-    useEffect(() => {
-        fetchEconomicData();
-        if (!apisEnabled) {
-            // When APIs are disabled, don't set up a refresh interval
-            return;
-        }
-        // Refresh every 30 minutes (economic data doesn't change often)
-        const interval = setInterval(fetchEconomicData, 30 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [fetchEconomicData, apisEnabled]);
+    // Use demo data if APIs disabled or error occurred
+    const displayIndicators = (!apisEnabled || error || !indicators || indicators.length === 0) ? DEMO_INDICATORS : indicators;
+    const isDemo = !apisEnabled || error || !indicators || indicators.length === 0;
 
     const formatValue = (indicator: EconomicIndicator) => {
         if (indicator.unit === '%') {
@@ -288,7 +252,7 @@ export function EconomicWidget() {
                     </div>
                 </div>
                 <button
-                    onClick={fetchEconomicData}
+                    onClick={() => refresh()}
                     disabled={isLoading}
                     className={cn(
                         "p-2.5 rounded-xl transition-all duration-200",
@@ -302,7 +266,7 @@ export function EconomicWidget() {
             </div>
 
             {/* Loading State */}
-            {isLoading && indicators.length === 0 ? (
+            {isLoading && (!indicators || indicators.length === 0) ? (
                 <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
                     <span className="ml-3 text-zinc-400">Loading economic data...</span>
@@ -310,7 +274,7 @@ export function EconomicWidget() {
             ) : (
                 /* Indicator Grid - Macro Pulse Tiles */
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {indicators.map((indicator) => {
+                    {(indicators ?? []).map((indicator) => {
                         const config = INDICATOR_CONFIG[indicator.id];
                         if (!config) return null;
 
@@ -340,9 +304,9 @@ export function EconomicWidget() {
                         </>
                     )}
                 </p>
-                {lastRefresh && (
+                {lastUpdated && (
                     <p className="text-xs text-zinc-600">
-                        Updated {lastRefresh.toLocaleTimeString()}
+                        Updated {lastUpdated.toLocaleTimeString()}
                     </p>
                 )}
             </div>

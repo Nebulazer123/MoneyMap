@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
+import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
+import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 // Create instance for v3
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -27,6 +30,12 @@ function getRangeConfig(range: string): { days: number; interval: '1m' | '5m' | 
 }
 
 export async function GET(request: NextRequest) {
+    // Rate limiting: 30 requests per minute per IP
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_MINUTE_30);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const symbols = searchParams.get('symbols');
     const symbol = searchParams.get('symbol');
@@ -42,6 +51,41 @@ export async function GET(request: NextRequest) {
         if (action === 'chart' && symbol) {
             const range = searchParams.get('range') || '1mo';
             const { days, interval } = getRangeConfig(range);
+            
+            // Determine TTL based on range
+            const getChartTTL = () => {
+                switch (range) {
+                    case '1d': return CACHE_TTL.CHART_1D;
+                    case '5d': return CACHE_TTL.CHART_1W;
+                    case '1mo': return CACHE_TTL.CHART_1M;
+                    case '3mo':
+                    case '6mo':
+                    case '1y':
+                    case '5y':
+                    case 'max': return CACHE_TTL.CHART_1Y;
+                    default: return CACHE_TTL.CHART_1M;
+                }
+            };
+            
+            const cacheKey = getServerCacheKey('stocks', 'chart', symbol.toUpperCase(), range);
+
+            // Check cache first
+            const cached = serverCache.get<{
+                symbol: string;
+                timestamps: number[];
+                opens: number[];
+                highs: number[];
+                lows: number[];
+                closes: number[];
+                volumes: number[];
+                currency: string;
+            }>(cacheKey);
+            if (cached) {
+                return NextResponse.json({
+                    ...cached,
+                    cached: true,
+                });
+            }
 
             try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,9 +111,33 @@ export async function GET(request: NextRequest) {
                     currency: chartData.meta?.currency || 'USD',
                 };
 
-                return NextResponse.json(result);
+                // Cache based on range
+                serverCache.set(cacheKey, result, getChartTTL());
+
+                return NextResponse.json({
+                    ...result,
+                    cached: false,
+                });
             } catch (err) {
                 console.error('Chart error:', err);
+                // Try to return cached data on error
+                const staleCache = serverCache.get<{
+                    symbol: string;
+                    timestamps: number[];
+                    opens: number[];
+                    highs: number[];
+                    lows: number[];
+                    closes: number[];
+                    volumes: number[];
+                    currency: string;
+                }>(cacheKey);
+                if (staleCache) {
+                    return NextResponse.json({
+                        ...staleCache,
+                        cached: true,
+                        stale: true,
+                    });
+                }
                 return NextResponse.json({ error: 'Failed to fetch chart data' }, { status: 500 });
             }
         }
@@ -302,6 +370,17 @@ export async function GET(request: NextRequest) {
 
         // Get trending/popular stocks
         if (trending === 'true') {
+            const cacheKey = getServerCacheKey('stocks', 'trending');
+            
+            // Check cache first (15-minute TTL for trending)
+            const cached = serverCache.get<{ trending: unknown[] }>(cacheKey);
+            if (cached) {
+                return NextResponse.json({
+                    ...cached,
+                    cached: true,
+                });
+            }
+            
             try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const trendingData: any = await yf.trendingSymbols('US', { count: 25 });
@@ -326,17 +405,51 @@ export async function GET(request: NextRequest) {
                     })
                 );
                 
-                return NextResponse.json({ 
+                const result = { 
                     trending: quotesData.filter(q => q !== null) 
+                };
+                
+                // Cache for 15 minutes
+                serverCache.set(cacheKey, result, CACHE_TTL.TRENDING);
+                
+                return NextResponse.json({
+                    ...result,
+                    cached: false,
                 });
             } catch (err) {
                 console.error('Trending error:', err);
+                // Try to return cached data on error
+                const staleCache = serverCache.get<{ trending: unknown[] }>(cacheKey);
+                if (staleCache) {
+                    return NextResponse.json({
+                        ...staleCache,
+                        cached: true,
+                        stale: true,
+                    });
+                }
                 return NextResponse.json({ trending: [] });
             }
         }
 
         // Get detailed info for a single stock (includes chart, news, etc.)
         if (detail) {
+            const cacheKey = getServerCacheKey('stocks', 'detail', detail.toUpperCase());
+            
+            // Check cache first (1-minute TTL for detail)
+            const cached = serverCache.get<{
+                symbol: string;
+                quote: unknown;
+                charts: unknown;
+                news: unknown[];
+                insights: unknown;
+            }>(cacheKey);
+            if (cached) {
+                return NextResponse.json({
+                    ...cached,
+                    cached: true,
+                });
+            }
+            
             try {
                 // Fetch multiple data points in parallel
                 const [quote, chart1d, chart1w, chart1m, chart3m, chart1y, newsData, insights] = await Promise.all([
@@ -383,7 +496,7 @@ export async function GET(request: NextRequest) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const insightsResult: any = insights;
 
-                return NextResponse.json({
+                const result = {
                     symbol: detail,
                     quote: q ? {
                         symbol: q.symbol,
@@ -434,98 +547,186 @@ export async function GET(request: NextRequest) {
                         technicalEvents: insightsResult.technicalEvents,
                         companySnapshot: insightsResult.companySnapshot,
                     } : null,
+                };
+                
+                // Cache for 1 minute
+                serverCache.set(cacheKey, result, CACHE_TTL.LIVE_PRICES);
+                
+                return NextResponse.json({
+                    ...result,
+                    cached: false,
                 });
             } catch (err) {
                 console.error(`Error fetching details for ${detail}:`, err);
+                // Try to return cached data on error
+                const staleCache = serverCache.get<{
+                    symbol: string;
+                    quote: unknown;
+                    charts: unknown;
+                    news: unknown[];
+                    insights: unknown;
+                }>(cacheKey);
+                if (staleCache) {
+                    return NextResponse.json({
+                        ...staleCache,
+                        cached: true,
+                        stale: true,
+                    });
+                }
                 return NextResponse.json({ error: 'Failed to fetch stock details' }, { status: 500 });
             }
         }
 
         // Search for stocks by query
         if (search) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const results: any = await yf.search(search, {
-                quotesCount: 15,
-                newsCount: 0,
-            });
+            const cacheKey = getServerCacheKey('stocks', 'search', search.toLowerCase());
             
-            const quotes = (results.quotes || [])
-                .filter((q: { quoteType: string }) => q.quoteType === 'EQUITY' || q.quoteType === 'ETF')
-                .map((q: { symbol: string; shortname?: string; longname?: string; exchange?: string; quoteType?: string }) => ({
-                    symbol: q.symbol,
-                    name: q.shortname || q.longname || q.symbol,
-                    exchange: q.exchange,
-                    type: q.quoteType,
-                }));
+            // Check cache first (10-minute TTL for search results)
+            const cached = serverCache.get<{ quotes: unknown[] }>(cacheKey);
+            if (cached) {
+                return NextResponse.json({
+                    ...cached,
+                    cached: true,
+                });
+            }
             
-            return NextResponse.json({ quotes });
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const results: any = await yf.search(search, {
+                    quotesCount: 15,
+                    newsCount: 0,
+                });
+                
+                const quotes = (results.quotes || [])
+                    .filter((q: { quoteType: string }) => q.quoteType === 'EQUITY' || q.quoteType === 'ETF')
+                    .map((q: { symbol: string; shortname?: string; longname?: string; exchange?: string; quoteType?: string }) => ({
+                        symbol: q.symbol,
+                        name: q.shortname || q.longname || q.symbol,
+                        exchange: q.exchange,
+                        type: q.quoteType,
+                    }));
+                
+                const result = { quotes };
+                
+                // Cache for 10 minutes
+                serverCache.set(cacheKey, result, CACHE_TTL.SEARCH_RESULTS);
+                
+                return NextResponse.json({
+                    ...result,
+                    cached: false,
+                });
+            } catch (err) {
+                console.error('Search error:', err);
+                // Try to return cached data on error
+                const staleCache = serverCache.get<{ quotes: unknown[] }>(cacheKey);
+                if (staleCache) {
+                    return NextResponse.json({
+                        ...staleCache,
+                        cached: true,
+                        stale: true,
+                    });
+                }
+                return NextResponse.json({ quotes: [] });
+            }
         }
 
         // Get quotes for specific symbols
         if (symbols) {
             const symbolList = symbols.split(',').map(s => s.trim().toUpperCase());
             const includeSparkline = searchParams.get('sparkline') === 'true';
+            const cacheKey = getServerCacheKey('stocks', 'quotes', symbolList.join(','), includeSparkline ? 'sparkline' : 'no-sparkline');
             
-            const quotesData = await Promise.all(
-                symbolList.map(async (symbol) => {
-                    try {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const quote: any = await yf.quote(symbol);
-                        
-                        // Optionally fetch 7-day chart for sparkline
-                        let sparkline7d: number[] | undefined;
-                        if (includeSparkline) {
-                            try {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const chartData: any = await yf.chart(symbol, {
-                                    period1: getDateDaysAgo(7),
-                                    interval: '1d',
-                                });
-                                if (chartData?.quotes) {
-                                    sparkline7d = chartData.quotes
-                                        .map((q: { close: number }) => q.close)
-                                        .filter((v: number | null) => v !== null && !isNaN(v));
+            // Check cache first (1-minute TTL for quotes)
+            const cached = serverCache.get<{ quotes: unknown[] }>(cacheKey);
+            if (cached) {
+                return NextResponse.json({
+                    ...cached,
+                    cached: true,
+                });
+            }
+            
+            try {
+                const quotesData = await Promise.all(
+                    symbolList.map(async (symbol) => {
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const quote: any = await yf.quote(symbol);
+                            
+                            // Optionally fetch 7-day chart for sparkline
+                            let sparkline7d: number[] | undefined;
+                            if (includeSparkline) {
+                                try {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const chartData: any = await yf.chart(symbol, {
+                                        period1: getDateDaysAgo(7),
+                                        interval: '1d',
+                                    });
+                                    if (chartData?.quotes) {
+                                        sparkline7d = chartData.quotes
+                                            .map((q: { close: number }) => q.close)
+                                            .filter((v: number | null) => v !== null && !isNaN(v));
+                                    }
+                                } catch {
+                                    // Sparkline fetch failed, continue without it
                                 }
-                            } catch {
-                                // Sparkline fetch failed, continue without it
                             }
+                            
+                            return {
+                                symbol: quote.symbol || symbol,
+                                name: quote.shortName || quote.longName || symbol,
+                                price: quote.regularMarketPrice || 0,
+                                change: quote.regularMarketChange || 0,
+                                changePercent: quote.regularMarketChangePercent || 0,
+                                high: quote.regularMarketDayHigh || 0,
+                                low: quote.regularMarketDayLow || 0,
+                                open: quote.regularMarketOpen || 0,
+                                previousClose: quote.regularMarketPreviousClose || 0,
+                                volume: quote.regularMarketVolume || 0,
+                                marketCap: quote.marketCap || 0,
+                                fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh || 0,
+                                fiftyTwoWeekLow: quote.fiftyTwoWeekLow || 0,
+                                pe: quote.trailingPE || null,
+                                eps: quote.epsTrailingTwelveMonths || null,
+                                dividendYield: quote.dividendYield || null,
+                                beta: quote.beta || null,
+                                exchange: quote.fullExchangeName || quote.exchange || null,
+                                sparkline7d,
+                            };
+                        } catch (err) {
+                            console.error(`Error fetching ${symbol}:`, err);
+                            return null;
                         }
-                        
-                        return {
-                            symbol: quote.symbol || symbol,
-                            name: quote.shortName || quote.longName || symbol,
-                            price: quote.regularMarketPrice || 0,
-                            change: quote.regularMarketChange || 0,
-                            changePercent: quote.regularMarketChangePercent || 0,
-                            high: quote.regularMarketDayHigh || 0,
-                            low: quote.regularMarketDayLow || 0,
-                            open: quote.regularMarketOpen || 0,
-                            previousClose: quote.regularMarketPreviousClose || 0,
-                            volume: quote.regularMarketVolume || 0,
-                            marketCap: quote.marketCap || 0,
-                            fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh || 0,
-                            fiftyTwoWeekLow: quote.fiftyTwoWeekLow || 0,
-                            pe: quote.trailingPE || null,
-                            eps: quote.epsTrailingTwelveMonths || null,
-                            dividendYield: quote.dividendYield || null,
-                            beta: quote.beta || null,
-                            exchange: quote.fullExchangeName || quote.exchange || null,
-                            sparkline7d,
-                        };
-                    } catch (err) {
-                        console.error(`Error fetching ${symbol}:`, err);
-                        return null;
-                    }
-                })
-            );
+                    })
+                );
 
-            const validQuotes = quotesData.filter(q => q !== null);
-            return NextResponse.json({ quotes: validQuotes });
+                const validQuotes = quotesData.filter(q => q !== null);
+                const result = { quotes: validQuotes };
+                
+                // Cache for 1 minute
+                serverCache.set(cacheKey, result, CACHE_TTL.LIVE_PRICES);
+                
+                return NextResponse.json({
+                    ...result,
+                    cached: false,
+                });
+            } catch (err) {
+                console.error('Quotes error:', err);
+                // Try to return cached data on error
+                const staleCache = serverCache.get<{ quotes: unknown[] }>(cacheKey);
+                if (staleCache) {
+                    return NextResponse.json({
+                        ...staleCache,
+                        cached: true,
+                        stale: true,
+                    });
+                }
+                return NextResponse.json({ quotes: [] });
+            }
         }
 
         return NextResponse.json({ error: 'Missing symbols or search parameter' }, { status: 400 });
-    } catch (error) {
-        console.error('Yahoo Finance API error:', error);
+    } catch (err) {
+        console.error('Yahoo Finance API error:', err);
         return NextResponse.json({ error: 'Failed to fetch stock data' }, { status: 500 });
     }
 }

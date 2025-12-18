@@ -319,6 +319,41 @@ export function useCountries(
 }
 
 // ============================================
+// ECONOMIC INDICATORS
+// ============================================
+
+export interface EconomicIndicator {
+  id: string;
+  name: string;
+  value: number;
+  date: string;
+  unit: string;
+}
+
+export function useEconomicIndicators(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
+
+  return useCache<EconomicIndicator[]>(
+    'economy:indicators',
+    async () => {
+      const response = await fetch('/api/economy');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch economic indicators: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data.indicators || [];
+    },
+    {
+      ttl: 60 * 60 * 1000, // 1 hour - economic data doesn't change frequently
+      storage: 'session',
+      enabled,
+      staleWhileRevalidate: true,
+      fallbackData: [],
+    }
+  );
+}
+
+// ============================================
 // EMAIL VERIFICATION
 // ============================================
 
@@ -531,6 +566,8 @@ export default {
   // Countries
   useCountry,
   useCountries,
+  // Economic Indicators
+  useEconomicIndicators,
   // Email
   useEmailVerification,
   // Demo Data

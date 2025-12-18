@@ -34,6 +34,9 @@ interface UseCacheResult<T> {
     lastUpdated: Date | null;
 }
 
+// Track in-flight requests to prevent duplicate API calls
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
 export function useCache<T>(
     key: string,
     fetcher: () => Promise<T>,
@@ -78,14 +81,33 @@ export function useCache<T>(
                 if (staleWhileRevalidate && cacheManager.needsRefresh(key)) {
                     setIsRefreshing(true);
                     try {
-                        const freshData = await fetcherRef.current();
-                        cacheManager.set(key, freshData, { ttl, storage });
-                        setData(freshData);
-                        setLastUpdated(new Date());
-                        onSuccess?.(freshData);
+                        // Check if there's already an in-flight request for this key
+                        const existingRequest = inFlightRequests.get(key);
+                        if (existingRequest) {
+                            // Reuse existing promise
+                            const freshData = await existingRequest as T;
+                            cacheManager.set(key, freshData, { ttl, storage });
+                            setData(freshData);
+                            setLastUpdated(new Date());
+                            onSuccess?.(freshData);
+                        } else {
+                            // Create new request
+                            const requestPromise = fetcherRef.current();
+                            inFlightRequests.set(key, requestPromise);
+                            try {
+                                const freshData = await requestPromise;
+                                cacheManager.set(key, freshData, { ttl, storage });
+                                setData(freshData);
+                                setLastUpdated(new Date());
+                                onSuccess?.(freshData);
+                            } finally {
+                                inFlightRequests.delete(key);
+                            }
+                        }
                     } catch (err) {
                         // Keep stale data on background refresh failure
                         console.warn('Background refresh failed:', err);
+                        inFlightRequests.delete(key);
                     } finally {
                         setIsRefreshing(false);
                     }
@@ -102,8 +124,41 @@ export function useCache<T>(
         }
         setError(null);
 
+        // Check if there's already an in-flight request for this key
+        const existingRequest = inFlightRequests.get(key);
+        if (existingRequest && !force) {
+            // Reuse existing promise instead of making duplicate request
+            try {
+                const result = await existingRequest as T;
+                cacheManager.set(key, result, { ttl, storage });
+                setData(result);
+                setLastUpdated(new Date());
+                onSuccess?.(result);
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error('Unknown error');
+                setError(error);
+                onError?.(error);
+
+                // Try to return stale data on error
+                if (staleWhileRevalidate) {
+                    const stale = cacheManager.get<T>(key, { allowStale: true });
+                    if (stale) {
+                        setData(stale);
+                    }
+                }
+            } finally {
+                setIsLoading(false);
+                setIsRefreshing(false);
+            }
+            return;
+        }
+
+        // Create new request
         try {
-            const result = await fetcherRef.current();
+            const requestPromise = fetcherRef.current();
+            inFlightRequests.set(key, requestPromise);
+            
+            const result = await requestPromise;
             cacheManager.set(key, result, { ttl, storage });
             setData(result);
             setLastUpdated(new Date());
@@ -123,6 +178,7 @@ export function useCache<T>(
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
+            inFlightRequests.delete(key);
         }
     }, [key, ttl, storage, enabled, staleWhileRevalidate, onSuccess, onError]);
 

@@ -115,7 +115,6 @@ export function Dashboard() {
                     iconColor="text-purple-400"
                     trend="Healthy"
                     trendColor="text-purple-400"
-                    iconMarginLeft="0px"
                 />
 
                 {/* Subscriptions */}
@@ -126,7 +125,6 @@ export function Dashboard() {
                     iconColor="text-amber-400"
                     trend="3 active"
                     trendColor="text-zinc-400"
-                    iconMarginRight="10px"
                 />
 
                 {/* Fees */}
@@ -149,7 +147,7 @@ export function Dashboard() {
             <div className="mb-8">
                 <NewsFeed />
             </div>
-            </div>
+        </div>
         </GlassCard>
     );
 }
@@ -161,21 +159,13 @@ interface SummaryCardProps {
     iconColor: string;
     trend: string;
     trendColor: string;
-    iconMarginRight?: string;
-    iconMarginLeft?: string;
 }
 
-function SummaryCard({ title, value, icon: Icon, iconColor, trend, trendColor, iconMarginRight, iconMarginLeft }: SummaryCardProps) {
+function SummaryCard({ title, value, icon: Icon, iconColor, trend, trendColor }: SummaryCardProps) {
     return (
         <div className="relative group overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 backdrop-blur-xl p-5 transition-all duration-300 hover:bg-zinc-900/60 hover:border-white/10 hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-1 min-w-0">
             <div className="flex justify-between items-start mb-4 gap-2 min-w-0">
-                <div 
-                    className="p-2 rounded-full md:rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors flex-shrink-0"
-                    style={{
-                        ...(iconMarginRight && { marginRight: iconMarginRight }),
-                        ...(iconMarginLeft && { marginLeft: iconMarginLeft }),
-                    }}
-                >
+                <div className="p-2 rounded-full md:rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors flex-shrink-0">
                     <Icon className={cn("h-5 w-5", iconColor)} />
                 </div>
                 <span className={cn("text-xs font-medium px-2 py-1 rounded-full bg-white/5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full", trendColor)}>

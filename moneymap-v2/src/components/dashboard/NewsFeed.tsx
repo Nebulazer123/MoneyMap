@@ -5,13 +5,14 @@ import { GlassCard } from "../ui/GlassCard";
 import { Newspaper, RefreshCw, Loader2, ExternalLink, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../lib/store/useUIStore";
+import { useNews } from "../../lib/cache/useUtilities";
 
 interface NewsArticle {
     title: string;
     description: string;
     url: string;
-    image: string | null;
-    source: string;
+    image?: string | null;
+    source: { id: string | null; name: string } | string;
     publishedAt: string;
     author: string | null;
 }
@@ -20,9 +21,6 @@ interface NewsArticle {
 type NewsCategory = 'business' | 'technology' | 'general' | 'science';
 
 export function NewsFeed() {
-    const [articles, setArticles] = useState<NewsArticle[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSearch, setActiveSearch] = useState('');
     const [category, setCategory] = useState<NewsCategory>('business');
@@ -38,56 +36,55 @@ export function NewsFeed() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Trigger search when debounced value changes
+    // Use cache hook for news
+    const { 
+        data: articlesData = [], 
+        isLoading, 
+        error: newsError,
+        refresh 
+    } = useNews(
+        debouncedSearch.trim() || undefined,
+        { 
+            enabled: apisEnabled,
+            category: debouncedSearch.trim() ? undefined : category,
+            country: 'us'
+        }
+    );
+
+    // Sort articles by relevance
+    const articles = sortArticlesByRelevance(articlesData ?? [], debouncedSearch.trim() || undefined);
+    
+    // Set active search when articles change (for display only)
     useEffect(() => {
-        if (debouncedSearch.trim()) {
-            fetchNews(debouncedSearch);
+        if (articles.length > 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setActiveSearch(debouncedSearch.trim() || '');
         }
-    }, [debouncedSearch]);
+    }, [articles, debouncedSearch]);
 
-    const fetchNews = async (query?: string) => {
-        // Respect global API toggle from Debug Panel
-        if (!apisEnabled) {
-            setIsLoading(false);
-            setError("Live news API calls are disabled in the Debug Panel.");
-            setArticles([]);
-            return;
-        }
+    const error = newsError ? newsError.message : null;
 
-        setIsLoading(true);
-        setError(null);
-        try {
-            const endpoint = query
-                ? `/api/news?q=${encodeURIComponent(query)}`
-                : `/api/news?category=${category}`;
-
-            const response = await fetch(endpoint);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch news');
-            }
-
-            if (data.articles) {
-                // Phase 1: Basic relevance sorting
-                const sortedArticles = sortArticlesByRelevance(data.articles, query);
-                setArticles(sortedArticles);
-                setActiveSearch(query || '');
-            } else {
-                setArticles([]);
-            }
-        } catch (err) {
-            console.error('Failed to fetch news:', err);
-            setError('Unable to load news right now');
-            setArticles([]);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Search is handled by debouncedSearch and useNews hook
     };
+
+    const clearSearch = () => {
+        setSearchQuery('');
+        setActiveSearch('');
+        refresh();
+    };
+
+    // Load news when category changes (if no search query)
+    useEffect(() => {
+        if (!debouncedSearch.trim() && apisEnabled) {
+            refresh();
+        }
+    }, [category, apisEnabled, refresh, debouncedSearch]);
 
     // Phase 1: Basic relevance sorting function
     // Phase 2 will refine with deeper algorithms
-    const sortArticlesByRelevance = (articles: NewsArticle[], query?: string) => {
+    function sortArticlesByRelevance(articles: NewsArticle[], query?: string) {
         if (!query) {
             // No search query: sort by recency only
             return articles.sort((a, b) =>
@@ -111,8 +108,10 @@ export function NewsFeed() {
             if (b.description?.toLowerCase().includes(lowerQuery)) scoreB += 50;
 
             // Priority 3: Source match
-            if (a.source.toLowerCase().includes(lowerQuery)) scoreA += 25;
-            if (b.source.toLowerCase().includes(lowerQuery)) scoreB += 25;
+            const sourceA = typeof a.source === "string" ? a.source : a.source.name;
+            const sourceB = typeof b.source === "string" ? b.source : b.source.name;
+            if (sourceA.toLowerCase().includes(lowerQuery)) scoreA += 25;
+            if (sourceB.toLowerCase().includes(lowerQuery)) scoreB += 25;
 
             // Priority 4: Recency (newer = higher score, max 10 points)
             const daysDiffA = (Date.now() - new Date(a.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
@@ -122,30 +121,8 @@ export function NewsFeed() {
 
             return scoreB - scoreA;
         });
-    };
+    }
 
-    useEffect(() => {
-        if (!apisEnabled) {
-            setIsLoading(false);
-            setError("Live news API calls are disabled in the Debug Panel.");
-            setArticles([]);
-            return;
-        }
-        fetchNews();
-    }, [category, apisEnabled]);
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (searchQuery.trim()) {
-            fetchNews(searchQuery);
-        }
-    };
-
-    const clearSearch = () => {
-        setSearchQuery('');
-        setActiveSearch('');
-        fetchNews();
-    };
 
     return (
         <GlassCard className="p-6">
@@ -155,7 +132,7 @@ export function NewsFeed() {
                     <h3 className="text-lg font-semibold text-white">Recent News</h3>
                 </div>
                 <button
-                    onClick={() => fetchNews(activeSearch || undefined)}
+                    onClick={() => refresh()}
                     disabled={isLoading}
                     className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                 >
@@ -266,7 +243,7 @@ export function NewsFeed() {
                 <div className="text-center py-12">
                     <p className="text-amber-400/80">{error}</p>
                     <button
-                        onClick={() => fetchNews()}
+                        onClick={() => refresh()}
                         className="mt-3 text-sm text-blue-400 hover:text-blue-300"
                     >
                         Try again
@@ -310,7 +287,9 @@ export function NewsFeed() {
                                         </p>
                                     )}
                                     <div className="flex items-center gap-3 text-xs text-zinc-600">
-                                        <span className="font-medium">{article.source}</span>
+                                        <span className="font-medium">
+                                            {typeof article.source === "string" ? article.source : article.source.name}
+                                        </span>
                                         <span>•</span>
                                         <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
                                     </div>

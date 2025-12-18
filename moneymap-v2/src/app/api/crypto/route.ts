@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
+import { serverCache, getServerCacheKey } from '@/lib/cache/serverCache';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
+import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 /**
  * Crypto API - Yahoo Finance
@@ -13,28 +16,6 @@ import YahooFinance from 'yahoo-finance2';
  * - ?detail=BTC-USD → detailed view with charts
  * - ?trending=true → popular cryptos
  */
-
-// Rate limiting
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 30; // requests per minute
-const RATE_WINDOW = 60000; // 1 minute
-
-function checkRateLimit(ip: string): boolean {
-    const now = Date.now();
-    const record = rateLimitMap.get(ip);
-
-    if (!record || now > record.resetTime) {
-        rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
-        return true;
-    }
-
-    if (record.count >= RATE_LIMIT) {
-        return false;
-    }
-
-    record.count++;
-    return true;
-}
 
 // Create Yahoo Finance instance
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -54,13 +35,13 @@ function getDateDaysAgo(days: number): string {
 }
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-
-    // Rate limiting
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip)) {
-        return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    // Rate limiting: 30 requests per minute per IP
+    const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_MINUTE_30);
+    if (!rateLimitCheck.allowed) {
+        return rateLimitCheck.response!;
     }
+
+    const { searchParams } = new URL(request.url);
 
     try {
         // Get trending/popular cryptos
@@ -133,6 +114,17 @@ export async function GET(request: NextRequest) {
  * Fetch trending/popular cryptos
  */
 async function fetchTrending() {
+    const cacheKey = getServerCacheKey('crypto', 'trending');
+    
+    // Check cache first (15-minute TTL for trending)
+    const cached = serverCache.get<{ trending: unknown[]; source: string }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
+    
     try {
         const quotesData = await Promise.all(
             POPULAR_CRYPTOS.slice(0, 10).map(async (symbol) => {
@@ -153,12 +145,29 @@ async function fetchTrending() {
             })
         );
 
-        return NextResponse.json({
+        const result = {
             trending: quotesData.filter(q => q !== null),
             source: 'yahoo',
+        };
+        
+        // Cache for 15 minutes
+        serverCache.set(cacheKey, result, CACHE_TTL.TRENDING);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Trending fetch error:', error);
+        // Try to return cached data on error
+        const staleCache = serverCache.get<{ trending: unknown[]; source: string }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
         return NextResponse.json({ trending: [], source: 'yahoo' });
     }
 }
@@ -167,6 +176,17 @@ async function fetchTrending() {
  * Search cryptocurrencies
  */
 async function searchCryptos(query: string) {
+    const cacheKey = getServerCacheKey('crypto', 'search', query.toLowerCase());
+    
+    // Check cache first (10-minute TTL for search results)
+    const cached = serverCache.get<{ results: unknown[]; source: string }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
+    
     try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const results: any = await yf.search(query, {
@@ -188,12 +208,29 @@ async function searchCryptos(query: string) {
                 exchange: q.exchange,
             }));
 
-        return NextResponse.json({
+        const result = {
             results: cryptoResults,
             source: 'yahoo',
+        };
+        
+        // Cache for 10 minutes
+        serverCache.set(cacheKey, result, CACHE_TTL.SEARCH_RESULTS);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Search error:', error);
+        // Try to return cached data on error
+        const staleCache = serverCache.get<{ results: unknown[]; source: string }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
         return NextResponse.json({ results: [], source: 'yahoo' });
     }
 }
@@ -202,10 +239,24 @@ async function searchCryptos(query: string) {
  * Fetch detailed crypto data with charts
  */
 async function fetchDetail(symbol: string) {
+    // Ensure symbol has -USD suffix
+    const yahooSymbol = symbol.includes('-') ? symbol : `${symbol}-USD`;
+    const cacheKey = getServerCacheKey('crypto', 'detail', yahooSymbol);
+    
+    // Check cache first (1-minute TTL for detail)
+    const cached = serverCache.get<{
+        quote: unknown;
+        charts: unknown;
+        source: string;
+    }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
+    
     try {
-        // Ensure symbol has -USD suffix
-        const yahooSymbol = symbol.includes('-') ? symbol : `${symbol}-USD`;
-
         const [quote, chart1d, chart1w, chart1m, chart3m, chart1y] = await Promise.all([
             yf.quote(yahooSymbol).catch(() => null),
             yf.chart(yahooSymbol, { period1: getDateDaysAgo(1), interval: '5m' }).catch(() => null),
@@ -244,7 +295,7 @@ async function fetchDetail(symbol: string) {
             }, { status: 404 });
         }
 
-        return NextResponse.json({
+        const result = {
             quote: {
                 id: yahooSymbol,
                 symbol: yahooSymbol.replace('-USD', ''),
@@ -272,9 +323,30 @@ async function fetchDetail(symbol: string) {
                 '1Y': processChart(chart1y),
             },
             source: 'yahoo',
+        };
+        
+        // Cache for 1 minute
+        serverCache.set(cacheKey, result, CACHE_TTL.LIVE_PRICES);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Detail fetch error:', error);
+        // Try to return cached data on error
+        const staleCache = serverCache.get<{
+            quote: unknown;
+            charts: unknown;
+            source: string;
+        }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
         return NextResponse.json({
             quote: null,
             charts: { '1D': [], '1W': [], '1M': [], '3M': [], '1Y': [] },
@@ -288,12 +360,26 @@ async function fetchDetail(symbol: string) {
  * Fetch prices for multiple cryptos
  */
 async function fetchPrices(symbols: string) {
-    try {
-        const symbolList = symbols.split(',').map(s => {
-            const trimmed = s.trim().toUpperCase();
-            return trimmed.includes('-') ? trimmed : `${trimmed}-USD`;
+    const symbolList = symbols.split(',').map(s => {
+        const trimmed = s.trim().toUpperCase();
+        return trimmed.includes('-') ? trimmed : `${trimmed}-USD`;
+    });
+    const cacheKey = getServerCacheKey('crypto', 'prices', symbolList.join(','));
+    
+    // Check cache first (1-minute TTL for prices)
+    const cached = serverCache.get<{
+        quotes: unknown[];
+        count: number;
+        source: string;
+    }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
         });
-
+    }
+    
+    try {
         const quotesData = await Promise.all(
             symbolList.map(async (symbol) => {
                 try {
@@ -323,14 +409,34 @@ async function fetchPrices(symbols: string) {
         );
 
         const validQuotes = quotesData.filter(q => q !== null);
-
-        return NextResponse.json({
+        const result = {
             quotes: validQuotes,
             count: validQuotes.length,
             source: 'yahoo',
+        };
+        
+        // Cache for 1 minute
+        serverCache.set(cacheKey, result, CACHE_TTL.LIVE_PRICES);
+        
+        return NextResponse.json({
+            ...result,
+            cached: false,
         });
     } catch (error) {
         console.error('Prices fetch error:', error);
+        // Try to return cached data on error
+        const staleCache = serverCache.get<{
+            quotes: unknown[];
+            count: number;
+            source: string;
+        }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
         return NextResponse.json({
             quotes: [],
             count: 0,

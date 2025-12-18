@@ -87,7 +87,24 @@ export function Fees() {
     );
 }
 
-function FeeGroup({ title, fees, icon, emptyText, currency, dateFormatter }: any) {
+interface Fee {
+    id: string;
+    description: string;
+    merchantName?: string;
+    date: string;
+    amount: number;
+}
+
+interface FeeGroupProps {
+    title: string;
+    fees: Fee[];
+    icon: React.ReactNode;
+    emptyText: string;
+    currency: Intl.NumberFormat;
+    dateFormatter: Intl.DateTimeFormat;
+}
+
+function FeeGroup({ title, fees, icon, emptyText, currency, dateFormatter }: FeeGroupProps) {
     return (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
             <div className="mb-3 flex items-center gap-2">
@@ -100,7 +117,7 @@ function FeeGroup({ title, fees, icon, emptyText, currency, dateFormatter }: any
                 <div className="py-4 text-center text-xs text-zinc-500">{emptyText}</div>
             ) : (
                 <div className="space-y-3">
-                    {fees.map((fee: any) => (
+                    {fees.map((fee) => (
                         <div key={fee.id} className="flex items-center justify-between">
                             <div className="flex flex-col overflow-hidden">
                                 <span className="truncate text-xs font-medium text-zinc-300" title={fee.description}>

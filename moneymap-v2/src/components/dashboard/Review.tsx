@@ -10,15 +10,17 @@ import {
     getTotalSpending,
     getTotalSubscriptions,
     getCategoryTotals,
-    getInternalTransferTotals
+    getInternalTransferTotals,
+    getSubscriptionTransactions
 } from "../../lib/selectors/transactionSelectors";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn } from "../../lib/utils";
 import { detectAccountCandidates, CandidateAccount } from "../../lib/logic/accounts";
-import { Check, X, AlertTriangle } from "lucide-react";
+import { Check, X, AlertTriangle, Info } from "lucide-react";
 import { Account, Transaction } from "../../lib/types";
 import { isEssentialCategory } from "../../lib/categoryRules";
+import { getSurroundingContext, getSuspiciousTypeLabel } from "../../lib/derived/suspiciousSummary";
 
 export function Review() {
     const { transactions, accounts, addAccount, duplicateDecisions, setDuplicateDecision } = useDataStore();
@@ -27,6 +29,7 @@ export function Review() {
     const [isSubscriptionsOverlayOpen, setIsSubscriptionsOverlayOpen] = useState(false);
     const [isDuplicatesOverlayOpen, setIsDuplicatesOverlayOpen] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAccount | null>(null);
+    const [selectedSuspiciousTx, setSelectedSuspiciousTx] = useState<Transaction | null>(null);
 
     const currency = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -48,7 +51,10 @@ export function Review() {
     const totalSpending = useMemo(() => getTotalSpending(filteredTransactions), [filteredTransactions]);
     const net = totalIncome - totalSpending;
     const totalSubscriptions = useMemo(() => getTotalSubscriptions(filteredTransactions), [filteredTransactions]);
-    const subscriptionCount = useMemo(() => filteredTransactions.filter(t => t.kind === 'subscription').length, [filteredTransactions]);
+    const subscriptionCount = useMemo(
+        () => getSubscriptionTransactions(filteredTransactions).length,
+        [filteredTransactions]
+    );
     const internalTransfersTotal = useMemo(() => getInternalTransferTotals(filteredTransactions), [filteredTransactions]);
 
     // Calculate Average Daily Spending (I4)
@@ -156,6 +162,42 @@ export function Review() {
     // Account detection
     const existingAccountKeys = useMemo(() => new Set(accounts.map(a => a.id)), [accounts]);
     const detectedCandidates = useMemo(() => detectAccountCandidates(filteredTransactions, existingAccountKeys), [filteredTransactions, existingAccountKeys]);
+
+    // Get all charges for the merchant (including selected transaction) for More Info modal
+    const merchantCharges = useMemo(() => {
+        if (!selectedSuspiciousTx) return [];
+        const surrounding = getSurroundingContext(selectedSuspiciousTx, transactions);
+        // Combine selected transaction with surrounding context, sorted by date
+        const allCharges = [selectedSuspiciousTx, ...surrounding].sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        return allCharges;
+    }, [selectedSuspiciousTx, transactions]);
+
+    // Group subscriptions by merchant for overlay
+    const subscriptionMerchants = useMemo(() => {
+        const subs = getSubscriptionTransactions(filteredTransactions);
+        const groups = new Map<string, { merchant: string; count: number; total: number; transactions: Transaction[] }>();
+
+        subs.forEach(tx => {
+            const merchant = tx.merchantName || tx.description.split(' ')[0] || 'Unknown';
+            if (!groups.has(merchant)) {
+                groups.set(merchant, {
+                    merchant,
+                    count: 0,
+                    total: 0,
+                    transactions: []
+                });
+            }
+            const group = groups.get(merchant)!;
+            group.count++;
+            group.total += Math.abs(tx.amount);
+            group.transactions.push(tx);
+        });
+
+        // Sort by total descending
+        return Array.from(groups.values()).sort((a, b) => b.total - a.total);
+    }, [filteredTransactions]);
 
     return (
         <GlassCard intensity="medium" tint="indigo" className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -545,6 +587,14 @@ export function Review() {
 
                                                             <div className="flex gap-2">
                                                                 <button
+                                                                    onClick={() => setSelectedSuspiciousTx(tx)}
+                                                                    className="text-xs bg-zinc-700 text-white px-2 py-1 rounded hover:bg-zinc-600 transition flex items-center gap-1"
+                                                                    title="More Info"
+                                                                >
+                                                                    <Info className="h-3 w-3" />
+                                                                    More Info
+                                                                </button>
+                                                                <button
                                                                     onClick={() => setDuplicateDecision(tx.id, "confirmed")}
                                                                     className={cn(
                                                                         "p-1.5 rounded transition",
@@ -578,6 +628,250 @@ export function Review() {
                                 })
                             )}
                         </div>
+                    </GlassCard>
+                </div>
+            )}
+
+            {/* More Info Modal for Suspicious Transaction Context */}
+            {selectedSuspiciousTx && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <GlassCard className="w-full max-w-lg p-6 relative animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+                        <button
+                            onClick={() => setSelectedSuspiciousTx(null)}
+                            className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Header */}
+                        <div className="mb-4 pb-4 border-b border-white/10">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                                <span className="text-sm font-medium text-amber-400">
+                                    {getSuspiciousTypeLabel(selectedSuspiciousTx.suspiciousType)}
+                                </span>
+                            </div>
+                            <h3 className="text-lg font-bold text-white">{selectedSuspiciousTx.description}</h3>
+                            <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span className="text-amber-400 font-medium">{currency.format(selectedSuspiciousTx.amount)}</span>
+                                <span className="text-zinc-400">{dateFormatter.format(new Date(selectedSuspiciousTx.date))}</span>
+                            </div>
+                        </div>
+
+                        {/* Reason */}
+                        {selectedSuspiciousTx.suspiciousReason && (
+                            <div className="bg-amber-900/30 border border-amber-500/30 rounded-lg p-3 mb-4">
+                                <p className="text-sm text-amber-200">
+                                    {selectedSuspiciousTx.suspiciousReason}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* All Charges for This Merchant */}
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            <h4 className="text-sm font-semibold text-zinc-400 mb-3">
+                                All Charges from This Merchant (±45 days)
+                            </h4>
+                            {merchantCharges.length === 0 ? (
+                                <p className="text-sm text-zinc-500 italic">No charges found in this period.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {merchantCharges.map(tx => {
+                                        const isSuspicious = tx.isSuspicious;
+                                        const isSelected = tx.id === selectedSuspiciousTx.id;
+                                        const decision = duplicateDecisions[tx.id];
+                                        return (
+                                            <div key={tx.id} className={cn(
+                                                "flex justify-between items-start p-3 rounded-lg border",
+                                                isSuspicious
+                                                    ? "bg-amber-500/10 border-amber-500/30"
+                                                    : "bg-zinc-900/50 border-zinc-800/50",
+                                                isSelected && "ring-2 ring-amber-500/50"
+                                            )}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        {isSuspicious && (
+                                                            <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                                        )}
+                                                        <p className={cn(
+                                                            "text-sm",
+                                                            isSelected ? "font-medium text-amber-100" : "text-white"
+                                                        )}>{tx.description}</p>
+                                                        {isSelected && (
+                                                            <span className="text-xs bg-amber-500/30 text-amber-200 px-1.5 py-0.5 rounded">Selected</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-zinc-400 mb-1">{dateFormatter.format(new Date(tx.date))}</p>
+                                                    {isSuspicious && tx.suspiciousReason && (
+                                                        <p className="text-xs text-amber-400/80 italic">{tx.suspiciousReason}</p>
+                                                    )}
+                                                    {!isSuspicious && (
+                                                        <p className="text-xs text-zinc-500 italic">Normal charge</p>
+                                                    )}
+                                                </div>
+                                                <div className="ml-4 text-right">
+                                                    <span className={cn(
+                                                        "text-sm font-medium",
+                                                        isSuspicious ? "text-amber-400" : "text-white"
+                                                    )}>{currency.format(tx.amount)}</span>
+                                                    {isSuspicious && (
+                                                        <div className="mt-1 flex gap-1 justify-end">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setDuplicateDecision(tx.id, "confirmed");
+                                                                }}
+                                                                className={cn(
+                                                                    "p-1 rounded text-xs transition",
+                                                                    decision === 'confirmed'
+                                                                        ? "bg-rose-600 text-white"
+                                                                        : "bg-zinc-800 text-zinc-400 hover:bg-rose-600/20 hover:text-rose-400"
+                                                                )}
+                                                                title="Mark Suspicious"
+                                                            >
+                                                                Suspicious
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setDuplicateDecision(tx.id, "dismissed");
+                                                                }}
+                                                                className={cn(
+                                                                    "p-1 rounded text-xs transition",
+                                                                    decision === 'dismissed'
+                                                                        ? "bg-emerald-600 text-white"
+                                                                        : "bg-zinc-800 text-zinc-400 hover:bg-emerald-600/20 hover:text-emerald-400"
+                                                                )}
+                                                                title="All Good"
+                                                            >
+                                                                Normal
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 mt-4 pt-4 border-t border-white/10">
+                            <button
+                                onClick={() => {
+                                    setDuplicateDecision(selectedSuspiciousTx.id, "confirmed");
+                                }}
+                                className={cn(
+                                    "flex-1 py-2 rounded-lg font-medium transition",
+                                    duplicateDecisions[selectedSuspiciousTx.id] === 'confirmed'
+                                        ? "bg-rose-600 text-white"
+                                        : "bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-600/30"
+                                )}
+                            >
+                                Mark Suspicious
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setDuplicateDecision(selectedSuspiciousTx.id, "dismissed");
+                                }}
+                                className={cn(
+                                    "flex-1 py-2 rounded-lg font-medium transition",
+                                    duplicateDecisions[selectedSuspiciousTx.id] === 'dismissed'
+                                        ? "bg-emerald-600 text-white"
+                                        : "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-600/30"
+                                )}
+                            >
+                                All Good
+                            </button>
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
+
+            {/* Subscriptions Overlay Modal */}
+            {isSubscriptionsOverlayOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-8">
+                    <GlassCard className="w-full max-w-2xl p-6 relative animate-in zoom-in-95 duration-200 max-h-[70vh] flex flex-col">
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Active Subscriptions</h3>
+                                <p className="text-sm text-zinc-400">
+                                    {subscriptionCount === 0
+                                        ? "No subscriptions found for this period."
+                                        : `${subscriptionCount} service${subscriptionCount === 1 ? '' : 's'} • ${currency.format(totalSubscriptions)} total`}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsSubscriptionsOverlayOpen(false)}
+                                className="text-zinc-400 hover:text-white"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto pr-4 pb-4 space-y-3 flex-1 min-h-0 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-zinc-700/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+                            {subscriptionMerchants.length === 0 ? (
+                                <div className="text-center py-12 text-zinc-500">
+                                    <p>No subscriptions found for this period.</p>
+                                    <button
+                                        onClick={() => {
+                                            setIsSubscriptionsOverlayOpen(false);
+                                            setActiveTab('subscriptions');
+                                        }}
+                                        className="mt-4 text-sm text-purple-400 hover:text-purple-300 transition"
+                                    >
+                                        Go to Subscriptions tab →
+                                    </button>
+                                </div>
+                            ) : (
+                                subscriptionMerchants.map((group) => (
+                                    <div
+                                        key={group.merchant}
+                                        className="p-4 rounded-lg border border-white/10 bg-zinc-900/50 hover:bg-zinc-800/50 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-white truncate">{group.merchant}</p>
+                                                <p className="text-xs text-zinc-400 mt-0.5">
+                                                    {group.count} charge{group.count !== 1 ? 's' : ''} this period
+                                                </p>
+                                            </div>
+                                            <div className="text-right ml-4">
+                                                <p className="text-lg font-bold text-purple-400">{currency.format(group.total)}</p>
+                                            </div>
+                                        </div>
+                                        {group.transactions.length > 0 && (
+                                            <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                                                {group.transactions.slice(0, 3).map((tx) => (
+                                                    <div key={tx.id} className="flex items-center justify-between text-xs">
+                                                        <span className="text-zinc-400">{dateFormatter.format(new Date(tx.date))}</span>
+                                                        <span className="text-zinc-300">{currency.format(tx.amount)}</span>
+                                                    </div>
+                                                ))}
+                                                {group.transactions.length > 3 && (
+                                                    <p className="text-xs text-zinc-500 italic">
+                                                        +{group.transactions.length - 3} more charge{group.transactions.length - 3 !== 1 ? 's' : ''}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {subscriptionMerchants.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-white/5 flex-shrink-0">
+                                <button
+                                    onClick={() => {
+                                        setIsSubscriptionsOverlayOpen(false);
+                                        setActiveTab('subscriptions');
+                                    }}
+                                    className="w-full px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors border border-purple-500/30 text-sm font-medium"
+                                >
+                                    Manage All Subscriptions →
+                                </button>
+                            </div>
+                        )}
                     </GlassCard>
                 </div>
             )}

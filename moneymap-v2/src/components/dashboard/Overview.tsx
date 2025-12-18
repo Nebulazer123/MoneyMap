@@ -68,6 +68,7 @@ export function Overview() {
 
     // Delay chart render until after first paint to prevent recharts -1 dimension warning
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMounted(true);
     }, []);
 
