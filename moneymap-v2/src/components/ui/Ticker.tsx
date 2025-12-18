@@ -10,9 +10,6 @@ import {
     StarOff,
     ChevronDown,
     ChevronUp,
-    AlertCircle,
-    Activity,
-    BarChart3,
     Clock,
 } from "lucide-react";
 
@@ -218,6 +215,7 @@ function formatDate(dateStr: string | undefined): string {
 
 export function Ticker({
     data,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     type = "crypto",
     variant = "default",
     isFavorite = false,
@@ -231,7 +229,6 @@ export function Ticker({
 
     const isPositive = data.changePercent >= 0;
     const changeColor = isPositive ? "text-emerald-400" : "text-red-400";
-    const changeBg = isPositive ? "bg-emerald-500/10" : "bg-red-500/10";
 
     const handleClick = useCallback(() => {
         if (variant === "default") {

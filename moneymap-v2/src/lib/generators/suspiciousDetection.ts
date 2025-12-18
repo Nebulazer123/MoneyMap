@@ -269,7 +269,8 @@ export const analyzeTransaction = (tx: Transaction, allTransactions: Transaction
 
 // --- Injection Logic for Generation ---
 
-// Candidates for suspicious charges
+// Candidates for suspicious charges (reserved for future PLAN.md scenarios)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SUSPICIOUS_MERCHANT_CANDIDATES = [
     'Netflix', 'Spotify', 'Apple', 'Amazon Prime', 'Hulu', 'Disney+',
     'Adobe', 'Microsoft 365', 'iCloud', 'YouTube Premium', 'HBO Max',

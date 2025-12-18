@@ -17,14 +17,11 @@ import {
     Plus,
     X,
     BarChart3,
-    DollarSign,
     Activity,
     AlertCircle,
     ChevronRight,
     Building2,
     Flame,
-    Target,
-    Calendar,
     ArrowUpCircle,
     ArrowDownCircle,
     Zap,
@@ -109,7 +106,6 @@ function getMarketStatus(): MarketStatus {
 
     // Weekend check
     if (day === 0 || day === 6) {
-        const daysUntilMonday = day === 0 ? 1 : 2;
         return {
             isOpen: false,
             status: "Weekend",

@@ -5,7 +5,7 @@ import { useDataStore } from "../../lib/store/useDataStore";
 import { useUIStore } from "../../lib/store/useUIStore";
 import { useDateStore } from "../../lib/store/useDateStore";
 import { cn } from "../../lib/utils";
-import { ChevronUp, ChevronDown, RefreshCw, Trash2, Terminal, Calendar, Info, PlayCircle, PlusCircle } from "lucide-react";
+import { ChevronDown, RefreshCw, Trash2, Terminal, Calendar, PlusCircle } from "lucide-react";
 
 const MONTHS = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",

@@ -1138,7 +1138,7 @@ export function Crypto() {
                                                     )}
 
                                                     {/* News Section */}
-                                                    {CryptoDetail && Array.isArray(CryptoDetail.news) && CryptoDetail.news.length > 0 && (
+                                                                        {CryptoDetail && Array.isArray(CryptoDetail.news) && CryptoDetail.news.length > 0 && (
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-3">
                                                                 <Newspaper className="h-4 w-4 text-cyan-400" />
@@ -1153,13 +1153,15 @@ export function Crypto() {
                                                                         rel="noopener noreferrer"
                                                                         className="flex items-start gap-3 p-2 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors group"
                                                                     >
-                                                                        {news.thumbnail && (
-                                                                            <img
-                                                                                src={news.thumbnail}
-                                                                                alt=""
-                                                                                className="w-16 h-12 rounded object-cover flex-shrink-0"
-                                                                            />
-                                                                        )}
+                                                                {news.thumbnail && (
+                                                                    // External news thumbnail; provider CDN-optimized
+                                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                                    <img
+                                                                        src={news.thumbnail}
+                                                                        alt=""
+                                                                        className="w-16 h-12 rounded object-cover flex-shrink-0"
+                                                                    />
+                                                                )}
                                                                         <div className="flex-1 min-w-0">
                                                                             <p className="text-xs text-white line-clamp-2 group-hover:text-orange-300 transition-colors">
                                                                                 {news.title}

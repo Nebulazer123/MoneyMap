@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useCache, usePrefetch } from './useCache';
+import { useCache } from './useCache';
 import { CACHE_TTL } from './CacheManager';
 
 // ============================================
@@ -549,8 +549,8 @@ export async function generateMultipleUUIDs(count: number): Promise<string[]> {
   }
 }
 
-// Export all hooks
-export default {
+// Export all hooks/utilities
+const utilityHooks = {
   // Exchange
   useExchangeRates,
   useCurrencyConvert,
@@ -579,3 +579,5 @@ export default {
   generateUUID,
   generateMultipleUUIDs,
 };
+
+export default utilityHooks;

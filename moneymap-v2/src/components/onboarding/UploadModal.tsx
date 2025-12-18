@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
-import { Upload, X, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import { useDataStore } from '@/lib/store/useDataStore';
 import { useRouter } from 'next/navigation';
 

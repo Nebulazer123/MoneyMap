@@ -1275,6 +1275,7 @@ export function Stocks() {
                                                                         className="flex items-start gap-3 p-2 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors group"
                                                                     >
                                                                         {news.thumbnail && (
+                                                                            // eslint-disable-next-line @next/next/no-img-element
                                                                             <img
                                                                                 src={news.thumbnail}
                                                                                 alt=""

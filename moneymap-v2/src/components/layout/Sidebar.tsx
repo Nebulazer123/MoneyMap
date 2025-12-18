@@ -6,7 +6,7 @@ import { useDataStore } from '@/lib/store/useDataStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, X, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, LucideIcon, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, LucideIcon, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { MinigameModal } from '@/components/dashboard/MinigameModal';
 
@@ -15,22 +15,6 @@ export function Sidebar() {
     const { loadDemoData } = useDataStore();
     const router = useRouter();
     const [isMinigameOpen, setIsMinigameOpen] = useState(false);
-
-    // Tab color mapping for active underline indicators
-    const tabColors: Record<DashboardTab, string> = {
-        dashboard: 'border-b-white',
-        overview: 'border-b-blue-400',
-        statement: 'border-b-slate-400',
-        subscriptions: 'border-b-purple-400',
-        recurring: 'border-b-amber-400',
-        fees: 'border-b-pink-400',
-        cashflow: 'border-b-teal-400',
-        review: 'border-b-zinc-400',
-        budget: 'border-b-emerald-400',
-        accounts: 'border-b-amber-400',
-        stocks: 'border-b-lime-400',
-        crypto: 'border-b-orange-400',
-    };
 
     const navItems: { id: DashboardTab; label: string; icon: LucideIcon }[] = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

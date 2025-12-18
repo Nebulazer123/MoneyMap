@@ -342,7 +342,7 @@ export function useStockPortfolio(
 }
 
 // Export all hooks
-export default {
+const stockHooks = {
   useStockQuote,
   useStockQuotes,
   useStockChart,
@@ -352,3 +352,5 @@ export default {
   useStockPortfolio,
   usePrefetchStocks,
 };
+
+export default stockHooks;

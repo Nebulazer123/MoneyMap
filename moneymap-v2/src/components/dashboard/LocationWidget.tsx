@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { GlassCard } from "../ui/GlassCard";
 import { MapPin, Globe, Clock, DollarSign, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -38,7 +38,7 @@ export function LocationWidget({ onCurrencyDetected }: LocationWidgetProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState<string>('');
 
-    const fetchLocation = async () => {
+    const fetchLocation = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await fetch('/api/location');
@@ -62,11 +62,11 @@ export function LocationWidget({ onCurrencyDetected }: LocationWidgetProps) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [onCurrencyDetected]);
 
     useEffect(() => {
         fetchLocation();
-    }, []);
+    }, [fetchLocation]);
 
     // Update local time every second
     useEffect(() => {
@@ -127,6 +127,7 @@ export function LocationWidget({ onCurrencyDetected }: LocationWidgetProps) {
                     </div>
                     <div className="flex items-center gap-2 mb-1">
                         {location.location.flag && (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img 
                                 src={location.location.flag} 
                                 alt={location.location.country}

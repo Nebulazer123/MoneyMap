@@ -74,7 +74,6 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
     const [comboBreakAnimation, setComboBreakAnimation] = useState(false);
     const [screenShake, setScreenShake] = useState(false);
     const [multiplierActive, setMultiplierActive] = useState(false);
-    const [multiplierCountdown, setMultiplierCountdown] = useState(0);
     const [explosions, setExplosions] = useState<Array<{ x: number; y: number; id: string }>>([]);
     
     const gameAreaRef = useRef<HTMLDivElement>(null);
@@ -92,6 +91,25 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
             }
         }
     }, []);
+
+    const endGame = useCallback(() => {
+        setGameState("gameOver");
+        
+        if (score > highScore) {
+            setIsNewHighScore(true);
+            setHighScore(score);
+            if (typeof window !== "undefined") {
+                localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+            }
+        }
+
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (coinSpawnIntervalRef.current) {
+            clearInterval(coinSpawnIntervalRef.current);
+        }
+    }, [score, highScore]);
 
     // Calculate combo multiplier
     const getComboMultiplier = useCallback((comboCount: number) => {
@@ -194,7 +212,6 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
 
         if (coin.type === "multiplier") {
             setMultiplierActive(true);
-            setMultiplierCountdown(10);
             setCoins((prev) => prev.filter((c) => c.id !== coin.id));
             return;
         }
@@ -230,19 +247,12 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
 
         // Handle multiplier countdown
         if (multiplierActive) {
-            setMultiplierCountdown((prev) => {
-                const newCount = prev - 1;
-                if (newCount <= 0) {
-                    setMultiplierActive(false);
-                }
-                return newCount;
-            });
+            setMultiplierActive(false);
         }
 
         setCoins((prev) => prev.filter((c) => c.id !== coin.id));
     }, [coins, combo, maxCombo, getComboMultiplier, calculateSpawnRate, multiplierActive, checkCollision]);
 
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const loseLife = useCallback(() => {
         setLives((prev) => {
             const newLives = prev - 1;
@@ -250,8 +260,8 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
                 endGame();
                 return 0;
             }
-            setScreenShake(true);
-            setTimeout(() => setScreenShake(false), 300);
+                setScreenShake(true);
+                setTimeout(() => setScreenShake(false), 300);
             return newLives;
         });
         
@@ -260,7 +270,7 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
             setTimeout(() => setComboBreakAnimation(false), 500);
         }
         setCombo(0);
-    }, [combo]);
+    }, [combo, endGame]);
 
     // Animation loop for falling coins
     useEffect(() => {
@@ -346,58 +356,36 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
         setComboBreakAnimation(false);
         setScreenShake(false);
         setMultiplierActive(false);
-        setMultiplierCountdown(0);
         setExplosions([]);
         lastFrameTimeRef.current = performance.now();
     }, []);
-
-    const endGame = useCallback(() => {
-        setGameState("gameOver");
-        
-        if (score > highScore) {
-            setIsNewHighScore(true);
-            setHighScore(score);
-            if (typeof window !== "undefined") {
-                localStorage.setItem(HIGH_SCORE_KEY, score.toString());
-            }
-        }
-
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (coinSpawnIntervalRef.current) {
-            clearInterval(coinSpawnIntervalRef.current);
-        }
-    }, [score, highScore]);
 
     // Cleanup on unmount or close
     useEffect(() => {
         if (!isOpen) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setGameState("idle");
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setScore(0);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setCombo(0);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setMaxCombo(0);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setLives(INITIAL_LIVES);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setCoins([]);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setSpawnRate(BASE_SPAWN_INTERVAL);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setIsNewHighScore(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setComboBreakAnimation(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setScreenShake(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setMultiplierActive(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setMultiplierCountdown(0);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setExplosions([]);
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -471,11 +459,6 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
                                         </span>
                                     )}
                                 </div>
-                                {multiplierActive && (
-                                    <p className="text-[10px] text-purple-400 mt-1">
-                                        {multiplierCountdown} left
-                                    </p>
-                                )}
                             </div>
 
                             {/* Lives */}
@@ -575,7 +558,6 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
                                     <FallingCoinElement
                                         key={coin.id}
                                         coin={coin}
-                                        multiplier={multiplier}
                                     />
                                 ))}
                             </>
@@ -636,10 +618,9 @@ export function MinigameModal({ isOpen, onClose }: MinigameModalProps) {
 
 interface FallingCoinElementProps {
     coin: Coin;
-    multiplier: number;
 }
 
-function FallingCoinElement({ coin, multiplier }: FallingCoinElementProps) {
+function FallingCoinElement({ coin }: FallingCoinElementProps) {
     const urgency = coin.y > GAME_AREA_HEIGHT * 0.7;
     const isSpecial = coin.type === "bomb" || coin.type === "multiplier" || coin.type === "life";
 

@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useDataStore } from "../../lib/store/useDataStore";
-import { useDateStore } from "../../lib/store/useDateStore";
 import { GlassCard } from "../ui/GlassCard";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { cn } from "../../lib/utils";
@@ -11,7 +10,6 @@ import {
     ArrowUpRight, ArrowDownRight, Eye, EyeOff, Edit2, X, Check,
     Bitcoin, Link2, Target, Sparkles
 } from "lucide-react";
-import { getTotalSpending, getTransactionsInDateRange } from "../../lib/selectors/transactionSelectors";
 import { Account } from "../../lib/types";
 
 // Account Types Configuration
@@ -57,8 +55,7 @@ interface SavingsGoal {
 }
 
 export function Accounts() {
-    const { transactions, accounts, updateAccount, deleteAccount, addAccount, toggleAccountIncluded } = useDataStore();
-    const { viewStart, viewEnd } = useDateStore();
+    const { accounts, updateAccount, deleteAccount, addAccount, toggleAccountIncluded } = useDataStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
     const [showPlaidStub, setShowPlaidStub] = useState(false);
@@ -112,14 +109,6 @@ export function Accounts() {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSavingsGoal(prev => ({ ...prev, currentAmount: totals.savingsTotal }));
     }, [totals.savingsTotal]);
-
-    // Average Daily Spending (for display and Review sync)
-    const avgDailySpending = useMemo(() => {
-        const filteredTxns = getTransactionsInDateRange(transactions, viewStart, viewEnd);
-        const totalSpending = getTotalSpending(filteredTxns);
-        const daysDiff = Math.max(1, Math.ceil((viewEnd.getTime() - viewStart.getTime()) / (1000 * 60 * 60 * 24)));
-        return totalSpending / daysDiff;
-    }, [transactions, viewStart, viewEnd]);
 
     // Net Worth History (simple mock data for sparkline)
     const netWorthHistory = useMemo(() => {

@@ -6,8 +6,6 @@ import { Ticker, TickerSkeleton, TickerData } from "@/components/ui/Ticker";
 import { cn } from "@/lib/utils";
 import {
     Search,
-    TrendingUp,
-    TrendingDown,
     RefreshCw,
     Loader2,
     Wifi,
@@ -20,7 +18,6 @@ import {
     BarChart3,
     DollarSign,
     Activity,
-    Clock,
     AlertCircle,
     ChevronRight,
 } from "lucide-react";
@@ -216,6 +213,8 @@ function TrendingSection({
                         >
                             <div className="flex items-center gap-2 mb-2">
                                 <span className="text-xs font-bold text-zinc-500">#{index + 1}</span>
+                                {/* Crypto thumb uses provider-optimized CDN image */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src={item.thumb}
                                     alt={item.name}
@@ -351,7 +350,9 @@ function SearchModal({
                             }}
                             className="w-full flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-colors"
                         >
-                            <img
+                                {/* Provider thumb; Next Image not required here */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
                                 src={result.thumb}
                                 alt={result.name}
                                 className="w-8 h-8 rounded-full"
@@ -509,7 +510,7 @@ export default function CryptoPage() {
     }, [fetchGlobal, fetchTrending, fetchPrices, watchlist]);
 
     // Handle add crypto
-    const handleAddCrypto = useCallback((id: string, name: string) => {
+    const handleAddCrypto = useCallback((id: string) => {
         if (!watchlist.includes(id)) {
             const newWatchlist = [...watchlist, id];
             setWatchlist(newWatchlist);
@@ -543,7 +544,7 @@ export default function CryptoPage() {
     // Select from trending
     const handleSelectTrending = useCallback((id: string) => {
         if (!watchlist.includes(id)) {
-            handleAddCrypto(id, "");
+            handleAddCrypto(id);
         }
     }, [watchlist, handleAddCrypto]);
 

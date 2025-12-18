@@ -270,7 +270,7 @@ export function Overview() {
                                             }
                                         }}
                                     >
-                                        {groupedSpendingData.map((entry, index) => (
+                                        {groupedSpendingData.map((entry) => (
                                             <Cell
                                                 key={entry.id}
                                                 fill={`url(#gradient-${entry.id})`}

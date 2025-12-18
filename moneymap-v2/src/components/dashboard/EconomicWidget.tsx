@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../lib/store/useUIStore";
-import { useEconomicIndicators, type EconomicIndicator as EconomicIndicatorType } from "../../lib/cache/useUtilities";
+import { useEconomicIndicators } from "../../lib/cache/useUtilities";
 
 // ============================================================================
 // Types
@@ -223,8 +223,9 @@ export function EconomicWidget() {
     ];
 
     // Use demo data if APIs disabled or error occurred
-    const displayIndicators = (!apisEnabled || error || !indicators || indicators.length === 0) ? DEMO_INDICATORS : indicators;
-    const isDemo = !apisEnabled || error || !indicators || indicators.length === 0;
+    const usingDemoData = !apisEnabled || error || !indicators || indicators.length === 0;
+    const displayIndicators = usingDemoData ? DEMO_INDICATORS : indicators;
+    const isDemo = usingDemoData;
 
     const formatValue = (indicator: EconomicIndicator) => {
         if (indicator.unit === '%') {
@@ -274,7 +275,7 @@ export function EconomicWidget() {
             ) : (
                 /* Indicator Grid - Macro Pulse Tiles */
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {(indicators ?? []).map((indicator) => {
+                    {displayIndicators.map((indicator) => {
                         const config = INDICATOR_CONFIG[indicator.id];
                         if (!config) return null;
 

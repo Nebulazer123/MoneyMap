@@ -41,8 +41,7 @@ type ChargeType = 'visa' | 'ach' | 'online' | 'subscription';
 
 const formatDescription = (
     merchant: string,
-    chargeType: ChargeType,
-    descriptor?: string
+    chargeType: ChargeType
 ): string => {
     switch (chargeType) {
         case 'visa':
@@ -74,7 +73,7 @@ const formatDescription = (
 // --- Fee Types Pool (PLAN.md §5.5) ---
 // --- Fee Configuration (Phase 3) ---
 // ATM fees are consistent per merchant. Non-ATM fees are whole dollars.
-const getAtmFeeAmount = (merchant: string, rng: EngineRNG): number => {
+const getAtmFeeAmount = (merchant: string): number => {
     // Deterministic fee based on merchant name length/chars to keep it consistent per merchant
     const seed = merchant.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     // Range $2.50 - $4.50
@@ -118,7 +117,7 @@ export const generateTransactions = (
             type: 'atm' as const,
             name: `${name} Fee`,
             merchant: name,
-            amount: getAtmFeeAmount(name, profileRng) // Consistent per ATM
+            amount: getAtmFeeAmount(name) // Consistent per ATM
         })),
         ...myBankFees.map(name => {
             // Whole dollar amounts for bank fees ($10 - $50)

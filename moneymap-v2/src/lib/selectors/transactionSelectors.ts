@@ -16,11 +16,6 @@ import { isSubscriptionCategory } from '../categoryRules';
 
 // --- Core Filtering ---
 
-// Phase 2.1 view-range: Normalize any Date to local midnight (strips time component)
-const normalizeToLocalMidnight = (date: Date): Date => {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
 // Phase 2.1 view-range: Parse transaction date string to normalized local midnight Date
 // Handles both "YYYY-MM-DD" and full ISO strings like "2025-12-01T06:00:00.000Z"
 export const parseTransactionLocalDate = (txDate: string): Date => {

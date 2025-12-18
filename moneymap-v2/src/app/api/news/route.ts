@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
             
             return NextResponse.json({ error: data.message || 'Failed to fetch news' }, { status: 400 });
         } catch (error) {
+            console.error('News search error:', error);
             // Try to return cached data on error
             const staleCache = serverCache.get<{ articles: unknown[] }>(cacheKey);
             if (staleCache) {

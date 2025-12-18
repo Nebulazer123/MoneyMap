@@ -1,4 +1,4 @@
-import { Transaction, Account } from '../types';
+import { Transaction } from '../types';
 
 export const accountTypeLabels: Record<string, string> = {
     checking: "Checking",

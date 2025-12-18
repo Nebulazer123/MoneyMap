@@ -53,7 +53,7 @@ const DEFAULT_DEMO_ACCOUNTS: Account[] = [
 ];
 
 // Helper to generate accounts from profile (extended with demo accounts if empty)
-const generateAccountsFromProfile = (profile: LifestyleProfile): Account[] => {
+const generateAccountsFromProfile = (): Account[] => {
     // Return demo accounts for consistent display
     return DEFAULT_DEMO_ACCOUNTS;
 };
@@ -89,7 +89,7 @@ export const useDataStore = create<DataState>()(
 
                     set({
                         transactions: newTransactions,
-                        accounts: generateAccountsFromProfile(profile),
+                        accounts: generateAccountsFromProfile(),
                         currentProfile: profile,
                         isLoading: false
                     });
@@ -114,7 +114,7 @@ export const useDataStore = create<DataState>()(
 
                     set({
                         transactions: newTransactions,
-                        accounts: generateAccountsFromProfile(profile),
+                        accounts: generateAccountsFromProfile(),
                         currentProfile: profile,
                         isLoading: false
                     });

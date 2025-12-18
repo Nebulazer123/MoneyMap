@@ -273,7 +273,7 @@ export function useCryptoPortfolio(
 }
 
 // Export all hooks
-export default {
+const cryptoHooks = {
   useCryptoQuote,
   useCryptoQuotes,
   useCryptoChart,
@@ -282,3 +282,5 @@ export default {
   useCryptoPortfolio,
   usePrefetchCrypto,
 };
+
+export default cryptoHooks;

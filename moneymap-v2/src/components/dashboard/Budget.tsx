@@ -12,7 +12,7 @@ import { computeCarInsuranceMonthlySpend } from "../../lib/math/transactionMath"
 import { CAR_INSURANCE } from "../../lib/data/merchantPools";
 
 export function Budget() {
-    const { transactions, ownershipModes } = useDataStore();
+    const { transactions } = useDataStore();
     const { viewStart, viewEnd } = useDateStore();
 
     const currency = new Intl.NumberFormat("en-US", {
@@ -22,12 +22,13 @@ export function Budget() {
 
     // Phase 2.1 view-range: Filter ALL transactions through centralized helper
     // This ensures consistent month-based filtering across the entire Budget tab
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const filteredTransactions = useMemo(() => {
         return getTransactionsInDateRange(transactions, viewStart, viewEnd);
     }, [transactions, viewStart, viewEnd]);
 
     // Use the centralized filtered transactions for all calculations (no legacy dateRange)
-    const stats = useMemo(() => calculateSummaryStats(filteredTransactions, ownershipModes), [filteredTransactions, ownershipModes]);
+    const stats = useMemo(() => calculateSummaryStats(filteredTransactions), [filteredTransactions]);
     const budgetGuidance = useMemo(() => calculateBudgetGuidance(filteredTransactions, stats.totalIncome), [filteredTransactions, stats.totalIncome]);
 
     // Phase 2.3 car-insurance-box: Calculate car insurance monthly spend

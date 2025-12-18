@@ -209,6 +209,7 @@ export async function POST(request: NextRequest) {
             cached: false,
         });
     } catch (error) {
+        console.error('Currency conversion error:', error);
         // Try to return cached data on error
         const { from = 'USD', to = 'EUR', amount = 1 } = await request.json().catch(() => ({ from: 'USD', to: 'EUR', amount: 1 }));
         const cacheKey = getServerCacheKey('exchange', 'convert', from, to, String(amount));

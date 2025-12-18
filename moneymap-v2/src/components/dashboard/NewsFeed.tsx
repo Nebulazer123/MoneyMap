@@ -265,6 +265,7 @@ export function NewsFeed() {
                         >
                             <div className="flex gap-4">
                                 {article.image && (
+                                    // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                         src={article.image}
                                         alt={article.title}

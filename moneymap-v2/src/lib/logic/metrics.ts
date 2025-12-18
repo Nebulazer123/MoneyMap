@@ -1,5 +1,5 @@
-import { Transaction, Category, OwnershipMode } from '../types';
-import { isBillLikeCategory, isSubscriptionCategory, isBillishDescription, categoryToGroups } from '../categoryRules';
+import { Transaction } from '../types';
+import { isSubscriptionCategory, categoryToGroups } from '../categoryRules';
 import { transportGuideline, internetGuideline } from '../config';
 import { computeSummaryMetrics } from '../math/transactionMath';
 import { getInternalTransferTotals } from '../selectors/transactionSelectors';
@@ -17,7 +17,6 @@ export interface SummaryStats {
 
 export const calculateSummaryStats = (
     transactions: Transaction[],
-    ownershipModes: Record<string, OwnershipMode>
 ): SummaryStats => {
     // Use centralized computeSummaryMetrics for core calculations
     const metrics = computeSummaryMetrics(transactions);
@@ -116,8 +115,7 @@ export const calculateTopSpendingCategories = (
 };
 
 export const calculateNeedsVsWants = (
-    transactions: Transaction[],
-    totalIncome: number
+    transactions: Transaction[]
 ) => {
     let needs = 0;
     let wants = 0;

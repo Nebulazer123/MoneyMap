@@ -68,7 +68,6 @@ export function Cashflow() {
     const chartData = useMemo(() => {
         // Determine cutoff
         let cutoff = new Date(0);
-        const now = new Date(); // Use current date as reference for relative ranges if needed, but dailyBuckets is grounded in data.
 
         // Find latest date in data to anchor "relative" ranges if we wanted to anchor to data end.
         // However, standard UI usually anchors "1W" from "today" or "latest data". 
@@ -109,7 +108,6 @@ export function Cashflow() {
 
         const isDaily = chartTimeRange === '1W' || chartTimeRange === '1M' || chartTimeRange === '3M';
         const isWeekly = chartTimeRange === '6M';
-        const isMonthly = chartTimeRange === '1Y' || chartTimeRange === 'ALL';
 
         if (isDaily) {
             return filteredBuckets.map(b => {

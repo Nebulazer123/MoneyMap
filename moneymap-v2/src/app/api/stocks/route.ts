@@ -289,23 +289,7 @@ export async function GET(request: NextRequest) {
             const count = parseInt(searchParams.get('count') || '10');
 
             try {
-                // Use daily gainers/losers from Yahoo Finance
-                let screenerQuery = '';
-                switch (type) {
-                    case 'gainers':
-                        screenerQuery = 'day_gainers';
-                        break;
-                    case 'losers':
-                        screenerQuery = 'day_losers';
-                        break;
-                    case 'active':
-                        screenerQuery = 'most_actives';
-                        break;
-                    default:
-                        screenerQuery = 'day_gainers';
-                }
-
-                // Use screener or trending as fallback
+                // Use trending symbols to approximate daily movers
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const trendingData: any = await yf.trendingSymbols('US', { count: count * 2 });
                 const trendingSymbols = trendingData.quotes?.map((q: { symbol: string }) => q.symbol) || [];
