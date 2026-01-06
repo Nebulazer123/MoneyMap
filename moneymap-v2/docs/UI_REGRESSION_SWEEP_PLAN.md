@@ -195,3 +195,5 @@ Run this whole list after impactful UI changes or dependency upgrades.
 11. **Optional quick reset**.
     - Use "Restart Demo" in the Sidebar footer.
     - Confirm you are redirected appropriately and demo data resets without obvious glitches.
+
+

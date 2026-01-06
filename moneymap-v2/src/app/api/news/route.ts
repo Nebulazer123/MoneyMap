@@ -20,15 +20,56 @@ type NewsApiResponse = {
     message?: string;
 };
 
-// News API
-const NEWS_API_KEY = 'b04754f709c4439ea8e1a4a280c737cc';
+// News API - Key must be set via environment variable
+const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_BASE = 'https://newsapi.org/v2';
+
+// Demo fallback articles when no API key is configured
+const DEMO_ARTICLES = [
+    {
+        title: "Markets Rally on Economic Optimism",
+        description: "Stock markets reached new highs as investors responded positively to recent economic indicators.",
+        url: "#",
+        image: null,
+        source: "Demo News",
+        publishedAt: new Date().toISOString(),
+        author: "Demo"
+    },
+    {
+        title: "Tech Sector Leads Gains",
+        description: "Technology companies posted strong quarterly results, driving sector-wide gains.",
+        url: "#",
+        image: null,
+        source: "Demo News",
+        publishedAt: new Date().toISOString(),
+        author: "Demo"
+    },
+    {
+        title: "Federal Reserve Signals Steady Approach",
+        description: "Central bank officials indicated a measured approach to monetary policy in coming months.",
+        url: "#",
+        image: null,
+        source: "Demo News",
+        publishedAt: new Date().toISOString(),
+        author: "Demo"
+    }
+];
 
 export async function GET(request: NextRequest) {
     // Rate limiting: 10 requests per minute per IP (critical - only 100 calls/day)
     const rateLimitCheck = checkRateLimit(request, RATE_LIMITS.PER_MINUTE_10);
     if (!rateLimitCheck.allowed) {
         return rateLimitCheck.response!;
+    }
+
+    // Return demo data if no API key is configured
+    if (!NEWS_API_KEY) {
+        return NextResponse.json({
+            articles: DEMO_ARTICLES,
+            cached: false,
+            demo: true,
+            message: "Using demo data - NEWS_API_KEY not configured"
+        });
     }
 
     const { searchParams } = new URL(request.url);

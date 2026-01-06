@@ -582,3 +582,5 @@ The following routes have **NO RETRY MECHANISM** and fail immediately on error:
 - Client-side cache uses **sessionStorage** (default) or **localStorage** (for long-lived data)
 - Retry logic should use **exponential backoff** (e.g., 1s, 2s, 4s delays)
 - Never retry on **4xx errors** (client errors), only on **5xx** or **network errors**
+
+

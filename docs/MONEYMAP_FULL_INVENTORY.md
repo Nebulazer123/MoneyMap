@@ -615,3 +615,5 @@ This is a **TypeScript-heavy** codebase with 75+ typed source files; essentially
     - **What**: Either remove `src/app/api/weather/route.ts` (keeping it in a branch/spec) or protect it behind a feature flag so it’s clearly non-production.
     - **Why**: Shrinks the active surface area and reduces cognitive load when auditing external dependencies.
 
+
+

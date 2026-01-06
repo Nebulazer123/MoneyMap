@@ -14,7 +14,8 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/cache/rateLimiter';
  * - Check if email is disposable
  */
 
-const ABSTRACT_API_KEY = 'c06de9698fc14b549cc7ceea8ad2e6d1';
+// API key must be set via environment variable
+const ABSTRACT_API_KEY = process.env.ABSTRACT_EMAIL_API_KEY;
 const ABSTRACT_BASE = 'https://emailvalidation.abstractapi.com/v1';
 
 // In-memory cache for email verifications (30 days)
@@ -50,6 +51,19 @@ export async function GET(request: NextRequest) {
             reason: 'Invalid email format',
             cached: false,
             apiCalled: false,
+        });
+    }
+    
+    // If no API key configured, return format-only validation
+    if (!ABSTRACT_API_KEY) {
+        return NextResponse.json({
+            email,
+            valid: true,
+            reason: 'Format valid (full verification requires ABSTRACT_EMAIL_API_KEY)',
+            deliverable: 'unknown',
+            cached: false,
+            apiCalled: false,
+            demo: true,
         });
     }
     

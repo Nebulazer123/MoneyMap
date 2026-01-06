@@ -485,11 +485,13 @@ export function Accounts() {
                     Link your bank accounts to see real-time balances, track net worth over time, and get personalized insights.
                 </p>
                 <button
-                    onClick={() => setShowPlaidStub(true)}
-                    className="w-full px-4 py-3 bg-purple-600/30 text-purple-200 rounded-lg hover:bg-purple-600/40 transition-colors border border-purple-500/30 font-medium"
+                    disabled
+                    className="w-full px-4 py-3 bg-zinc-800/50 text-zinc-500 rounded-lg border border-zinc-700/50 font-medium cursor-not-allowed opacity-60"
+                    title="Bank connection via Plaid is planned for a future release"
                 >
                     <Sparkles className="inline h-4 w-4 mr-2" />
-                    Connect with Plaid (Coming Soon)
+                    Connect with Plaid
+                    <span className="ml-2 text-xs bg-zinc-700/50 px-2 py-0.5 rounded text-zinc-400">Phase 2</span>
                 </button>
             </GlassCard>
 

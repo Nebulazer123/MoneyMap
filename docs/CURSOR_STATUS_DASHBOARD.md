@@ -98,3 +98,5 @@
 - A clean `npm run dev`, `npm run build`, and `npm run lint` run after finishing the `API Performance Optimization` plan (server-side caching + rate limiting + component migrations) to confirm there are no lingering regressions.
 - Any Cursive-specific dev/build/test commands, once the relevant Cursive 2.0 and scroll-driven component repos/branches are identified.
 
+
+
