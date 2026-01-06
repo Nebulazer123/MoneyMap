@@ -629,11 +629,6 @@ export function Crypto() {
                 )}
             </div>
 
-            {/* Crypto Converter */}
-            <div className="mb-8">
-                <CryptoCurrencyConverter />
-            </div>
-
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="text-center flex-1">
@@ -1422,16 +1417,9 @@ export function Crypto() {
                 )}
             </GlassCard>
 
-            {/* Data Disclaimer */}
-            <div className="flex items-start gap-2 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                <Wifi className="h-4 w-4 text-orange-400 mt-0.5 flex-shrink-0" />
-                <div>
-                    <p className="text-sm text-orange-200">Live Market Data from CoinGecko</p>
-                    <p className="text-xs text-orange-400/70 mt-1">
-                        crypto prices, charts, and news are fetched in real-time from CoinGecko.
-                        <span className="text-amber-300"> Portfolio holdings shown are simulated for demonstration purposes.</span>
-                    </p>
-                </div>
+            {/* Crypto Converter */}
+            <div className="mt-8">
+                <CryptoCurrencyConverter />
             </div>
 
             {/* Browse All cryptos Modal */}

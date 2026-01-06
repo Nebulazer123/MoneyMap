@@ -279,19 +279,13 @@ export function CryptoCurrencyConverter({ detectedCurrency }: CurrencyConverterP
                     </div>
                 </div>
 
-                {/* Demo Rate Notice */}
+                {/* Exchange Rate Display */}
                 <div className="pt-4 border-t border-zinc-800/60">
                     <div className="flex items-center justify-between text-sm">
                         <span className="text-zinc-500">Exchange Rate</span>
                         <span className="text-white font-medium">
                             1 {cryptoFromCurrency} = {convertedCrypto} {cryptoToCrypto}
                         </span>
-                    </div>
-                    <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                        <p className="text-xs text-amber-400/80 text-center flex items-center justify-center gap-1">
-                            <span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
-                            Demo rate — live pricing requires API integration
-                        </p>
                     </div>
                 </div>
             </div>
