@@ -175,6 +175,13 @@ These items are **by design** for the demo:
 | `ABSTRACT_EMAIL_API_KEY` | Email verification | Free tier: 100/month |
 | `FRED_API_KEY` | Economic indicators | Falls back to 'demo' |
 | `OPENWEATHER_API_KEY` | Weather (unused) | Route exists but not wired |
+| `NEXT_PUBLIC_SHOW_DEBUG` | Show Debug Panel | Set to `true` to enable |
+
+### Debug Panel
+
+The Debug Panel is hidden by default for a cleaner employer-facing demo. To enable it:
+1. Set `NEXT_PUBLIC_SHOW_DEBUG=true` in `.env.local` (local dev) or Vercel environment variables
+2. Redeploy or restart the dev server
 
 ### Not Required
 

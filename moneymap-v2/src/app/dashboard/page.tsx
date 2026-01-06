@@ -60,12 +60,15 @@ export default function DashboardPage() {
         }
     };
 
+    // Debug Panel: Enable by setting NEXT_PUBLIC_SHOW_DEBUG=true in .env.local (or Vercel env vars) and redeploy.
+    const showDebug = process.env.NEXT_PUBLIC_SHOW_DEBUG === 'true';
+
     return (
         <div className="min-h-[calc(100vh-4rem)]">
             <div key={activeTab}>
             {renderTab()}
             </div>
-            <DebugPanel />
+            {showDebug && <DebugPanel />}
         </div>
     );
 }
