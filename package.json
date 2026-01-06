@@ -9,6 +9,7 @@
     "lint": "cd moneymap-v2 && npm run lint"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "next": "^16.0.7",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
