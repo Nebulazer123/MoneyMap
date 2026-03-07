@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Upload, PlayCircle } from "lucide-react";
+import { Button as HeroButton } from "@/components/ui/button-1";
 import { Button } from "@/components/ui/Button";
 import { UploadModal } from "@/components/onboarding/UploadModal";
 import { useDataStore } from "@/lib/store/useDataStore";
@@ -72,14 +73,14 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row gap-4">
-          <Button
+          <HeroButton
             size="lg"
-            className="gap-2 pl-6 pr-5 bg-white text-black hover:bg-zinc-200"
+            className="gap-2 pl-6 pr-5 bg-white text-black hover:bg-zinc-200 rounded-full"
             onClick={handleDemo}
           >
             <PlayCircle className="h-4 w-4" />
-            Try Demo
-          </Button>
+            Get Started
+          </HeroButton>
 
           <Button
             size="lg"

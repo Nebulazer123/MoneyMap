@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-destructive-foreground: var(--destructive-foreground);
+}
 
 @theme {
     --color-background: var(--background);
@@ -14,6 +19,7 @@
 }
 
 :root {
+    --destructive-foreground: oklch(1 0 0);
     --background: #000000;
     --foreground: #ffffff;
     --glass: rgba(255, 255, 255, 0.03);
@@ -59,6 +65,10 @@
     --glass-tint-orange-strong: rgba(251, 146, 60, var(--glass-tint-opacity-strong));
     --glass-tint-yellow-strong: rgba(250, 204, 21, var(--glass-tint-opacity-strong));
     --glass-tint-pink-strong: rgba(236, 72, 153, var(--glass-tint-opacity-strong));
+}
+
+.dark {
+    --destructive-foreground: oklch(1 0 0);
 }
 
 body {
