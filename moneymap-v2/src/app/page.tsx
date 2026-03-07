@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Upload, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { StarButton } from "@/components/ui/star-button";
 import { UploadModal } from "@/components/onboarding/UploadModal";
 import { useDataStore } from "@/lib/store/useDataStore";
 import { useRouter } from "next/navigation";
@@ -81,15 +82,14 @@ export default function Home() {
             Try Demo
           </Button>
 
-          <Button
-            size="lg"
-            variant="secondary"
-            className="gap-2 pl-6 pr-5 border-white/20 hover:bg-white/10"
+          <StarButton
+            lightColor="#FAFAFA"
+            className="rounded-3xl pl-6 pr-5 h-11 text-sm border border-white/20"
             onClick={() => setIsUploadOpen(true)}
           >
             <Upload className="h-4 w-4" />
             Upload Statement
-          </Button>
+          </StarButton>
         </div>
       </div>
     </div>
