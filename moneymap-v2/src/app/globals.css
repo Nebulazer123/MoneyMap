@@ -11,6 +11,7 @@
 
     --animate-fade-in: fadeIn 0.5s ease-out;
     --animate-slide-up: slideUp 0.5s ease-out;
+    --animate-star-btn: star-btn calc(var(--duration)*1s) linear infinite;
 }
 
 :root {
@@ -232,6 +233,15 @@ body {
     100% {
         opacity: 0;
         transform: translate(-50%, -50%) scale(1.2);
+    }
+}
+
+@keyframes star-btn {
+    0% {
+        offset-distance: 0%;
+    }
+    100% {
+        offset-distance: 100%;
     }
 }
 
