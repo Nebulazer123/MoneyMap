@@ -62,7 +62,7 @@ export function Sidebar() {
             {/* Sidebar Container */}
             <aside
                 className={cn(
-                    "fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out",
+                    "fixed inset-y-0 left-0 z-40 w-16 md:w-64 transform transition-transform duration-300 ease-in-out",
                     "bg-black/20 backdrop-blur-[40px] border-r border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
                     isSidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}
@@ -71,10 +71,10 @@ export function Sidebar() {
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent pointer-events-none" />
 
-                <div className="relative flex h-full min-h-0 flex-col p-6">
+                <div className="relative flex h-full min-h-0 flex-col p-2 md:p-6">
                     {/* Logo & Toggle */}
-                    <div className="mb-10 flex shrink-0 items-center justify-between px-2">
-                        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-all duration-300 group">
+                    <div className="mb-6 flex shrink-0 items-center justify-center px-0 md:mb-10 md:justify-between md:px-2">
+                        <Link href="/" className="flex items-center justify-center gap-3 hover:opacity-90 transition-all duration-300 group md:justify-start">
                             {/* Custom MoneyMap Logo - Enhanced */}
                             <div className="relative flex h-12 w-12 items-center justify-center">
                                 {/* Animated outer glow rings - reduced 50% */}
@@ -109,7 +109,7 @@ export function Sidebar() {
                             </div>
 
                             {/* Logo text with enhanced gradient */}
-                            <div className="flex flex-col">
+                            <div className="hidden flex-col md:flex">
                                 <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]">
                                     MoneyMap
                                 </span>
@@ -118,14 +118,14 @@ export function Sidebar() {
                         </Link>
                         <button
                             onClick={toggleSidebar}
-                            className="text-zinc-400 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg"
+                            className="hidden text-zinc-400 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg md:block"
                         >
                             <ChevronsLeft className="h-5 w-5" />
                         </button>
                     </div>
 
                     {/* Navigation */}
-                    <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                    <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 md:space-y-1 md:pr-1">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const route = tabRoutes[item.id];
@@ -143,7 +143,7 @@ export function Sidebar() {
                                         if (window.innerWidth < 768) toggleSidebar();
                                     }}
                                     className={cn(
-                                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-400 relative overflow-hidden",
+                                        "flex w-full items-center justify-center gap-0 rounded-xl px-2 py-3 text-sm font-medium transition-all duration-400 relative overflow-hidden md:justify-start md:gap-3 md:px-4",
                                         "backdrop-blur-xl glass-optimized shadow-[0_2px_8px_rgba(0,0,0,0.3)]",
                                         isActive ? (
                                             item.id === 'dashboard' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(255,255,255,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-white/20' :
@@ -199,14 +199,14 @@ export function Sidebar() {
                                                                                         'text-zinc-400'
                                         ) : "text-zinc-500"
                                     )} />
-                                    <span className="relative z-10">{item.label}</span>
+                                    <span className="relative z-10 hidden md:inline">{item.label}</span>
                                 </button>
                             );
                         })}
                     </nav>
 
                     {/* Footer */}
-                    <div className="mt-auto shrink-0 pt-6 border-t border-white/10 space-y-3">
+                    <div className="mt-auto hidden shrink-0 space-y-3 border-t border-white/10 pt-6 md:block">
                         <button
                             onClick={() => {
                                 loadDemoData();

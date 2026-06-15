@@ -93,7 +93,7 @@ The included `vercel.json` points Vercel at the nested `moneymap-v2` app:
 ```json
 {
   "framework": "nextjs",
-  "installCommand": "cd moneymap-v2 && npm install",
+  "installCommand": "npm install && cd moneymap-v2 && npm install",
   "buildCommand": "cd moneymap-v2 && npm run build",
   "outputDirectory": "moneymap-v2/.next"
 }

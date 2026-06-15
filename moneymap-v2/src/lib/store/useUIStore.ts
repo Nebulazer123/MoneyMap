@@ -13,6 +13,7 @@ interface UIState {
     setActiveTab: (tab: DashboardTab) => void;
     setDateRange: (range: DateRange) => void;
     toggleSidebar: () => void;
+    setSidebarOpen: (open: boolean) => void;
     setApisEnabled: (enabled: boolean) => void;
 }
 
@@ -40,16 +41,25 @@ export const useUIStore = create<UIState>()(
             setActiveTab: (tab) => set({ activeTab: tab }),
             setDateRange: (range) => set({ dateRange: range }),
             toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+            setSidebarOpen: (open) => set({ isSidebarOpen: open }),
             setApisEnabled: (enabled) => set({ apisEnabled: enabled }),
         }),
         {
             name: 'moneymap-ui-storage',
             partialize: (state) => ({
                 activeTab: state.activeTab,
-                isSidebarOpen: state.isSidebarOpen,
                 // Date range might be better not persisted or carefully persisted to avoid stale dates
                 dateRange: state.dateRange,
             }),
+            merge: (persistedState, currentState) => {
+                const persisted = persistedState as Partial<UIState> | undefined;
+
+                return {
+                    ...currentState,
+                    activeTab: persisted?.activeTab ?? currentState.activeTab,
+                    dateRange: persisted?.dateRange ?? currentState.dateRange,
+                };
+            },
         }
     )
 );

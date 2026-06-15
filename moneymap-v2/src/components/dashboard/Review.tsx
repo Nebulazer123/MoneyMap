@@ -208,23 +208,23 @@ export function Review() {
 
             {/* Main Layout */}
             <div className="space-y-6">
-                {/* Metrics Grid - 3 Columns */}
-                <div className="grid gap-4 sm:grid-cols-3">
+                {/* Metrics Grid */}
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {/* My Accounts */}
                     <GlassCard className="p-5">
                         <p className="text-sm font-semibold text-white mb-4">My Accounts</p>
                         <div className="space-y-3 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span className="text-zinc-400">Income</span>
-                                <span className="font-medium text-emerald-400">{currency.format(totalIncome)}</span>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                <span className="min-w-0 text-zinc-400">Income</span>
+                                <span className="shrink-0 text-right font-medium tabular-nums text-emerald-400">{currency.format(totalIncome)}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-zinc-400">Spending</span>
-                                <span className="font-medium text-rose-400">{currency.format(totalSpending)}</span>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                <span className="min-w-0 text-zinc-400">Spending</span>
+                                <span className="shrink-0 text-right font-medium tabular-nums text-rose-400">{currency.format(totalSpending)}</span>
                             </div>
-                            <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                                <span className="text-zinc-400">Net</span>
-                                <span className={cn("font-bold", net >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-white/5 pt-2">
+                                <span className="min-w-0 text-zinc-400">Net</span>
+                                <span className={cn("shrink-0 text-right font-bold tabular-nums", net >= 0 ? "text-emerald-400" : "text-rose-400")}>
                                     {currency.format(net)}
                                 </span>
                             </div>
@@ -238,13 +238,13 @@ export function Review() {
                             <InfoTooltip text="Click to view details" />
                         </div>
                         <div className="space-y-3 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span className="text-zinc-400">Active</span>
-                                <span className="font-medium text-white">{subscriptionCount} services</span>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                <span className="min-w-0 text-zinc-400">Active</span>
+                                <span className="shrink-0 text-right font-medium text-white">{subscriptionCount} services</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-zinc-400">Total Cost</span>
-                                <span className="font-bold text-white">{currency.format(totalSubscriptions)}</span>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                <span className="min-w-0 text-zinc-400">Total Cost</span>
+                                <span className="shrink-0 text-right font-bold tabular-nums text-white">{currency.format(totalSubscriptions)}</span>
                             </div>
                             <div className="pt-2 border-t border-white/5">
                                 <button
@@ -265,9 +265,9 @@ export function Review() {
                         </div>
                         <div className="space-y-3 text-sm">
                             {topCategories.slice(0, 3).map((item) => (
-                                <div key={item.category} className="flex justify-between items-center">
-                                    <span className="text-zinc-400 truncate">{item.category}</span>
-                                    <span className="font-medium text-white">{currency.format(item.amount)}</span>
+                                <div key={item.category} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                    <span className="min-w-0 truncate text-zinc-400">{item.category}</span>
+                                    <span className="shrink-0 text-right font-medium tabular-nums text-white">{currency.format(item.amount)}</span>
                                 </div>
                             ))}
                         </div>
@@ -275,7 +275,7 @@ export function Review() {
                 </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6 mb-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 mt-6 mb-6">
                 <GlassCard className="p-5">
                     <p className="text-sm font-semibold text-white">Internal transfers</p>
                     <p className="mt-2 text-xl font-semibold text-white">{currency.format(internalTransfersTotal)}</p>

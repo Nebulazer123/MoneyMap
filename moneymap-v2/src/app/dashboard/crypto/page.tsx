@@ -411,17 +411,14 @@ function SearchModal({
 
 export default function CryptoPage() {
     // State
-    const [watchlist, setWatchlist] = useState<string[]>(() =>
-        readStringArrayFromStorage("crypto_watchlist", DEFAULT_CRYPTOS)
-    );
-    const [favorites, setFavorites] = useState<Set<string>>(
-        () => new Set(readStringArrayFromStorage("crypto_favorites", []))
-    );
+    const [watchlist, setWatchlist] = useState<string[]>(DEFAULT_CRYPTOS);
+    const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
     const [cryptoData, setCryptoData] = useState<Record<string, TickerData>>({});
     const [globalData, setGlobalData] = useState<GlobalData | null>(null);
     const [trending, setTrending] = useState<TrendingCoin[]>([]);
 
+    const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isGlobalLoading, setIsGlobalLoading] = useState(true);
@@ -431,14 +428,27 @@ export default function CryptoPage() {
     const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // Load persisted watchlist after mount so SSR and hydration render the same defaults.
+    useEffect(() => {
+        const timeout = window.setTimeout(() => {
+            setWatchlist(readStringArrayFromStorage("crypto_watchlist", DEFAULT_CRYPTOS));
+            setFavorites(new Set(readStringArrayFromStorage("crypto_favorites", [])));
+            setHasLoadedStorage(true);
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
+    }, []);
+
     // Persist to localStorage
     useEffect(() => {
+        if (!hasLoadedStorage) return;
         localStorage.setItem("crypto_watchlist", JSON.stringify(watchlist));
-    }, [watchlist]);
+    }, [hasLoadedStorage, watchlist]);
 
     useEffect(() => {
+        if (!hasLoadedStorage) return;
         localStorage.setItem("crypto_favorites", JSON.stringify([...favorites]));
-    }, [favorites]);
+    }, [favorites, hasLoadedStorage]);
 
     // Fetch global data
     const fetchGlobal = useCallback(async () => {
@@ -472,7 +482,11 @@ export default function CryptoPage() {
 
     // Fetch crypto prices
     const fetchPrices = useCallback(async (ids: string[], isRefresh = false) => {
-        if (ids.length === 0) return;
+        if (ids.length === 0) {
+            setIsLoading(false);
+            setIsRefreshing(false);
+            return;
+        }
 
         if (isRefresh) {
             setIsRefreshing(true);
@@ -511,6 +525,8 @@ export default function CryptoPage() {
 
     // Initial load
     useEffect(() => {
+        if (!hasLoadedStorage) return;
+
         const timeout = window.setTimeout(() => {
             fetchGlobal();
             fetchTrending();
@@ -518,17 +534,18 @@ export default function CryptoPage() {
         }, 0);
 
         return () => window.clearTimeout(timeout);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchGlobal, fetchPrices, fetchTrending, hasLoadedStorage, watchlist]);
 
     // Auto-refresh every 60 seconds
     useEffect(() => {
+        if (!hasLoadedStorage) return;
+
         const interval = setInterval(() => {
             fetchPrices(watchlist, true);
         }, 60000);
 
         return () => clearInterval(interval);
-    }, [watchlist, fetchPrices]);
+    }, [watchlist, fetchPrices, hasLoadedStorage]);
 
     // Handle refresh
     const handleRefresh = useCallback(() => {
@@ -592,14 +609,14 @@ export default function CryptoPage() {
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
-            <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <header className="flex flex-col gap-4 min-[980px]:flex-row min-[980px]:items-center min-[980px]:justify-between">
+                <div className="min-w-0">
+                    <h1 className="flex min-w-0 items-center gap-3 text-2xl font-bold tracking-tight sm:text-3xl">
                         Cryptocurrency
                         {isOnline ? (
-                            <Wifi className="w-5 h-5 text-emerald-400" />
+                            <Wifi className="h-5 w-5 shrink-0 text-emerald-400" />
                         ) : (
-                            <WifiOff className="w-5 h-5 text-red-400" />
+                            <WifiOff className="h-5 w-5 shrink-0 text-red-400" />
                         )}
                     </h1>
                     <p className="text-zinc-400 mt-1">
@@ -612,24 +629,26 @@ export default function CryptoPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-[980px]:shrink-0">
                     {/* Add Button */}
                     <button
                         onClick={() => setIsSearchOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors"
+                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-500 min-[980px]:px-4"
+                        title="Add Crypto"
                     >
-                        <Plus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Add Crypto</span>
+                        <Plus className="h-4 w-4 shrink-0" />
+                        <span className="hidden whitespace-nowrap min-[980px]:inline">Add Crypto</span>
                     </button>
 
                     {/* Refresh Button */}
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
-                        className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-xl transition-colors disabled:opacity-50"
+                        className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800/50 transition-colors hover:bg-slate-700/50 disabled:opacity-50"
+                        title="Refresh data"
                     >
                         <RefreshCw
-                            className={cn("w-5 h-5", isRefreshing && "animate-spin")}
+                            className={cn("h-5 w-5", isRefreshing && "animate-spin")}
                         />
                     </button>
                 </div>

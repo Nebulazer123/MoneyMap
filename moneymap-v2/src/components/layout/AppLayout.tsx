@@ -28,7 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <main
                     className={cn(
                         "min-h-screen min-w-0 w-full transition-all duration-300 ease-in-out",
-                        isSidebarOpen ? "md:pl-64" : "pl-0"
+                        isSidebarOpen ? "pl-16 md:pl-64" : "pl-0"
                     )}
                 >
                     <div className="mx-auto w-full max-w-full px-4 py-8 sm:px-6 lg:px-8">

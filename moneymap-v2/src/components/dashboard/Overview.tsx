@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useDataStore } from "../../lib/store/useDataStore";
 import { useDateStore } from "../../lib/store/useDateStore";
 import { overviewGroupMeta, categoryEmojis, OverviewGroupKey, overviewGroupOrder } from "../../lib/config";
@@ -66,10 +66,13 @@ export function Overview() {
     const [chartInteractive, setChartInteractive] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
 
-    // Delay chart render until after first paint to prevent recharts -1 dimension warning
+    // Delay chart render until after layout settles to prevent recharts -1 dimension warning.
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setIsMounted(true);
+        const frame = requestAnimationFrame(() => {
+            setIsMounted(true);
+        });
+
+        return () => cancelAnimationFrame(frame);
     }, []);
 
     const currency = new Intl.NumberFormat("en-US", {
@@ -235,8 +238,7 @@ export function Overview() {
                         </div>
                         {isMounted && (
                             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                                <ResponsiveContainer width={340} height={340}>
-                                <PieChart>
+                                <PieChart width={340} height={340}>
                                     <defs>
                                         {/* Enhanced linear gradients for gem-like depth - Onyx Gem Wheel theme */}
                                         {groupedSpendingData.map((entry) => {
@@ -313,8 +315,7 @@ export function Overview() {
                                         }}
                                     />
                                 </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+                            </div>
                         )}
                     </div>
 

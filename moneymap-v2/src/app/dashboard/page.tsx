@@ -13,13 +13,12 @@ import { Review } from '@/components/dashboard/Review';
 import { Subscriptions } from '@/components/dashboard/Subscriptions';
 import { Budget } from '@/components/dashboard/Budget';
 import { Accounts } from '@/components/dashboard/Accounts';
-import { Stocks } from '@/components/dashboard/Stocks';
-import { Crypto } from '@/components/dashboard/Crypto';
 import { DebugPanel } from '@/components/dashboard/DebugPanel';
 
 export default function DashboardPage() {
-    const { activeTab } = useUIStore();
+    const { activeTab, setActiveTab } = useUIStore();
     const { transactions, loadDemoData } = useDataStore();
+    const dashboardTab = activeTab === 'stocks' || activeTab === 'crypto' ? 'dashboard' : activeTab;
 
     // Initial Data Load
     useEffect(() => {
@@ -29,8 +28,14 @@ export default function DashboardPage() {
         }
     }, [transactions.length, loadDemoData]);
 
+    useEffect(() => {
+        if (dashboardTab !== activeTab) {
+            setActiveTab(dashboardTab);
+        }
+    }, [activeTab, dashboardTab, setActiveTab]);
+
     const renderTab = () => {
-        switch (activeTab) {
+        switch (dashboardTab) {
             case 'dashboard':
                 return <Dashboard />;
             case 'overview':
@@ -49,14 +54,10 @@ export default function DashboardPage() {
                 return <Budget />;
             case 'accounts':
                 return <Accounts />;
-            case 'stocks':
-                return <Stocks />;
-            case 'crypto':
-                return <Crypto />;
             case 'review':
                 return <Review />;
             default:
-                return <Overview />;
+                return <Dashboard />;
         }
     };
 
@@ -65,8 +66,8 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-[calc(100vh-4rem)]">
-            <div key={activeTab}>
-            {renderTab()}
+            <div key={dashboardTab}>
+                {renderTab()}
             </div>
             {showDebug && <DebugPanel />}
         </div>
