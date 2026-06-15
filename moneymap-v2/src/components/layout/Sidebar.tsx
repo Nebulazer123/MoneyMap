@@ -43,11 +43,12 @@ const activeNavRingClasses: Record<DashboardTab, string> = {
 };
 
 export function Sidebar() {
-    const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useUIStore();
+    const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
     const { loadDemoData } = useDataStore();
     const router = useRouter();
     const pathname = usePathname();
     const [isMinigameOpen, setIsMinigameOpen] = useState(false);
+    const openSidebar = () => setSidebarOpen(true);
 
     const navItems: { id: DashboardTab; label: string; icon: LucideIcon }[] = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -69,11 +70,33 @@ export function Sidebar() {
             {/* Mobile Toggle */}
             {/* Toggle Button (Visible when sidebar is closed) */}
             {!isSidebarOpen && (
-                <div className="fixed top-4 left-4 z-50">
-                    <Button variant="secondary" size="icon" onClick={toggleSidebar} className="bg-zinc-900/50 border border-white/10 hover:bg-zinc-800">
-                        <Menu className="h-5 w-5" />
-                    </Button>
-                </div>
+                <>
+                    <div
+                        className="fixed inset-y-0 left-0 z-50 hidden w-3 md:block"
+                        onMouseEnter={openSidebar}
+                        onMouseMove={openSidebar}
+                        onPointerEnter={openSidebar}
+                        onPointerMove={openSidebar}
+                        aria-hidden="true"
+                    />
+                    <div
+                        className="fixed top-4 left-4 z-50"
+                        onMouseEnter={openSidebar}
+                        onMouseMove={openSidebar}
+                        onPointerEnter={openSidebar}
+                        onPointerMove={openSidebar}
+                    >
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            onClick={openSidebar}
+                            onFocus={openSidebar}
+                            className="bg-zinc-900/50 border border-white/10 hover:bg-zinc-800"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </>
             )}
 
             {/* Sidebar Container */}
