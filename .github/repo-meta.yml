@@ -1,0 +1,20 @@
+description: >
+  Local-first personal finance dashboard demo for exploring spending, cashflow,
+  subscriptions, fees, budgets, stocks, crypto, news, and economic data without
+  connecting a real bank account.
+topics:
+  - nextjs
+  - react
+  - typescript
+  - tailwindcss
+  - personal-finance
+  - finance-dashboard
+  - budgeting
+  - fintech
+  - local-first
+  - dashboard
+  - data-visualization
+  - recharts
+  - zustand
+  - vercel
+homepage: ""
