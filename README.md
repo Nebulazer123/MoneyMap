@@ -181,7 +181,7 @@ If you find a vulnerability, do not open a public issue. Follow the guidance in 
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-[license-shield]: https://img.shields.io/github/license/Nebulazer123/MoneyMap.svg
+[license-shield]: https://img.shields.io/badge/License%3A-MIT-2ea44f.svg
 [license-url]: https://github.com/Nebulazer123/MoneyMap/blob/main/LICENSE
 [next-shield]: https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs
 [next-url]: https://nextjs.org/
