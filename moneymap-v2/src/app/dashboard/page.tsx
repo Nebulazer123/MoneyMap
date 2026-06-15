@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useDataStore } from '@/lib/store/useDataStore';
 import { useUIStore } from '@/lib/store/useUIStore';
 import { Overview } from '@/components/dashboard/Overview';
@@ -15,9 +15,18 @@ import { Budget } from '@/components/dashboard/Budget';
 import { Accounts } from '@/components/dashboard/Accounts';
 import { DebugPanel } from '@/components/dashboard/DebugPanel';
 
+const subscribeToHydration = () => () => {};
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
+
 export default function DashboardPage() {
     const { activeTab, setActiveTab } = useUIStore();
     const { transactions, loadDemoData } = useDataStore();
+    const hasMounted = useSyncExternalStore(
+        subscribeToHydration,
+        getClientHydrationSnapshot,
+        getServerHydrationSnapshot
+    );
     const dashboardTab = activeTab === 'stocks' || activeTab === 'crypto' ? 'dashboard' : activeTab;
 
     // Initial Data Load
@@ -60,6 +69,10 @@ export default function DashboardPage() {
                 return <Dashboard />;
         }
     };
+
+    if (!hasMounted) {
+        return <div className="min-h-[calc(100vh-4rem)]" aria-hidden="true" />;
+    }
 
     return (
         <div className="min-h-[calc(100vh-4rem)]">
