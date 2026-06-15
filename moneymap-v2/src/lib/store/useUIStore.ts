@@ -49,7 +49,6 @@ export const useUIStore = create<UIState>()(
                 isSidebarOpen: state.isSidebarOpen,
                 // Date range might be better not persisted or carefully persisted to avoid stale dates
                 dateRange: state.dateRange,
-                apisEnabled: state.apisEnabled,
             }),
         }
     )

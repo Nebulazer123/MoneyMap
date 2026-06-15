@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MoneyMap
+
+MoneyMap is a local-first personal finance dashboard built with Next.js, React, TypeScript, Tailwind CSS, Zustand, Recharts, and server-side API routes.
+
+The app demonstrates a full dashboard workflow for exploring spending, subscriptions, account balances, cashflow, budgets, market data, crypto prices, news, location-aware utility widgets, and statement upload flows. Demo data is generated locally so the project can be reviewed without connecting a real bank account.
+
+## Features
+
+- Dashboard views for overview, statement review, recurring transactions, fees, cashflow, budgets, subscriptions, and accounts.
+- Stock and crypto dashboards backed by server-side API routes, caching, bounded request fanout, and graceful fallback states.
+- Synthetic transaction generation with category rules, merchant pools, account types, and localStorage-backed state.
+- Interactive charts and financial summaries with Recharts.
+- Optional API-backed widgets for news, email verification, FRED economic data, location, exchange rates, and market data.
+- Responsive glass-style interface with route-aware dashboard navigation.
+
+## Tech Stack
+
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Zustand
+- Recharts
+- Yahoo Finance, CoinGecko, Frankfurter, FRED, NewsAPI, and Abstract API integrations
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies from the repository root:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can also work directly inside the app folder:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cd moneymap-v2
+npm install
+npm run dev
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+MoneyMap works without secrets by using demo data or free unauthenticated APIs where possible. These optional variables enable richer live data:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEWS_API_KEY=
+ABSTRACT_EMAIL_API_KEY=
+FRED_API_KEY=
+NEXT_PUBLIC_SHOW_DEBUG=
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Set `NEXT_PUBLIC_SHOW_DEBUG=true` only in development if you want the debug panel.
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+From the repository root:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run start
+```
+
+From `moneymap-v2`:
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run qa:bucketC
+```
+
+## Data And Privacy
+
+Demo transactions are generated in the browser and stored in localStorage. Uploaded statement handling is local to the app experience; this project does not connect to a bank account or persist financial data to a hosted database.
+
+External market, news, exchange-rate, and utility API calls are made through server-side routes and should not include personal financial data.
+
+## Deployment
+
+The included `vercel.json` points Vercel at the nested `moneymap-v2` app:
+
+```json
+{
+  "framework": "nextjs",
+  "installCommand": "cd moneymap-v2 && npm install",
+  "buildCommand": "cd moneymap-v2 && npm run build",
+  "outputDirectory": "moneymap-v2/.next"
+}
+```
+
+## Repository Layout
+
+```text
+.
+├── moneymap-v2/        # Next.js application
+├── vercel.json         # Vercel deployment configuration
+├── package.json        # Root convenience scripts
+└── package-lock.json
+```
+
+## Security Notes
+
+Do not commit API keys or `.env` files. If a key has ever been committed to repository history, rotate that key with its provider and rewrite repository history before treating it as private again.

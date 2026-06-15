@@ -12,6 +12,8 @@ import { CACHE_TTL } from '@/lib/cache/CacheManager';
  * 
  * Endpoints:
  * - ?symbols=BTC-USD,ETH-USD → fetch quotes
+ * - ?ids=bitcoin,ethereum → fetch quotes by common crypto ids
+ * - ?global=true → fetch market-wide crypto stats
  * - ?search=bitcoin → search for cryptos  
  * - ?detail=BTC-USD → detailed view with charts
  * - ?trending=true → popular cryptos
@@ -26,12 +28,51 @@ const POPULAR_CRYPTOS = [
     'DOGE-USD', 'DOT-USD', 'AVAX-USD', 'LINK-USD', 'MATIC-USD',
     'LTC-USD', 'UNI-USD', 'ATOM-USD', 'XLM-USD', 'ALGO-USD'
 ];
+const MAX_CRYPTO_SYMBOLS = 25;
+const COINGECKO_GLOBAL_URL = 'https://api.coingecko.com/api/v3/global';
+const COINGECKO_TO_YAHOO: Record<string, string> = {
+    bitcoin: 'BTC-USD',
+    ethereum: 'ETH-USD',
+    solana: 'SOL-USD',
+    cardano: 'ADA-USD',
+    ripple: 'XRP-USD',
+    polkadot: 'DOT-USD',
+    dogecoin: 'DOGE-USD',
+    'avalanche-2': 'AVAX-USD',
+    chainlink: 'LINK-USD',
+    'matic-network': 'MATIC-USD',
+    binancecoin: 'BNB-USD',
+    uniswap: 'UNI-USD',
+    litecoin: 'LTC-USD',
+    stellar: 'XLM-USD',
+    cosmos: 'ATOM-USD',
+};
 
 // Helper to get date string
 function getDateDaysAgo(days: number): string {
     const date = new Date();
     date.setDate(date.getDate() - days);
     return date.toISOString().split('T')[0];
+}
+
+function toYahooSymbols(value: string): string[] {
+    const symbols = value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => {
+            const normalized = item.toLowerCase();
+            const yahooSymbol = COINGECKO_TO_YAHOO[normalized];
+
+            if (yahooSymbol) {
+                return yahooSymbol;
+            }
+
+            const upper = item.toUpperCase();
+            return upper.includes('-') ? upper : `${upper}-USD`;
+        });
+
+    return Array.from(new Set(symbols)).slice(0, MAX_CRYPTO_SYMBOLS);
 }
 
 export async function GET(request: NextRequest) {
@@ -44,9 +85,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     try {
+        const action = searchParams.get('action');
+
+        // Get global crypto market stats
+        const global = searchParams.get('global');
+        if (global === 'true' || action === 'global') {
+            return await fetchGlobal();
+        }
+
         // Get trending/popular cryptos
         const trending = searchParams.get('trending');
-        if (trending === 'true') {
+        if (trending === 'true' || action === 'trending') {
             return await fetchTrending();
         }
 
@@ -65,40 +114,26 @@ export async function GET(request: NextRequest) {
         // Get multiple crypto prices
         const symbols = searchParams.get('symbols');
         if (symbols) {
-            return await fetchPrices(symbols);
+            return await fetchPrices(toYahooSymbols(symbols));
         }
 
         // Legacy support: 'ids' param (convert to Yahoo format)
         const ids = searchParams.get('ids');
         if (ids) {
-            const yahooSymbols = ids.split(',').map(id => {
-                // Convert CoinGecko IDs to Yahoo symbols
-                const map: Record<string, string> = {
-                    'bitcoin': 'BTC-USD',
-                    'ethereum': 'ETH-USD',
-                    'solana': 'SOL-USD',
-                    'cardano': 'ADA-USD',
-                    'ripple': 'XRP-USD',
-                    'polkadot': 'DOT-USD',
-                    'dogecoin': 'DOGE-USD',
-                    'avalanche-2': 'AVAX-USD',
-                    'chainlink': 'LINK-USD',
-                    'matic-network': 'MATIC-USD',
-                    'binancecoin': 'BNB-USD',
-                    'uniswap': 'UNI-USD',
-                    'litecoin': 'LTC-USD',
-                    'stellar': 'XLM-USD',
-                    'cosmos': 'ATOM-USD',
-                };
-                return map[id.toLowerCase()] || `${id.toUpperCase()}-USD`;
-            }).join(',');
-            return await fetchPrices(yahooSymbols);
+            return await fetchPrices(toYahooSymbols(ids));
+        }
+
+        // Alias used by some clients and tests
+        const coins = searchParams.get('coins');
+        if (coins) {
+            return await fetchPrices(toYahooSymbols(coins));
         }
 
         return NextResponse.json({
             error: 'Invalid request',
             endpoints: {
                 trending: '/api/crypto?trending=true',
+                global: '/api/crypto?global=true',
                 search: '/api/crypto?search=bitcoin',
                 detail: '/api/crypto?detail=BTC-USD',
                 prices: '/api/crypto?symbols=BTC-USD,ETH-USD',
@@ -107,6 +142,104 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('Crypto API error:', error);
         return NextResponse.json({ error: 'Failed to fetch crypto data' }, { status: 500 });
+    }
+}
+
+/**
+ * Fetch global crypto market stats
+ */
+async function fetchGlobal() {
+    const cacheKey = getServerCacheKey('crypto', 'global');
+
+    const cached = serverCache.get<{
+        totalMarketCap: number;
+        totalVolume: number;
+        btcDominance: number;
+        ethDominance: number;
+        marketCapChange24h: number;
+        activeCryptocurrencies: number;
+        markets: number;
+        source: string;
+    }>(cacheKey);
+    if (cached) {
+        return NextResponse.json({
+            ...cached,
+            cached: true,
+        });
+    }
+
+    try {
+        const response = await fetch(COINGECKO_GLOBAL_URL, {
+            headers: {
+                accept: 'application/json',
+            },
+            next: { revalidate: 300 },
+        });
+
+        if (!response.ok) {
+            throw new Error(`CoinGecko global request failed: ${response.status}`);
+        }
+
+        const payload = await response.json() as {
+            data?: {
+                total_market_cap?: { usd?: number };
+                total_volume?: { usd?: number };
+                market_cap_percentage?: { btc?: number; eth?: number };
+                market_cap_change_percentage_24h_usd?: number;
+                active_cryptocurrencies?: number;
+                markets?: number;
+            };
+        };
+        const data = payload.data;
+
+        const result = {
+            totalMarketCap: data?.total_market_cap?.usd || 0,
+            totalVolume: data?.total_volume?.usd || 0,
+            btcDominance: data?.market_cap_percentage?.btc || 0,
+            ethDominance: data?.market_cap_percentage?.eth || 0,
+            marketCapChange24h: data?.market_cap_change_percentage_24h_usd || 0,
+            activeCryptocurrencies: data?.active_cryptocurrencies || 0,
+            markets: data?.markets || 0,
+            source: 'coingecko',
+        };
+
+        serverCache.set(cacheKey, result, CACHE_TTL.MARKET_STATS);
+
+        return NextResponse.json({
+            ...result,
+            cached: false,
+        });
+    } catch (error) {
+        console.error('Global crypto fetch error:', error);
+        const staleCache = serverCache.get<{
+            totalMarketCap: number;
+            totalVolume: number;
+            btcDominance: number;
+            ethDominance: number;
+            marketCapChange24h: number;
+            activeCryptocurrencies: number;
+            markets: number;
+            source: string;
+        }>(cacheKey);
+        if (staleCache) {
+            return NextResponse.json({
+                ...staleCache,
+                cached: true,
+                stale: true,
+            });
+        }
+
+        return NextResponse.json({
+            totalMarketCap: 0,
+            totalVolume: 0,
+            btcDominance: 0,
+            ethDominance: 0,
+            marketCapChange24h: 0,
+            activeCryptocurrencies: 0,
+            markets: 0,
+            source: 'coingecko',
+            error: 'Failed to fetch global crypto data',
+        }, { status: 502 });
     }
 }
 
@@ -205,6 +338,8 @@ async function searchCryptos(query: string) {
                 id: q.symbol,
                 symbol: q.symbol.replace('-USD', ''),
                 name: q.shortname || q.longname || q.symbol,
+                thumb: null,
+                marketCapRank: null,
                 exchange: q.exchange,
             }));
 
@@ -359,11 +494,15 @@ async function fetchDetail(symbol: string) {
 /**
  * Fetch prices for multiple cryptos
  */
-async function fetchPrices(symbols: string) {
-    const symbolList = symbols.split(',').map(s => {
-        const trimmed = s.trim().toUpperCase();
-        return trimmed.includes('-') ? trimmed : `${trimmed}-USD`;
-    });
+async function fetchPrices(symbolList: string[]) {
+    if (symbolList.length === 0) {
+        return NextResponse.json({
+            quotes: [],
+            count: 0,
+            source: 'yahoo',
+        });
+    }
+
     const cacheKey = getServerCacheKey('crypto', 'prices', symbolList.join(','));
     
     // Check cache first (1-minute TTL for prices)

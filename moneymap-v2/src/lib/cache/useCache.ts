@@ -54,9 +54,7 @@ export function useCache<T>(
     } = options;
 
     const [data, setData] = useState<T | null>(() => {
-        // Try to get initial data from cache
-        const cached = cacheManager.get<T>(key, { allowStale: true });
-        return cached ?? fallbackData ?? null;
+        return fallbackData ?? null;
     });
     const [isLoading, setIsLoading] = useState(!data);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -64,7 +62,10 @@ export function useCache<T>(
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const fetcherRef = useRef(fetcher);
-    fetcherRef.current = fetcher;
+
+    useEffect(() => {
+        fetcherRef.current = fetcher;
+    }, [fetcher]);
 
     const fetchData = useCallback(async (force = false) => {
         if (!enabled) return;
@@ -184,7 +185,11 @@ export function useCache<T>(
 
     // Initial fetch
     useEffect(() => {
-        fetchData();
+        const timeout = window.setTimeout(() => {
+            void fetchData();
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
     }, [fetchData]);
 
     // Auto-refetch interval

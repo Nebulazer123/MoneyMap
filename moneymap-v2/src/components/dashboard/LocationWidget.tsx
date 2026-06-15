@@ -65,7 +65,11 @@ export function LocationWidget({ onCurrencyDetected }: LocationWidgetProps) {
     }, [onCurrencyDetected]);
 
     useEffect(() => {
-        fetchLocation();
+        const timeout = window.setTimeout(() => {
+            void fetchLocation();
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
     }, [fetchLocation]);
 
     // Update local time every second

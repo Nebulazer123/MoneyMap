@@ -25,6 +25,16 @@ type CashflowMonth = {
     totalNet: number;
 };
 
+type CashflowChartPoint = {
+    name: string;
+    income: number;
+    expenses: number;
+    net: number;
+    date?: string;
+    dateObj?: Date;
+    sortKey?: number;
+};
+
 export function Cashflow() {
     const { transactions } = useDataStore();
     const { viewStart, viewEnd } = useDateStore();
@@ -41,7 +51,10 @@ export function Cashflow() {
 
     // Delay chart render until after first paint to prevent recharts -1 dimension warning
     useEffect(() => {
-        setIsMounted(true);
+        const frame = requestAnimationFrame(() => {
+            setIsMounted(true);
+        });
+        return () => cancelAnimationFrame(frame);
     }, []);
 
     const currency = new Intl.NumberFormat("en-US", {
@@ -65,7 +78,7 @@ export function Cashflow() {
     }, [filteredTransactions]);
 
     // 3. Prepare Chart Data (filtered by chartTimeRange)
-    const chartData = useMemo(() => {
+    const chartData = useMemo<CashflowChartPoint[]>(() => {
         // Determine cutoff
         let cutoff = new Date(0);
 
@@ -234,17 +247,18 @@ export function Cashflow() {
         return Array.from(monthsMap.values()).sort((a, b) => b.key - a.key);
     }, [dailyBuckets]);
 
-    // Auto-expand first month (using useEffect instead of useMemo for setState)
-    React.useEffect(() => {
-        if (cashflowMonths.length > 0 && expandedMonths.size === 0) {
-            setExpandedMonths(new Set([cashflowMonths[0].key]));
+    const visibleExpandedMonths = useMemo(() => {
+        if (expandedMonths.size > 0 || cashflowMonths.length === 0) {
+            return expandedMonths;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cashflowMonths.length]);
+        return new Set([cashflowMonths[0].key]);
+    }, [expandedMonths, cashflowMonths]);
 
     const toggleMonth = (key: number) => {
         setExpandedMonths(prev => {
-            const next = new Set(prev);
+            const next = prev.size === 0 && cashflowMonths.length > 0
+                ? new Set([cashflowMonths[0].key])
+                : new Set(prev);
             if (next.has(key)) next.delete(key);
             else next.add(key);
             return next;
@@ -373,7 +387,10 @@ export function Cashflow() {
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
                                 itemStyle={{ color: '#fff' }}
-                                formatter={(value: number) => currency.format(value)}
+                                formatter={(value) => {
+                                    const numericValue = typeof value === 'number' ? value : Number(value || 0);
+                                    return currency.format(numericValue);
+                                }}
                                 labelStyle={{ color: '#a1a1aa', marginBottom: '0.5rem' }}
                             />
                             <Legend wrapperStyle={{ display: 'none' }} />
@@ -487,7 +504,7 @@ export function Cashflow() {
 
             <div className="mt-4 space-y-3">
                 {cashflowMonths.map((month) => {
-                    const isExpanded = expandedMonths.has(month.key);
+                    const isExpanded = visibleExpandedMonths.has(month.key);
 
                     return (
                         <GlassCard

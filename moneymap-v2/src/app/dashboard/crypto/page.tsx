@@ -36,28 +36,19 @@ interface GlobalData {
 }
 
 interface TrendingCoin {
-    item: {
-        id: string;
-        coin_id: number;
-        name: string;
-        symbol: string;
-        market_cap_rank: number;
-        thumb: string;
-        small: string;
-        large: string;
-        price_btc: number;
-        data?: {
-            price: number;
-            price_change_percentage_24h: Record<string, number>;
-        };
-    };
+    id: string;
+    name: string;
+    symbol: string;
+    price?: number;
+    changePercent?: number;
+    thumb?: string | null;
 }
 
 interface SearchResult {
     id: string;
     symbol: string;
     name: string;
-    thumb: string;
+    thumb?: string | null;
     marketCapRank: number | null;
 }
 
@@ -72,6 +63,35 @@ const DEFAULT_CRYPTOS = [
     "polkadot",
     "avalanche-2",
 ];
+
+function readStringArrayFromStorage(key: string, fallback: string[]): string[] {
+    if (typeof window === "undefined") {
+        return fallback;
+    }
+
+    try {
+        const saved = localStorage.getItem(key);
+        if (!saved) {
+            return fallback;
+        }
+
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) && parsed.every((value) => typeof value === "string")
+            ? parsed
+            : fallback;
+    } catch {
+        localStorage.removeItem(key);
+        return fallback;
+    }
+}
+
+function CryptoFallbackBadge({ symbol }: { symbol: string }) {
+    return (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-200">
+            {symbol.slice(0, 2).toUpperCase()}
+        </span>
+    );
+}
 
 // ============================================
 // GLOBAL STATS COMPONENT
@@ -201,31 +221,38 @@ function TrendingSection({
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
                 {trending.slice(0, 10).map((coin, index) => {
-                    const item = coin.item;
-                    const change24h = item.data?.price_change_percentage_24h?.usd;
+                    const change24h = coin.changePercent;
                     const isPositive = change24h !== undefined && change24h >= 0;
 
                     return (
                         <button
-                            key={item.id}
-                            onClick={() => onSelect(item.id)}
+                            key={coin.id}
+                            onClick={() => onSelect(coin.id)}
                             className="shrink-0 group bg-slate-700/30 hover:bg-slate-700/50 rounded-lg p-3 transition-all hover:scale-105 min-w-[130px]"
                         >
                             <div className="flex items-center gap-2 mb-2">
                                 <span className="text-xs font-bold text-zinc-500">#{index + 1}</span>
-                                {/* Crypto thumb uses provider-optimized CDN image */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={item.thumb}
-                                    alt={item.name}
-                                    className="w-6 h-6 rounded-full"
-                                />
+                                {coin.thumb ? (
+                                    <>
+                                        {/* Crypto thumb uses provider-optimized CDN image */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={coin.thumb}
+                                            alt={coin.name}
+                                            className="w-6 h-6 rounded-full"
+                                        />
+                                    </>
+                                ) : (
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/15 text-[10px] font-semibold text-orange-200">
+                                        {coin.symbol.slice(0, 2).toUpperCase()}
+                                    </span>
+                                )}
                             </div>
                             <div className="text-left">
                                 <div className="font-medium text-white text-sm truncate">
-                                    {item.symbol.toUpperCase()}
+                                    {coin.symbol.toUpperCase()}
                                 </div>
-                                <div className="text-xs text-zinc-400 truncate">{item.name}</div>
+                                <div className="text-xs text-zinc-400 truncate">{coin.name}</div>
                                 {change24h !== undefined && (
                                     <div
                                         className={cn(
@@ -263,6 +290,12 @@ function SearchModal({
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
+    const handleClose = useCallback(() => {
+        setQuery("");
+        setResults([]);
+        onClose();
+    }, [onClose]);
+
     const handleSearch = useCallback(async (searchQuery: string) => {
         if (searchQuery.length < 1) {
             setResults([]);
@@ -289,13 +322,6 @@ function SearchModal({
         return () => clearTimeout(timer);
     }, [query, handleSearch]);
 
-    useEffect(() => {
-        if (!isOpen) {
-            setQuery("");
-            setResults([]);
-        }
-    }, [isOpen]);
-
     if (!isOpen) return null;
 
     return (
@@ -313,7 +339,7 @@ function SearchModal({
                         autoFocus
                     />
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="absolute right-7 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5 text-zinc-400" />
@@ -346,17 +372,23 @@ function SearchModal({
                             key={result.id}
                             onClick={() => {
                                 onSelect(result.id, result.name);
-                                onClose();
+                                handleClose();
                             }}
                             className="w-full flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-colors"
                         >
+                            {result.thumb ? (
+                                <>
                                 {/* Provider thumb; Next Image not required here */}
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                src={result.thumb}
-                                alt={result.name}
-                                className="w-8 h-8 rounded-full"
-                            />
+                                    src={result.thumb}
+                                    alt={result.name}
+                                    className="w-8 h-8 rounded-full"
+                                />
+                                </>
+                            ) : (
+                                <CryptoFallbackBadge symbol={result.symbol} />
+                            )}
                             <div className="flex-1 text-left">
                                 <div className="font-medium text-white">{result.name}</div>
                                 <div className="text-sm text-zinc-500">{result.symbol}</div>
@@ -379,20 +411,12 @@ function SearchModal({
 
 export default function CryptoPage() {
     // State
-    const [watchlist, setWatchlist] = useState<string[]>(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("crypto_watchlist");
-            return saved ? JSON.parse(saved) : DEFAULT_CRYPTOS;
-        }
-        return DEFAULT_CRYPTOS;
-    });
-    const [favorites, setFavorites] = useState<Set<string>>(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("crypto_favorites");
-            return saved ? new Set(JSON.parse(saved)) : new Set();
-        }
-        return new Set();
-    });
+    const [watchlist, setWatchlist] = useState<string[]>(() =>
+        readStringArrayFromStorage("crypto_watchlist", DEFAULT_CRYPTOS)
+    );
+    const [favorites, setFavorites] = useState<Set<string>>(
+        () => new Set(readStringArrayFromStorage("crypto_favorites", []))
+    );
 
     const [cryptoData, setCryptoData] = useState<Record<string, TickerData>>({});
     const [globalData, setGlobalData] = useState<GlobalData | null>(null);
@@ -487,9 +511,13 @@ export default function CryptoPage() {
 
     // Initial load
     useEffect(() => {
-        fetchGlobal();
-        fetchTrending();
-        fetchPrices(watchlist);
+        const timeout = window.setTimeout(() => {
+            fetchGlobal();
+            fetchTrending();
+            fetchPrices(watchlist);
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

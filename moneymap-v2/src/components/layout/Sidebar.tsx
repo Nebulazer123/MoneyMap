@@ -4,16 +4,32 @@ import { useState } from 'react';
 import { useUIStore, DashboardTab } from '@/lib/store/useUIStore';
 import { useDataStore } from '@/lib/store/useDataStore';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, LucideIcon, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { MinigameModal } from '@/components/dashboard/MinigameModal';
 
+const tabRoutes: Record<DashboardTab, string> = {
+    dashboard: '/dashboard',
+    overview: '/dashboard',
+    recurring: '/dashboard',
+    fees: '/dashboard',
+    cashflow: '/dashboard',
+    review: '/dashboard',
+    statement: '/dashboard',
+    subscriptions: '/dashboard',
+    budget: '/dashboard',
+    accounts: '/dashboard',
+    stocks: '/dashboard/stocks',
+    crypto: '/dashboard/crypto',
+};
+
 export function Sidebar() {
     const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useUIStore();
     const { loadDemoData } = useDataStore();
     const router = useRouter();
+    const pathname = usePathname();
     const [isMinigameOpen, setIsMinigameOpen] = useState(false);
 
     const navItems: { id: DashboardTab; label: string; icon: LucideIcon }[] = [
@@ -55,9 +71,9 @@ export function Sidebar() {
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent pointer-events-none" />
 
-                <div className="relative flex h-full flex-col p-6">
+                <div className="relative flex h-full min-h-0 flex-col p-6">
                     {/* Logo & Toggle */}
-                    <div className="mb-10 flex items-center justify-between px-2">
+                    <div className="mb-10 flex shrink-0 items-center justify-between px-2">
                         <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-all duration-300 group">
                             {/* Custom MoneyMap Logo - Enhanced */}
                             <div className="relative flex h-12 w-12 items-center justify-center">
@@ -97,7 +113,7 @@ export function Sidebar() {
                                 <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]">
                                     MoneyMap
                                 </span>
-                                <span className="text-[10px] text-purple-300/60 -mt-0.5 tracking-widest uppercase">Financing for Powerusers</span>
+                                <span className="text-[10px] text-purple-300/60 -mt-0.5 tracking-widest uppercase">Finance for power users</span>
                             </div>
                         </Link>
                         <button
@@ -109,16 +125,21 @@ export function Sidebar() {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 space-y-1">
+                    <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
                         {navItems.map((item) => {
                             const Icon = item.icon;
-                            const isActive = activeTab === item.id;
+                            const route = tabRoutes[item.id];
+                            const isRouteTab = item.id === 'stocks' || item.id === 'crypto';
+                            const isActive = isRouteTab ? pathname === route : activeTab === item.id && pathname === route;
 
                             return (
                                 <button
                                     key={item.id}
                                     onClick={() => {
                                         setActiveTab(item.id);
+                                        if (pathname !== route) {
+                                            router.push(route);
+                                        }
                                         if (window.innerWidth < 768) toggleSidebar();
                                     }}
                                     className={cn(
@@ -185,7 +206,7 @@ export function Sidebar() {
                     </nav>
 
                     {/* Footer */}
-                    <div className="mt-auto pt-6 border-t border-white/10 space-y-3">
+                    <div className="mt-auto shrink-0 pt-6 border-t border-white/10 space-y-3">
                         <button
                             onClick={() => {
                                 loadDemoData();

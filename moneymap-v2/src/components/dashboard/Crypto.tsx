@@ -402,10 +402,14 @@ export function Crypto() {
 
     // Update holdings with current prices when quotes change
     useEffect(() => {
-        setHoldings(prev => prev.map(h => ({
-            ...h,
-            currentPrice: quotes[h.cryptoId]?.price || h.currentPrice,
-        })));
+        const timeout = window.setTimeout(() => {
+            setHoldings(prev => prev.map(h => ({
+                ...h,
+                currentPrice: quotes[h.cryptoId]?.price || h.currentPrice,
+            })));
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
     }, [quotes]);
 
     // Auto-refresh every 60 seconds
@@ -474,7 +478,7 @@ export function Crypto() {
         if (!watchlist.find(w => w.cryptoId === cryptoId)) {
             const quote = quotes[cryptoId];
             setWatchlist([...watchlist, {
-                id: Date.now().toString(),
+                id: cryptoId,
                 cryptoId,
                 name: name || quote?.name || cryptoId,
                 addedAt: new Date()
@@ -1699,6 +1703,5 @@ export function Crypto() {
         </GlassCard>
     );
 }
-
 
 

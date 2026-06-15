@@ -6,6 +6,8 @@ import { CACHE_TTL } from '@/lib/cache/CacheManager';
 
 // Create instance for v3
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+const MAX_STOCK_SYMBOLS = 25;
+const MAX_MARKET_MOVERS = 20;
 
 // Helper to get date string for Yahoo Finance
 function getDateDaysAgo(days: number): string {
@@ -286,7 +288,11 @@ export async function GET(request: NextRequest) {
         // ============================================
         if (action === 'movers') {
             const type = searchParams.get('type') || 'gainers';
-            const count = parseInt(searchParams.get('count') || '10');
+            const requestedCount = Number.parseInt(searchParams.get('count') || '10', 10);
+            const count = Math.min(
+                Math.max(Number.isFinite(requestedCount) ? requestedCount : 10, 1),
+                MAX_MARKET_MOVERS
+            );
 
             try {
                 // Use trending symbols to approximate daily movers
@@ -616,9 +622,19 @@ export async function GET(request: NextRequest) {
 
         // Get quotes for specific symbols
         if (symbols) {
-            const symbolList = symbols.split(',').map(s => s.trim().toUpperCase());
+            const symbolList = Array.from(
+                new Set(symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean))
+            ).slice(0, MAX_STOCK_SYMBOLS);
             const includeSparkline = searchParams.get('sparkline') === 'true';
             const cacheKey = getServerCacheKey('stocks', 'quotes', symbolList.join(','), includeSparkline ? 'sparkline' : 'no-sparkline');
+
+            if (symbolList.length === 0) {
+                return NextResponse.json({
+                    quotes: [],
+                    count: 0,
+                    source: 'yahoo',
+                });
+            }
             
             // Check cache first (1-minute TTL for quotes)
             const cached = serverCache.get<{ quotes: unknown[] }>(cacheKey);

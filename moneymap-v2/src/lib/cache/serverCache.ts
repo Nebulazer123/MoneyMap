@@ -18,6 +18,8 @@ interface CacheEntry<T> {
 
 // In-memory cache (clears on serverless restart, which is acceptable)
 const memoryCache = new Map<string, CacheEntry<unknown>>();
+const MAX_SERVER_CACHE_ENTRIES = 500;
+const MAX_SERVER_CACHE_KEY_LENGTH = 300;
 
 class ServerCache {
     private static instance: ServerCache;
@@ -64,6 +66,7 @@ class ServerCache {
             ttl,
         };
         memoryCache.set(key, entry);
+        this.enforceMaxEntries();
     }
 
     /**
@@ -133,6 +136,16 @@ class ServerCache {
         }
     }
 
+    private enforceMaxEntries(): void {
+        while (memoryCache.size > MAX_SERVER_CACHE_ENTRIES) {
+            const oldestKey = memoryCache.keys().next().value;
+            if (!oldestKey) {
+                break;
+            }
+            memoryCache.delete(oldestKey);
+        }
+    }
+
     /**
      * Get cache statistics
      */
@@ -152,8 +165,7 @@ export const serverCache = ServerCache.getInstance();
 
 // Helper function for generating cache keys
 export function getServerCacheKey(...parts: (string | number)[]): string {
-    return `server:${parts.join(':')}`;
+    return `server:${parts.join(':')}`.slice(0, MAX_SERVER_CACHE_KEY_LENGTH);
 }
-
 
 

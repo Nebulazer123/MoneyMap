@@ -166,14 +166,43 @@ interface ExchangeResponse {
     popular: Record<string, number>;
 }
 
+interface ConversionRequest {
+    from: string;
+    to: string;
+    amount: number;
+}
+
+function normalizeCurrency(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim()
+        ? value.trim().toUpperCase()
+        : fallback;
+}
+
+function normalizeAmount(value: unknown): number {
+    const amount = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(amount) && amount > 0 ? amount : 1;
+}
+
 /**
  * Convert between currencies
  * POST /api/exchange
  * Body: { from: "USD", to: "EUR", amount: 100 }
  */
 export async function POST(request: NextRequest) {
+    let conversionRequest: ConversionRequest = {
+        from: 'USD',
+        to: 'EUR',
+        amount: 1,
+    };
+
     try {
-        const { from = 'USD', to = 'EUR', amount = 1 } = await request.json();
+        const body = await request.json().catch(() => ({}));
+        conversionRequest = {
+            from: normalizeCurrency(body.from, 'USD'),
+            to: normalizeCurrency(body.to, 'EUR'),
+            amount: normalizeAmount(body.amount),
+        };
+        const { from, to, amount } = conversionRequest;
         
         // Generate cache key for conversion
         const cacheKey = getServerCacheKey('exchange', 'convert', from, to, String(amount));
@@ -224,7 +253,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Currency conversion error:', error);
         // Try to return cached data on error
-        const { from = 'USD', to = 'EUR', amount = 1 } = await request.json().catch(() => ({ from: 'USD', to: 'EUR', amount: 1 }));
+        const { from, to, amount } = conversionRequest;
         const cacheKey = getServerCacheKey('exchange', 'convert', from, to, String(amount));
         const staleCache = serverCache.get<{
             from: string;

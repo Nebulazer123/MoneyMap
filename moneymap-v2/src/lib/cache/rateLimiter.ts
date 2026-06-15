@@ -18,6 +18,8 @@ interface RateLimitConfig {
 
 // In-memory rate limit tracking (clears on serverless restart)
 const rateLimitMap = new Map<string, RateLimitRecord>();
+const MAX_RATE_LIMIT_RECORDS = 1000;
+const MAX_IDENTIFIER_LENGTH = 80;
 
 // Predefined rate limit configurations
 export const RATE_LIMITS = {
@@ -70,6 +72,7 @@ class RateLimiter {
                 count: 1,
                 resetTime: now + config.windowMs,
             });
+            this.enforceMaxRecords();
             return {
                 allowed: true,
                 remaining: config.maxRequests - 1,
@@ -106,6 +109,16 @@ class RateLimiter {
         }
     }
 
+    private enforceMaxRecords(): void {
+        while (rateLimitMap.size > MAX_RATE_LIMIT_RECORDS) {
+            const oldestKey = rateLimitMap.keys().next().value;
+            if (!oldestKey) {
+                break;
+            }
+            rateLimitMap.delete(oldestKey);
+        }
+    }
+
     /**
      * Get rate limit statistics for an identifier
      */
@@ -134,20 +147,27 @@ class RateLimiter {
 // Export singleton instance
 export const rateLimiter = RateLimiter.getInstance();
 
+function normalizeIdentifier(value: string | null): string | null {
+    const identifier = value?.split(',')[0]?.trim();
+    if (!identifier) {
+        return null;
+    }
+    return identifier.slice(0, MAX_IDENTIFIER_LENGTH);
+}
+
 /**
  * Helper function to get client IP from Next.js request
  */
 export function getClientIP(request: Request): string {
     // Try various headers (in order of preference)
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    if (forwardedFor) {
-        // x-forwarded-for can contain multiple IPs, take the first one
-        return forwardedFor.split(',')[0].trim();
-    }
-
-    const realIP = request.headers.get('x-real-ip');
+    const realIP = normalizeIdentifier(request.headers.get('x-real-ip'));
     if (realIP) {
         return realIP;
+    }
+
+    const forwardedFor = normalizeIdentifier(request.headers.get('x-forwarded-for'));
+    if (forwardedFor) {
+        return forwardedFor;
     }
 
     // Fallback to 'unknown' if no IP found
@@ -191,6 +211,5 @@ export function checkRateLimit(
         allowed: true,
     };
 }
-
 
 

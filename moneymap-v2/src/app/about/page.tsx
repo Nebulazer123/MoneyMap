@@ -104,7 +104,7 @@ export default function AboutPage() {
                         </Button>
                     </Link>
                     <a
-                        href="https://github.com"
+                        href="https://github.com/Nebulazer123/MoneyMap"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex"
@@ -128,4 +128,3 @@ export default function AboutPage() {
         </div>
     );
 }
-

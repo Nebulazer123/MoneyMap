@@ -1,6 +1,11 @@
 node_modules/
 .next/
 .vercel/
+.codebase-memory/
+.agent/
+.cursor/
+.gemini/
+AntiGravity Playground Chats/
 dist/
 coverage/
 *.log

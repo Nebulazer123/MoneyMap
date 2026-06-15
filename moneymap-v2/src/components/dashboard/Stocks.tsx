@@ -499,10 +499,14 @@ export function Stocks() {
 
     // Update holdings with current prices when quotes change
     useEffect(() => {
-        setHoldings(prev => prev.map(h => ({
-            ...h,
-            currentPrice: quotes[h.symbol]?.price || h.currentPrice,
-        })));
+        const timeout = window.setTimeout(() => {
+            setHoldings(prev => prev.map(h => ({
+                ...h,
+                currentPrice: quotes[h.symbol]?.price || h.currentPrice,
+            })));
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
     }, [quotes]);
 
     // Auto-refresh every 5 minutes (G14)

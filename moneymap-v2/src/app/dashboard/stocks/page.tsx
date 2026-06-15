@@ -89,6 +89,12 @@ const SECTOR_ETFS = [
     { symbol: "IWM", name: "Russell 2000" },
     { symbol: "VTI", name: "Total Stock" },
 ];
+const INITIAL_MARKET_STATUS: MarketStatus = {
+    isOpen: false,
+    status: "Checking Market",
+    nextChange: "Loading market hours",
+    timezone: "America/New_York",
+};
 
 // ============================================
 // MARKET STATUS HELPER
@@ -161,7 +167,7 @@ function getMarketStatus(): MarketStatus {
 
 function MarketStatusBar({ status }: { status: MarketStatus }) {
     return (
-        <div className="flex items-center gap-4 mb-6 p-4 bg-slate-800/40 rounded-xl border border-slate-700/30">
+        <div className="flex flex-col gap-3 mb-6 p-4 bg-slate-800/40 rounded-xl border border-slate-700/30 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex items-center gap-2">
                 <div
                     className={cn(
@@ -175,7 +181,7 @@ function MarketStatusBar({ status }: { status: MarketStatus }) {
                 <Clock className="w-3.5 h-3.5 inline mr-1" />
                 {status.nextChange}
             </div>
-            <div className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex items-center gap-2 text-xs text-zinc-500 sm:ml-auto">
                 <Building2 className="w-3.5 h-3.5" />
                 NYSE • NASDAQ
             </div>
@@ -290,22 +296,24 @@ function MarketMovers({
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-4">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                            activeTab === tab.id
-                                ? "bg-slate-700/60 text-white"
-                                : "text-zinc-400 hover:text-white hover:bg-slate-700/30"
-                        )}
-                    >
-                        <tab.icon className={cn("w-4 h-4", tab.color)} />
-                        {tab.label}
-                    </button>
-                ))}
+            <div className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
+                <div className="flex min-w-max gap-2">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cn(
+                                "flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                                activeTab === tab.id
+                                    ? "bg-slate-700/60 text-white"
+                                    : "text-zinc-400 hover:text-white hover:bg-slate-700/30"
+                            )}
+                        >
+                            <tab.icon className={cn("w-4 h-4", tab.color)} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Content */}
@@ -567,7 +575,7 @@ function SearchModal({
 
 export default function StocksPage() {
     // State
-    const [marketStatus, setMarketStatus] = useState<MarketStatus>(getMarketStatus());
+    const [marketStatus, setMarketStatus] = useState<MarketStatus>(INITIAL_MARKET_STATUS);
     const [indices, setIndices] = useState<StockQuote[]>([]);
     const [watchlist, setWatchlist] = useState<string[]>(DEFAULT_STOCKS);
     const [stocksData, setStocksData] = useState<TickerData[]>([]);
@@ -585,20 +593,28 @@ export default function StocksPage() {
 
     // Update market status every minute
     useEffect(() => {
-        const interval = setInterval(() => {
+        const updateMarketStatus = () => {
             setMarketStatus(getMarketStatus());
-        }, 60000);
-        return () => clearInterval(interval);
+        };
+        const timeout = window.setTimeout(updateMarketStatus, 0);
+        const interval = window.setInterval(updateMarketStatus, 60000);
+        return () => {
+            window.clearTimeout(timeout);
+            window.clearInterval(interval);
+        };
     }, []);
 
     // Track online status
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
+        const timeout = window.setTimeout(() => {
+            setIsOnline(navigator.onLine);
+        }, 0);
         window.addEventListener("online", handleOnline);
         window.addEventListener("offline", handleOffline);
-        setIsOnline(navigator.onLine);
         return () => {
+            window.clearTimeout(timeout);
             window.removeEventListener("online", handleOnline);
             window.removeEventListener("offline", handleOffline);
         };
@@ -784,10 +800,14 @@ export default function StocksPage() {
 
     // Initial load
     useEffect(() => {
-        fetchIndices();
-        fetchTrending();
-        fetchMovers();
-        fetchWatchlistStocks();
+        const loadInitialData = () => {
+            fetchIndices();
+            fetchTrending();
+            fetchMovers();
+            fetchWatchlistStocks();
+        };
+
+        queueMicrotask(loadInitialData);
     }, [fetchIndices, fetchTrending, fetchMovers, fetchWatchlistStocks]);
 
     // Auto-refresh (every 60 seconds for stocks)
@@ -838,9 +858,9 @@ export default function StocksPage() {
     }, [stocksData, favorites]);
 
     return (
-        <div className="min-h-screen p-6 max-w-7xl mx-auto">
+        <div className="min-h-screen w-full max-w-7xl mx-auto p-4 sm:p-6">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Stocks</h1>
                     <p className="text-sm text-zinc-400">
@@ -848,7 +868,7 @@ export default function StocksPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                     {/* Connection status */}
                     <div
                         className={cn(
@@ -936,8 +956,8 @@ export default function StocksPage() {
             )}
 
             {/* Watchlist Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                     <Star className="w-5 h-5 text-amber-400" />
                     <h2 className="text-lg font-semibold text-white">Your Watchlist</h2>
                     <span className="text-sm text-zinc-500">
