@@ -49,6 +49,15 @@ export function Sidebar() {
     const pathname = usePathname();
     const [isMinigameOpen, setIsMinigameOpen] = useState(false);
     const openSidebar = () => setSidebarOpen(true);
+    const openSidebarFromHover = () => {
+        if (
+            typeof window !== "undefined" &&
+            window.innerWidth >= 768 &&
+            window.matchMedia("(hover: hover) and (pointer: fine)").matches
+        ) {
+            setSidebarOpen(true);
+        }
+    };
 
     const navItems: { id: DashboardTab; label: string; icon: LucideIcon }[] = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -73,24 +82,25 @@ export function Sidebar() {
                 <>
                     <div
                         className="fixed inset-y-0 left-0 z-50 hidden w-3 md:block"
-                        onMouseEnter={openSidebar}
-                        onMouseMove={openSidebar}
-                        onPointerEnter={openSidebar}
-                        onPointerMove={openSidebar}
+                        onMouseEnter={openSidebarFromHover}
+                        onMouseMove={openSidebarFromHover}
+                        onPointerEnter={openSidebarFromHover}
+                        onPointerMove={openSidebarFromHover}
                         aria-hidden="true"
                     />
                     <div
                         className="fixed bottom-4 left-4 z-50"
-                        onMouseEnter={openSidebar}
-                        onMouseMove={openSidebar}
-                        onPointerEnter={openSidebar}
-                        onPointerMove={openSidebar}
+                        onMouseEnter={openSidebarFromHover}
+                        onMouseMove={openSidebarFromHover}
+                        onPointerEnter={openSidebarFromHover}
+                        onPointerMove={openSidebarFromHover}
                     >
                         <Button
                             variant="secondary"
                             size="icon"
                             onClick={openSidebar}
-                            onFocus={openSidebar}
+                            aria-label="Open sidebar"
+                            title="Open sidebar"
                             className={cn(
                                 "liquid-glass group/menu border-white/15 bg-white/[0.035] text-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_28px_rgba(0,0,0,0.16)]",
                                 "backdrop-blur-2xl hover:bg-white/12 hover:text-white hover:border-white/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_10px_34px_rgba(59,130,246,0.18)]",
@@ -116,7 +126,7 @@ export function Sidebar() {
                 <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent pointer-events-none" />
                 <button
                     type="button"
-                    onClick={toggleSidebar}
+                    onClick={() => setSidebarOpen(false)}
                     className="liquid-glass absolute bottom-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/[0.055] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all hover:border-white/35 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                     aria-label="Close sidebar"
                     title="Close sidebar"
