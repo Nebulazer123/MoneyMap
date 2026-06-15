@@ -6,7 +6,7 @@ import { useDataStore } from '@/lib/store/useDataStore';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, LucideIcon, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Receipt, RefreshCw, Wallet, ShieldCheck, Menu, Activity, CreditCard, ChevronsLeft, Building2, TrendingUp, Bitcoin, LucideIcon, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { MinigameModal } from '@/components/dashboard/MinigameModal';
 
@@ -70,7 +70,7 @@ export function Sidebar() {
         { id: 'budget', label: 'Budget', icon: ShieldCheck },
         { id: 'accounts', label: 'My Money', icon: Building2 },
         { id: 'stocks', label: 'Stocks', icon: TrendingUp },
-        { id: 'crypto', label: 'Crypto', icon: TrendingUp },
+        { id: 'crypto', label: 'Crypto', icon: Bitcoin },
         { id: 'review', label: 'Review', icon: ShieldCheck },
     ];
 
