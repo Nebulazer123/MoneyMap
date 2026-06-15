@@ -527,18 +527,18 @@ export function Overview() {
                 })}
             </div>
 
-            <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-4">
+            <div className="min-w-0 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-4 sm:px-4">
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-white">
                         Transactions for {activeGroupDetails ? activeGroupDetails.label : "selected category"}
                     </h3>
                 </div>
-                <div className="overflow-x-auto rounded-lg border border-zinc-800">
-                    <div className="min-w-[640px]">
-                        <div className="grid grid-cols-4 bg-zinc-900/80 px-3 py-2 text-left text-xs font-semibold text-zinc-300 sm:px-4 sm:text-sm">
-                            <span>Date</span>
-                            <span>Description</span>
-                            <span>Category</span>
+                <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-800">
+                    <div className="w-full min-w-0">
+                        <div className="grid grid-cols-[4.25rem_minmax(0,1.2fr)_minmax(0,0.85fr)_4.75rem] bg-zinc-900/80 px-2 py-2 text-left text-[11px] font-semibold text-zinc-300 sm:grid-cols-[5.25rem_minmax(0,1.35fr)_minmax(0,0.9fr)_5.75rem] sm:px-4 sm:text-sm">
+                            <span className="truncate">Date</span>
+                            <span className="truncate">Description</span>
+                            <span className="truncate">Category</span>
                             <span className="text-right">Amount</span>
                         </div>
                         {overviewTransactions.length === 0 ? (
@@ -560,16 +560,16 @@ export function Overview() {
                                     return (
                                         <div
                                             key={tx.id}
-                                            className="grid grid-cols-4 items-center px-3 py-3 text-xs text-zinc-200 sm:px-4 sm:text-sm"
+                                            className="grid grid-cols-[4.25rem_minmax(0,1.2fr)_minmax(0,0.85fr)_4.75rem] items-center px-2 py-3 text-[11px] text-zinc-200 sm:grid-cols-[5.25rem_minmax(0,1.35fr)_minmax(0,0.9fr)_5.75rem] sm:px-4 sm:text-sm"
                                         >
-                                            <span className="text-zinc-300">{dateFormatter.format(new Date(tx.date))}</span>
+                                            <span className="truncate text-zinc-300">{dateFormatter.format(new Date(tx.date))}</span>
                                             <span className="truncate" title={tx.description}>
                                                 {tx.description}
                                             </span>
                                             <span className="truncate text-zinc-400" title={displayCategory}>
                                                 {displayCategory}
                                             </span>
-                                            <span className="text-right font-medium">{currency.format(tx.amount)}</span>
+                                            <span className="truncate text-right font-medium">{currency.format(tx.amount)}</span>
                                         </div>
                                     );
                                 })}
