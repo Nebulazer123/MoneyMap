@@ -25,6 +25,23 @@ const tabRoutes: Record<DashboardTab, string> = {
     crypto: '/dashboard/crypto',
 };
 
+const activeNavChrome = "bg-white/10 text-white border border-white/20 ring-1 ring-inset shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_2px_8px_rgba(0,0,0,0.35)]";
+
+const activeNavRingClasses: Record<DashboardTab, string> = {
+    dashboard: "ring-white/20",
+    overview: "ring-blue-500/25",
+    statement: "ring-slate-500/25",
+    subscriptions: "ring-purple-500/25",
+    recurring: "ring-amber-500/25",
+    fees: "ring-pink-500/25",
+    cashflow: "ring-teal-500/25",
+    budget: "ring-emerald-500/25",
+    accounts: "ring-amber-500/25",
+    stocks: "ring-lime-500/25",
+    crypto: "ring-orange-500/25",
+    review: "ring-zinc-500/25",
+};
+
 export function Sidebar() {
     const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useUIStore();
     const { loadDemoData } = useDataStore();
@@ -125,7 +142,7 @@ export function Sidebar() {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0 md:space-y-1 md:pr-1">
+                    <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-0 md:space-y-1 md:pr-1">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const route = tabRoutes[item.id];
@@ -145,20 +162,9 @@ export function Sidebar() {
                                     className={cn(
                                         "flex w-full items-center justify-center gap-0 rounded-xl px-2 py-3 text-sm font-medium transition-all duration-400 relative overflow-hidden md:justify-start md:gap-3 md:px-4",
                                         "backdrop-blur-xl glass-optimized shadow-[0_2px_8px_rgba(0,0,0,0.3)]",
-                                        isActive ? (
-                                            item.id === 'dashboard' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(255,255,255,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-white/20' :
-                                                item.id === 'overview' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(59,130,246,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-blue-500/20' :
-                                                    item.id === 'statement' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(148,163,184,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-slate-500/20' :
-                                                        item.id === 'subscriptions' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(168,85,247,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-purple-500/20' :
-                                                            item.id === 'recurring' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(251,191,36,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-amber-500/20' :
-                                                                item.id === 'fees' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(236,72,153,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-pink-500/20' :
-                                                                    item.id === 'cashflow' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(20,184,166,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-teal-500/20' :
-                                                                        item.id === 'budget' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(52,211,153,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-emerald-500/20' :
-                                                                            item.id === 'accounts' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(251,191,36,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-amber-500/20' :
-                                                                                item.id === 'stocks' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(163,230,53,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-lime-500/20' :
-                                                                                    item.id === 'crypto' ? 'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(249,115,22,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-orange-500/20' :
-                                                                                        'bg-white/10 text-white border border-white/20 shadow-[0_4px_20px_rgba(20,184,166,0.2),0_2px_8px_rgba(0,0,0,0.4)] scale-[1.02] ring-1 ring-zinc-500/20'
-                                        ) : "text-zinc-400 hover:bg-white/8 hover:text-white border border-white/5 hover:border-white/10 hover:shadow-[0_2px_12px_rgba(0,0,0,0.4)]"
+                                        isActive
+                                            ? cn(activeNavChrome, activeNavRingClasses[item.id])
+                                            : "text-zinc-400 hover:bg-white/8 hover:text-white border border-white/5 hover:border-white/10 hover:shadow-[0_2px_12px_rgba(0,0,0,0.4)]"
                                     )}
                                 >
                                     {/* Active tab glass effect with color tint */}
