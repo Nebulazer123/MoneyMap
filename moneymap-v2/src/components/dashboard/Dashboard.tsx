@@ -12,17 +12,20 @@ import { GlassCard } from "../ui/GlassCard";
 export function Dashboard() {
     const { transactions } = useDataStore();
     const { viewStart, viewEnd } = useDateStore();
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
     // Update time every minute
     useEffect(() => {
-        const interval = setInterval(() => {
+        const updateTime = () => {
             setCurrentTime(new Date());
-        }, 60000); // Update every minute
+        };
+        updateTime();
+        const interval = setInterval(updateTime, 60000); // Update every minute
         return () => clearInterval(interval);
     }, []);
 
     const getGreeting = () => {
+        if (!currentTime) return "Welcome Back";
         const hour = currentTime.getHours();
         if (hour < 12) return "Good Morning";
         if (hour < 18) return "Good Afternoon";
@@ -30,17 +33,18 @@ export function Dashboard() {
     };
 
     const getTimeZoneAbbr = () => {
+        if (!currentTime) return "Local";
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const now = new Date();
         const shortFormat = new Intl.DateTimeFormat('en-US', {
             timeZone,
             timeZoneName: 'short'
-        }).format(now);
+        }).format(currentTime);
         const match = shortFormat.match(/\b([A-Z]{2,5})\b$/);
         return match ? match[1] : 'UTC';
     };
 
     const formatTime = () => {
+        if (!currentTime) return "--:--";
         return currentTime.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
