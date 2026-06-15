@@ -10,7 +10,6 @@ import {
     RefreshCw,
     Calendar,
     ChevronDown,
-    ChevronUp,
     Zap,
     Clock,
     Database,
@@ -167,25 +166,46 @@ export function DebugPanel() {
             <GlassCard
                 intensity="heavy"
                 tint="purple"
+                contentClassName="h-full"
                 className={cn(
-                    "transition-all duration-300 overflow-hidden",
-                    isExpanded ? "w-80" : "w-auto"
+                    "!p-0 overflow-hidden border border-purple-300/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_55px_rgba(0,0,0,0.32),0_0_32px_rgba(168,85,247,0.26)] backdrop-blur-2xl transition-all duration-300",
+                    isExpanded
+                        ? "w-80 max-w-[calc(100vw-2rem)] rounded-2xl !bg-purple-950/70"
+                        : "h-12 w-12 rounded-full !bg-purple-600/30 hover:!bg-purple-500/40"
                 )}
             >
+                <div
+                    className={cn(
+                        "pointer-events-none absolute inset-0",
+                        isExpanded
+                            ? "bg-[radial-gradient(circle_at_20%_0%,rgba(216,180,254,0.22),transparent_38%),linear-gradient(135deg,rgba(147,51,234,0.16),rgba(30,27,75,0.34))]"
+                            : "rounded-full bg-[radial-gradient(circle_at_32%_24%,rgba(233,213,255,0.48),rgba(168,85,247,0.30)_42%,rgba(76,29,149,0.28)_100%)]"
+                    )}
+                    aria-hidden="true"
+                />
                 {/* Header / Toggle Button */}
                 <button
+                    type="button"
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="flex items-center gap-2 px-4 py-3 w-full text-left hover:bg-white/5 transition-colors"
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse debug menu" : "Expand debug menu"}
+                    className={cn(
+                        "relative z-10 flex w-full items-center gap-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-200/35",
+                        isExpanded
+                            ? "px-4 py-3 hover:bg-purple-300/10"
+                            : "h-12 justify-center rounded-full text-purple-50 hover:text-white"
+                    )}
+                    title="Debug menu"
                 >
-                    <Bug className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-medium text-white">Debug Panel</span>
-                    <span className="ml-auto">
-                        {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-zinc-400" />
-                        ) : (
-                            <ChevronUp className="h-4 w-4 text-zinc-400" />
-                        )}
-                    </span>
+                    <Bug className={cn("h-4 w-4 drop-shadow-[0_0_12px_rgba(216,180,254,0.65)]", isExpanded ? "text-purple-300" : "text-purple-50")} />
+                    {isExpanded && (
+                        <>
+                            <span className="text-sm font-medium text-white">Debug Panel</span>
+                            <span className="ml-auto">
+                                <ChevronDown className="h-4 w-4 text-zinc-400" />
+                            </span>
+                        </>
+                    )}
                 </button>
 
                 {/* Expanded Content */}

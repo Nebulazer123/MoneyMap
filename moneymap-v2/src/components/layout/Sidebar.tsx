@@ -80,7 +80,7 @@ export function Sidebar() {
                         aria-hidden="true"
                     />
                     <div
-                        className="fixed top-4 left-4 z-50"
+                        className="fixed bottom-4 left-4 z-50"
                         onMouseEnter={openSidebar}
                         onMouseMove={openSidebar}
                         onPointerEnter={openSidebar}
@@ -91,9 +91,13 @@ export function Sidebar() {
                             size="icon"
                             onClick={openSidebar}
                             onFocus={openSidebar}
-                            className="bg-zinc-900/50 border border-white/10 hover:bg-zinc-800"
+                            className={cn(
+                                "liquid-glass group/menu border-white/15 bg-white/[0.035] text-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_28px_rgba(0,0,0,0.16)]",
+                                "backdrop-blur-2xl hover:bg-white/12 hover:text-white hover:border-white/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_10px_34px_rgba(59,130,246,0.18)]",
+                                "focus-visible:bg-white/14 focus-visible:text-white focus-visible:border-white/35"
+                            )}
                         >
-                            <Menu className="h-5 w-5" />
+                            <Menu className="h-5 w-5 opacity-70 transition-opacity group-hover/menu:opacity-100" />
                         </Button>
                     </div>
                 </>
@@ -110,10 +114,19 @@ export function Sidebar() {
                 {/* Faint glass glare */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-transparent to-transparent pointer-events-none" />
+                <button
+                    type="button"
+                    onClick={toggleSidebar}
+                    className="liquid-glass absolute bottom-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/[0.055] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all hover:border-white/35 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    aria-label="Close sidebar"
+                    title="Close sidebar"
+                >
+                    <ChevronsLeft className="h-4 w-4" />
+                </button>
 
-                <div className="relative flex h-full min-h-0 flex-col p-2 md:p-6">
-                    {/* Logo & Toggle */}
-                    <div className="mb-6 flex shrink-0 items-center justify-center px-0 md:mb-10 md:justify-between md:px-2">
+                <div className="relative flex h-full min-h-0 flex-col px-2 pb-16 pt-2 md:px-6 md:pb-16 md:pt-6">
+                    {/* Logo */}
+                    <div className="mb-6 flex shrink-0 items-center justify-center px-0 md:mb-10 md:justify-start md:px-2">
                         <Link href="/" className="flex items-center justify-center gap-3 hover:opacity-90 transition-all duration-300 group md:justify-start">
                             {/* Custom MoneyMap Logo - Enhanced */}
                             <div className="relative flex h-12 w-12 items-center justify-center">
@@ -156,12 +169,6 @@ export function Sidebar() {
                                 <span className="text-[10px] text-purple-300/60 -mt-0.5 tracking-widest uppercase">Finance for power users</span>
                             </div>
                         </Link>
-                        <button
-                            onClick={toggleSidebar}
-                            className="hidden text-zinc-400 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg md:block"
-                        >
-                            <ChevronsLeft className="h-5 w-5" />
-                        </button>
                     </div>
 
                     {/* Navigation */}
@@ -254,6 +261,7 @@ export function Sidebar() {
                             <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors">Demo Mode</p>
                             <p className="text-[10px] text-zinc-500 mt-1 group-hover:text-zinc-400 transition-colors">Local data only. No bank connection.</p>
                         </button>
+
                     </div>
                 </div>
             </aside>
